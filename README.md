@@ -37,9 +37,9 @@
 
 ### **Phase 2: Discovery & Inventory (API9)**
 
-* [ ] **Spec Ingestion:** Automated parsing of Swagger (v2) and OpenAPI (v3) definitions.
+* [x] **Spec Ingestion:** Automated parsing of Swagger (v2) and OpenAPI (v3) definitions.
 * [ ] **JS Route Scraper:** Regex-based endpoint extraction from client-side JavaScript bundles.
-* [ ] **Version Walker:** Identification of deprecated versions (e.g., `/v1/` vs `/v2/`) to find unpatched logic.
+* [x] **Version Walker:** Identification of deprecated versions (e.g., `/v1/` vs `/v2/`) to find unpatched logic.
 * [ ] **Parameter Miner:** Automatic identification of hidden query parameters and headers.
 
 ### **Phase 3: Authorization & Logic (API1, API3, API5)**
