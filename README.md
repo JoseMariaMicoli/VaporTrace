@@ -43,7 +43,7 @@
 ### **Phase 3: Authorization & Logic (API1, API3, API5) [ACTIVE]**
 
 * [x] **BOLA Prober (API1):** Tactical ID-swapping engine with persistent session stores for Attacker/Victim contexts.
-* [ ] **BOPLA/Mass Assignment (API3):** Fuzzing JSON bodies for administrative or hidden properties.
+* [x] **BOPLA/Mass Assignment (API3):** Fuzzing JSON bodies for administrative or hidden properties.
 * [ ] **BFLA Module (API5):** Testing hierarchical access via HTTP method manipulation (GET vs DELETE).
 
 ---
@@ -67,24 +67,24 @@ Launch the suite and use the built-in tactical commands:
 | `sessions` | View currently loaded tokens | `sessions` |
 | `bola` | Execute a live BOLA ID-swap probe | `bola <url> <id>` |
 | `test-bola` | Run logic verification against httpbin | `test-bola` |
+| `bopla` | Execute Mass Assignment fuzzing | `bopla <url> '{"id":1}'` |
+| `test-bopla` | Verify BOPLA injection logic | `test-bopla` |
 | `map` | Execute full Phase 2 Recon | `map -u <url>` |
 | `triage` | Scan local logs for leaked credentials | `triage` |
 | `clear` | Reset the terminal view | `clear` |
 | `exit` | Gracefully shutdown the suite | `exit` |
 
-### 3. Real-World BOLA Workflow
+### 3. Tactical Workflow Example (BOPLA / API3)
 
-Capture your JWTs from your proxy (e.g., Burp Suite) and pivot to the shell:
+Identify a sensitive property and attempt to escalate:
 
 ```bash
 # 1. Configure the Attacker Identity (User B)
 vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 
-# 2. Configure the Victim Identity (User A)
-vapor@trace:~$ auth victim eyJhbGciOiJIUzI1...
-
-# 3. Target a sensitive endpoint with the Victim's Resource ID
-vapor@trace:~$ bola [https://api.target.com/v1/user/profile](https://api.target.com/v1/user/profile) 501
+# 3. Target a user-settings endpoint with a base JSON object
+# The engine will attempt to inject 'is_admin', 'role', etc.
+vapor@trace:~$ bopla [https://api.target.com/v1/user/me](https://api.target.com/v1/user/me) '{"name":"vapor"}'
 
 ```
 
