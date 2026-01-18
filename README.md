@@ -85,7 +85,7 @@ To enter the interactive tactical mode, execute:
 
 * [x] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
 * [x] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
-* [ ] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
+* [x] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
 * [ ] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
 
 ---

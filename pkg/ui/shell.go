@@ -65,6 +65,8 @@ func (s *Shell) Start() {
 		readline.PcItem("bfla"),
 		readline.PcItem("exhaust"),
 		readline.PcItem("ssrf"),
+		readline.PcItem("audit"),
+		readline.PcItem("test-audit"),
 		readline.PcItem("test-ssrf"),
 		readline.PcItem("test-exhaust"),
 		readline.PcItem("test-bola"),
@@ -135,6 +137,18 @@ func (s *Shell) handleCommand(input string) {
 		s.Active = false
 	case "map":
 		pterm.Info.Println("Executing Phase 2: Mapping Logic sequence...")
+	case "audit":
+		if len(parts) < 2 {
+			pterm.Info.Println("Usage: audit <url>")
+			return
+		}
+		probe := &logic.MisconfigContext{TargetURL: parts[1]}
+		probe.Audit()
+
+	case "test-audit":
+		pterm.Info.Println("Running diagnostic audit against google.com...")
+		test := &logic.MisconfigContext{TargetURL: "https://www.google.com"}
+		test.Audit()
 	case "exhaust":
 		if len(parts) < 3 {
 			pterm.Info.Println("Usage: exhaust <url> <parameter>")
@@ -260,7 +274,9 @@ func (s *Shell) ShowUsage() {
 		{"bopla", "BOPLA / API3 Mass Assignment", "bopla <url> '{\"id\":1}'"},
 		{"bfla", "BFLA / API5 Method Shuffling", "bfla <url>"},
 		{"exhaust", "API4 Pagination Fuzzing", "exhaust <url> limit"},
-		{"ssrf", "API7 SSRF/OOB Tracker", "ssrf <url> param <callback>"}, // New
+		{"ssrf", "API7 SSRF/OOB Tracker", "ssrf <url> param <callback>"}, 
+		{"audit", "API8 Security Misconfig Audit", "audit <url>"},
+		{"test-audit", "Verify Audit Logic", "test-audit"},
 		{"test-ssrf", "Verify SSRF Logic", "test-ssrf"},
 		{"test-exhaust", "Verify Exhaustion logic", "test-exhaust"},
 		{"test-bola", "Verify BOLA logic", "test-bola"},
@@ -327,6 +343,24 @@ func (s *Shell) ShowHelp(cmd string) {
 	case "test-ssrf":
 		pterm.Println("Diagnostic tool that simulates an SSRF injection against httpbin.")
 		pterm.Println("Verifies if the engine correctly identifies redirects and successful injections.")
+	case "audit":
+    pterm.Bold.Println("DESCRIPTION:")
+    pterm.Println("Performs a passive and active audit of API8:2023 Security Misconfigurations.")
+    pterm.Println("\nCHECKS:")
+    pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+        {Level: 0, Text: "CORS Reflection: Checks if the API reflects arbitrary origins."},
+        {Level: 0, Text: "Security Headers: Scans for missing HSTS, CSP, and X-Frame-Options."},
+        {Level: 0, Text: "Verbose Errors: Attempts to trigger stack traces via invalid HTTP methods."},
+    }}.Render()
+    case "test-audit":
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("A safe diagnostic command to verify the Misconfiguration Engine.")
+		pterm.Println("\nOPERATION:")
+		pterm.Println("1. Targets a well-known stable endpoint (google.com).")
+		pterm.Println("2. Validates that CORS, Security Headers, and Method-shuffling logic")
+		pterm.Println("   are correctly identifying and reporting server responses.")
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("test-audit")
 	default:
 		pterm.Error.Printf("No manual entry for %s\n", cmd)
 	}
