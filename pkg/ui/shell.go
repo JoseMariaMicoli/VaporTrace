@@ -24,34 +24,33 @@ func NewShell() *Shell {
 	}
 }
 
-// RenderBanner displays the custom VaporTrace splash and tactical info
+// RenderBanner displays the header-based banner with an improved tactical aesthetic
 func (s *Shell) RenderBanner() {
-	fmt.Print("\033[H\033[2J")
+	fmt.Print("\033[H\033[2J") // Clear screen
 
-	statusColor := pterm.FgGreen
-	statusText := "● ACTIVE"
+	// Using a "Deep Sea/Cyan" theme for a more sophisticated look
+	pterm.DefaultHeader.
+		WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).
+		WithTextStyle(pterm.NewStyle(pterm.FgBlack, pterm.Bold)).
+		WithMargin(10).
+		Println("VaporTrace | Surgical API Exploitation Suite")
+
+	statusColor := pterm.FgLightGreen
+	statusText := "● SYSTEM ONLINE"
+	
 	if !s.RemoteActive {
-		statusColor = pterm.FgRed
-		statusText = "○ DISCONNECTED"
+		statusColor = pterm.FgLightRed
+		statusText = "○ LINK SEVERED" // Fixed: used = instead of :=
 	}
 
-	// ASCII Art Solution: Fixed 4-space indent for perfect centering
-	l1 := `    __   __                    _____                   `
-	l2 := `    \ \ / /___ _ __  ___  _ __ |_   _| __ __ _  ___ ___ `
-	l3 := `     \ V // _ ` + "`" + `| '_ \/ _ \| '__|  | || '__/ _` + "`" + ` |/ __/ _ \`
-	l4 := `      \  / (_| | |_)  (_) | |      | || | | (_| | (_|  __/`
-	l5 := `       \/ \__,_| .__/\___/|_|      |_||_|  \__,_|\___\___|`
-	l6 := `               |_|      [ API RECON SUITE ]`
-
-	banner := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s", l1, l2, l3, l4, l5, l6)
-	pterm.NewStyle(pterm.FgRed, pterm.Bold).Println(banner)
-
+	// Stylized Table using a sleeker box style
 	pterm.DefaultTable.WithData(pterm.TableData{
-		{"RELAY/PROXY", "STATUS", "VERSION"},
+		{"UPSTREAM GATEWAY", "LOGIC ENGINE", "BUILD VERSION"},
 		{"http://127.0.0.1:8080", statusColor.Sprintf(statusText), "v2.0.1-stable"},
 	}).WithBoxed().Render()
 
-	pterm.FgGray.Println("\nUse 'usage' for a list of tactics or 'help <command>' for manuals.\n")
+	pterm.Printf("\n%s Use 'usage' for tactics or 'help' for manuals.\n\n", 
+		pterm.LightBlue("»"))
 }
 
 // Start launches the interactive tactical loop with Auto-Completion
@@ -61,7 +60,6 @@ func (s *Shell) Start() {
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("map"),
 		readline.PcItem("mine"),
-		readline.PcItem("triage"),
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
 		readline.PcItem("bfla"),
@@ -133,8 +131,6 @@ func (s *Shell) handleCommand(input string) {
 		s.Active = false
 	case "map":
 		pterm.Info.Println("Executing Phase 2: Mapping Logic sequence...")
-	case "triage":
-		pterm.Info.Println("Scanning local_build.logs for tokens...")
 	case "bola":
 		if len(parts) < 3 {
 			pterm.Info.Println("Usage: bola <url> <victim_id>")
@@ -234,7 +230,6 @@ func (s *Shell) ShowUsage() {
 		{"test-bopla", "Verify BOPLA logic", "test-bopla"},
 		{"test-bfla", "Verify BFLA logic", "test-bfla"},
 		{"map", "Full Phase 2 API Recon", "map -u <url>"},
-		{"triage", "Scan logs for tokens", "triage"},
 		{"help", "Show manual", "help map"},
 		{"exit", "Shutdown suite", "exit"},
 	}
@@ -253,8 +248,6 @@ func (s *Shell) ShowHelp(cmd string) {
 		pterm.Println("Parses Swagger/OpenAPI specs and probes for hidden shadow versions (API9).")
 	case "mine":
 		pterm.Println("Fuzzes discovered endpoints for hidden administrative or debug parameters.")
-	case "triage":
-		pterm.Println("Analyzes local_build.logs for 'net/v1.0.4' deprecated signatures.")
 	case "bola":
 		pterm.Println("Attempts Broken Object Level Authorization (API1) by swapping identity tokens across resource IDs.")
 	case "test-bola":

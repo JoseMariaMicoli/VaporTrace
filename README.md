@@ -1,10 +1,10 @@
 ```markdown
-    __   __                       _____                   
+    __   __                       _____                    
     \ \ / /___  _ __  ___  _ __  |_   _| __ __ _  ___ ___ 
      \ V // _ `| '_ \/ _ \| '__|   | || '__/ _` |/ __/ _ \
       \  / (_| | |_)  (_) | |      | || | | (_| | (_|  __/
        \/ \__,_| .__/\___/|_|      |_||_|  \__,_|\___\___|
-               |_|      [ API RECON SUITE]
+               |_|      [ Surgical API Exploitation Suite]
 ```
 **VaporTrace** is a high-performance Red Team framework engineered in Go for surgical reconnaissance and exploitation of API architectures. It specializes in uncovering "Shadow APIs," analyzing authorization logic (BOLA/BFLA), and mapping the entire attack surface of modern REST/Microservice environments.
 
@@ -23,6 +23,22 @@
 
 ---
 
+## 🛡️ Strategic Mapping: MITRE ATT&CK®
+
+VaporTrace operations are mapped across the full attack lifecycle to provide stakeholders with clear visibility into adversary emulation:
+
+| PHASE | TACTIC | TECHNIQUE | VAPORTRACE MODULE |
+| --- | --- | --- | --- |
+| **P1: Foundation** | Command and Control | T1105: Ingress Tool Transfer | `Burp Bridge / Proxy Config` |
+| **P2: Discovery** | Reconnaissance | T1595.002: Active Scanning (API) | `map`, `mine`, `version-walker` |
+| **P3: Auth Logic** | Privilege Escalation | T1548: Abuse Elevation Control | `bopla`, `bfla`, `bola` |
+| **P4: Injection** | Impact | T1499: Endpoint DoS | `resource-exhaustion (API4)` |
+| **P4: Injection** | Discovery | T1046: Network Service Discovery | `ssrf-tracker (API7)` |
+
+
+
+---
+
 ## 🖥️ The Tactical Shell: Persistence & Context
 
 The **VaporTrace Shell** is the core differentiator of this framework. Unlike standard one-shot CLI tools, the shell provides a **Persistent Security Context** required for complex logic testing.
@@ -37,7 +53,6 @@ In modern API pentesting, most vulnerabilities aren't found in a single request,
 To enter the interactive tactical mode, execute:
 ```bash
 ./VaporTrace shell
-
 
 ```
 
@@ -83,7 +98,6 @@ To enter the interactive tactical mode, execute:
 go mod tidy
 go build -o VaporTrace
 
-
 ```
 
 ### 2. Interactive Shell Usage
@@ -120,8 +134,35 @@ vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 # The engine will attempt to inject 'is_admin', 'role', etc.
 vapor@trace:~$ bopla [https://api.target.com/v1/user/me](https://api.target.com/v1/user/me) '{"name":"vapor"}'
 
-
 ```
+
+---
+
+## 📑 Tactical Incident Response (IR) Template
+
+Use this unified template to document findings across the VaporTrace tactical phases:
+
+> **[VAPOR-TRACE-SECURITY-ADVISORY]**
+> **FINDING ID:** VT-{{YEAR}}-{{ID}}
+> **STRATEGIC PHASE:** {{Phase_1_to_4}}
+> **TARGET ENDPOINT:** `{{target_url}}`
+> **OWASP API TOP 10:** {{OWASP_Category}} (e.g., API4:2023 Resource Exhaustion)
+> **TECHNICAL ANALYSIS:**
+> * **Reconnaissance (P2):** Discovered via version walking / shadow API mining.
+> * **Authorization Context (P3):** Identity swap performed between Attacker and Victim tokens.
+> * **Injection/Consumption (P4):** Logic used to trigger SSRF or Resource Exhaustion.
+> 
+> 
+> **REPRODUCTION LOG:**
+> ```bash
+> vapor@trace:~$ {{executed_command}}
+> [RESULT] {{server_response_code}} | {{latency_ms}}ms
+> 
+> ```
+> 
+> 
+> **IMPACT:** {{Data_Exfiltration / Service_Instability / Privilege_Escalation}}
+> **REMEDIATION:** {{Engineering_Action_Plan}}
 
 ---
 
