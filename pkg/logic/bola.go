@@ -1,13 +1,11 @@
 package logic
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
-	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
@@ -49,13 +47,7 @@ func (b *BOLAContext) Probe() {
 	pterm.Info.Printf("Targeting: %s\n", target)
 	pterm.Info.Printf("Using Token Snapshot: %s...\n", activeToken[:8])
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-
+	// PATCH: Use GlobalClient instead of creating a new one
 	req, err := http.NewRequest("GET", target, nil)
 	if err != nil {
 		pterm.Error.Printf("Failed to create request: %v\n", err)
@@ -68,7 +60,7 @@ func (b *BOLAContext) Probe() {
 
 	spinner, _ := pterm.DefaultSpinner.Start("Performing ID-Swap cross-validation...")
 
-	resp, err := client.Do(req)
+	resp, err := GlobalClient.Do(req)
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("Connection failed: %v", err))
 		return
