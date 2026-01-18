@@ -3,12 +3,12 @@ package discovery
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
-// MineParameters checks an endpoint for hidden query parameters
 func MineParameters(baseURL string, endpoint string, proxy string) {
-	// High-value "spicy" parameters
 	params := []string{"debug", "admin", "test", "dev", "internal", "config", "role"}
 	client, _ := utils.GetClient(proxy)
 
@@ -23,9 +23,16 @@ func MineParameters(baseURL string, endpoint string, proxy string) {
 		}
 		defer resp.Body.Close()
 
-		// If the server doesn't 404/400, it's worth a manual look in Burp
 		if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusBadRequest {
 			fmt.Printf("    [!] Potential Hidden Param: %s (Status: %d)\n", p, resp.StatusCode)
+
+			// PERSISTENCE HOOK: Log hidden parameter success
+			db.LogQueue <- db.Finding{
+				Phase:   "PHASE II: DISCOVERY",
+				Target:  fullURL,
+				Details: fmt.Sprintf("Potential Hidden Parameter: %s", p),
+				Status:  "VULNERABLE",
+			}
 		}
 	}
 }

@@ -2,9 +2,11 @@ package logic
 
 import (
 	"crypto/tls"
+	"fmt" // Added for formatting
 	"net/http"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
 )
 
@@ -39,6 +41,14 @@ func (m *MisconfigContext) Audit() {
 	if cors == "*" || cors == "https://evil-attacker.com" {
 		pterm.Warning.Prefix = pterm.Prefix{Text: "VULN", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
 		pterm.Warning.Printf("Weak CORS Policy: %s\n", cors)
+
+		// PERSISTENCE HOOK
+		db.LogQueue <- db.Finding{
+			Phase:   "PHASE II: DISCOVERY",
+			Target:  m.TargetURL,
+			Details: fmt.Sprintf("Weak CORS Policy: %s", cors),
+			Status:  "VULNERABLE",
+		}
 	} else {
 		pterm.Success.Println("CORS policy appears restrictive.")
 	}
@@ -48,6 +58,14 @@ func (m *MisconfigContext) Audit() {
 	for _, h := range headers {
 		if resp.Header.Get(h) == "" {
 			pterm.Info.Printf("Missing Security Header: %s\n", h)
+			
+			// Optional Persistence for Missing Headers (Info level)
+			db.LogQueue <- db.Finding{
+				Phase:   "PHASE II: DISCOVERY",
+				Target:  m.TargetURL,
+				Details: fmt.Sprintf("Missing Header: %s", h),
+				Status:  "WEAK CONFIG",
+			}
 		} else {
 			pterm.Success.Printf("Header Found: %s\n", h)
 		}
@@ -68,5 +86,12 @@ func (m *MisconfigContext) TriggerVerboseError(client *http.Client) {
 
 	if resp.StatusCode >= 500 {
 		pterm.Warning.Println("Server returned 5xx error. Check response body for stack traces or debug info.")
+		
+		db.LogQueue <- db.Finding{
+			Phase:   "PHASE II: DISCOVERY",
+			Target:  m.TargetURL,
+			Details: "Verbose Error / Stack Trace",
+			Status:  "INFO LEAK",
+		}
 	}
 }

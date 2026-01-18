@@ -9,6 +9,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
 )
 
@@ -88,9 +89,26 @@ func (b *BOLAContext) Probe() {
 			{"RESOURCE ID", b.VictimID},
 			{"LEAK SIZE", fmt.Sprintf("%d bytes", len(body))},
 		}).WithBoxed().Render()
+
+		// PERSISTENCE HOOK: Log Success
+		db.LogQueue <- db.Finding{
+			Phase:   "PHASE III: AUTH LOGIC",
+			Target:  target,
+			Details: fmt.Sprintf("BOLA ID-Swap on %s", b.VictimID),
+			Status:  "EXPLOITED",
+		}
+
 	} else if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
 		spinner.Success("Target Secure")
 		pterm.Success.Println("Access denied: Authorization logic correctly enforced.")
+
+		// PERSISTENCE HOOK: Log Mitigation
+		db.LogQueue <- db.Finding{
+			Phase:   "PHASE III: AUTH LOGIC",
+			Target:  target,
+			Details: "BOLA Attempt",
+			Status:  "MITIGATED",
+		}
 	} else {
 		spinner.Warning(fmt.Sprintf("Inconclusive: Server returned %d", resp.StatusCode))
 	}
