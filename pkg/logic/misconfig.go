@@ -1,10 +1,8 @@
 package logic
 
 import (
-	"crypto/tls"
 	"fmt" // Added for formatting
 	"net/http"
-	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
@@ -17,18 +15,14 @@ type MisconfigContext struct {
 func (m *MisconfigContext) Audit() {
 	pterm.DefaultHeader.WithFullWidth(false).Println("API8: Security Misconfiguration Audit")
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
+	// PATCH: Removed local client definition
 
 	// 1. CORS Audit
 	req, _ := http.NewRequest("GET", m.TargetURL, nil)
 	req.Header.Set("Origin", "https://evil-attacker.com")
 	
-	resp, err := client.Do(req)
+	// PATCH: Using GlobalClient
+	resp, err := GlobalClient.Do(req)
 	if err != nil {
 		pterm.Error.Printf("Audit failed: %v\n", err)
 		return
@@ -72,13 +66,16 @@ func (m *MisconfigContext) Audit() {
 	}
 
 	pterm.Info.Println("\nAudit Complete. Triggering verbose error test...")
-	m.TriggerVerboseError(client)
+	m.TriggerVerboseError()
 }
 
-func (m *MisconfigContext) TriggerVerboseError(client *http.Client) {
+// PATCH: Removed client argument. Uses global client logic.
+func (m *MisconfigContext) TriggerVerboseError() {
 	// Attempting to trigger an error by sending a malformed Method/Payload
 	req, _ := http.NewRequest("TRACE", m.TargetURL, nil)
-	resp, err := client.Do(req)
+	
+	// PATCH: Using GlobalClient
+	resp, err := GlobalClient.Do(req)
 	if err != nil {
 		return
 	}

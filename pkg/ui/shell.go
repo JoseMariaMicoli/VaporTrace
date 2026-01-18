@@ -11,6 +11,7 @@ import (
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/discovery"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/report"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/chzyer/readline"
 	"github.com/fatih/color"
 	"github.com/pterm/pterm"
@@ -47,10 +48,16 @@ func (s *Shell) RenderBanner() {
 		statusText = "○ LINK SEVERED"
 	}
 
+	// Check if proxy is active for the UI
+	gateway := "DIRECT"
+	if os.Getenv("HTTP_PROXY") != "" {
+		gateway = "http://127.0.0.1:8080 (BURP)"
+	}
+
 	// Stylized Table using a sleeker box style
 	pterm.DefaultTable.WithData(pterm.TableData{
 		{"UPSTREAM GATEWAY", "LOGIC ENGINE", "BUILD VERSION"},
-		{"http://127.0.0.1:8080", statusColor.Sprintf(statusText), "v2.0.1-stable"},
+		{gateway, statusColor.Sprintf(statusText), "v2.0.1-stable"},
 	}).WithBoxed().Render()
 
 	pterm.Printf("\n%s Use 'usage' for tactics or 'help' for manuals.\n\n",
@@ -68,6 +75,7 @@ func (s *Shell) Start() {
 		readline.PcItem("mine"),
 		readline.PcItem("scrape"),
 		readline.PcItem("swagger"),
+		readline.PcItem("proxy"), 
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
 		readline.PcItem("bfla"),
@@ -106,10 +114,10 @@ func (s *Shell) Start() {
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          prompt,
-		HistoryFile:     "/tmp/vaportrace.tmp",
-		AutoComplete:    completer,
+		HistoryFile:      "/tmp/vaportrace.tmp",
+		AutoComplete:     completer,
 		InterruptPrompt: "^C",
-		EOFPrompt:       "exit",
+		EOFPrompt:        "exit",
 	})
 	if err != nil {
 		panic(err)
@@ -133,7 +141,6 @@ func (s *Shell) Start() {
 			continue
 		}
 
-		// FIXED: Parsing the line into command and args to pass to handleCommand
 		parts := strings.Fields(line)
 		command := parts[0]
 		var args []string
@@ -147,6 +154,26 @@ func (s *Shell) Start() {
 
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
+	case "proxy":
+		if len(args) < 1 {
+			pterm.Info.Println("Usage: proxy <url> (e.g., proxy http://127.0.0.1:8080)")
+			pterm.Info.Println("Current Status: Traffic is direct")
+			return
+		}
+
+		proxyAddr := args[0]
+		client, err := utils.GetClient(proxyAddr) 
+		if err != nil {
+			pterm.Error.Printf("Failed to initialize proxy: %v\n", err)
+			return
+		}
+
+		logic.SetGlobalClient(client) 
+		discovery.SetGlobalClient(client)
+
+		pterm.Success.WithPrefix(pterm.Prefix{Text: "BURP", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgCyan)}).
+			Printf("Proxy active at %s. All tactical traffic now routed through interceptor.\n", proxyAddr)
+
 	case "report":
 		fmt.Println()
 		pterm.Info.Println("Accessing persistence layer for debrief construction...")
@@ -281,7 +308,7 @@ func (s *Shell) handleCommand(command string, args []string) {
 		discovery.MineParameters(args[0], args[1], "")
 		pterm.Success.Println("Mining operation complete.")
 
-	case "scrape":
+	case "scrape": 
 		if len(args) < 1 {
 			pterm.Error.Println("Usage: scrape <url>")
 			return
@@ -461,6 +488,7 @@ func (s *Shell) ShowUsage() {
 		{"COMMAND", "DESCRIPTION", "EXAMPLE"},
 		{"init_db", "Initialize SQLite Persistence", "init_db"},
 		{"reset_db", "Wipe local mission data (Purge)", "reset_db"},
+		{"proxy", "Toggle Burp Suite Proxy (8080)", "proxy on"},
 		{"swagger", "Parse OpenAPI/Swagger docs for routes", "swagger <url>"},
 		{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 		{"scrape", "Extract API paths from JS files", "scrape <url>"},
@@ -492,6 +520,10 @@ func (s *Shell) ShowHelp(cmd string) {
 	pterm.DefaultHeader.WithFullWidth(false).Printf("Manual: %s\n", cmd)
 
 	switch cmd {
+	case "proxy":
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("Enables or disables global traffic routing through a proxy.")
+		pterm.Println("Defaults to Burp Suite at http://127.0.0.1:8080.")
 	case "init_db":
 		pterm.Bold.Println("DESCRIPTION:")
 		pterm.Println("Initializes the Phase 5 SQLite engine and starts the async worker.")

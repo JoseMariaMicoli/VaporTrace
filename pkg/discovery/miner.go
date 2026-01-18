@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils" // Import Central Utils
 )
 
 func MineParameters(baseURL string, endpoint string, proxy string) {
 	params := []string{"debug", "admin", "test", "dev", "internal", "config", "role"}
-	client, _ := utils.GetClient(proxy)
+	
+	// PATCH: Ignore 'proxy' arg. Use the GlobalClient managed by the Shell/CLI.
+	client := utils.GlobalClient
 
 	for _, p := range params {
 		fullURL := fmt.Sprintf("%s%s?%s=true", baseURL, endpoint, p)
@@ -26,7 +28,7 @@ func MineParameters(baseURL string, endpoint string, proxy string) {
 		if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusBadRequest {
 			fmt.Printf("    [!] Potential Hidden Param: %s (Status: %d)\n", p, resp.StatusCode)
 
-			// PERSISTENCE HOOK: Log hidden parameter success
+			// PERSISTENCE HOOK
 			db.LogQueue <- db.Finding{
 				Phase:   "PHASE II: DISCOVERY",
 				Target:  fullURL,

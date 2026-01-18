@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils" // Import Central Utils
 )
 
 type SwaggerDoc struct {
@@ -16,10 +16,8 @@ type SwaggerDoc struct {
 }
 
 func ParseSwagger(url string, proxy string) ([]string, error) {
-	client, err := utils.GetClient(proxy)
-	if err != nil {
-		return nil, err
-	}
+	// PATCH: Use GlobalClient
+	client := utils.GlobalClient
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -36,7 +34,6 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 		return nil, fmt.Errorf("failed to decode Swagger JSON: %v", err)
 	}
 
-	// PERSISTENCE HOOK: Log successful discovery of documentation
 	db.LogQueue <- db.Finding{
 		Phase:   "PHASE II: DISCOVERY",
 		Target:  url,
@@ -77,10 +74,8 @@ func WalkVersions(endpoints []string) []string {
 }
 
 func ProbeEndpoint(baseURL string, path string, proxy string) (int, error) {
-	client, err := utils.GetClient(proxy)
-	if err != nil {
-		return 0, err
-	}
+	// PATCH: Use GlobalClient
+	client := utils.GlobalClient
 
 	fullURL := baseURL + path
 	req, err := http.NewRequest(http.MethodHead, fullURL, nil)
@@ -94,7 +89,6 @@ func ProbeEndpoint(baseURL string, path string, proxy string) (int, error) {
 	}
 	defer resp.Body.Close()
 
-	// PERSISTENCE HOOK: Log discovered live routes
 	if resp.StatusCode == http.StatusOK {
 		db.LogQueue <- db.Finding{
 			Phase:   "PHASE II: DISCOVERY",

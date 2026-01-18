@@ -2,12 +2,10 @@ package logic
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
@@ -35,13 +33,8 @@ func (b *BOPLAContext) Fuzz() {
 		pterm.Warning.Println("No Attacker Token configured. Probing without Authorization header...")
 	}
 
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-
+	// PATCH: Removed local client definition
+	
 	for _, key := range administrativeKeys {
 		pterm.Info.Printf("Probing property: [%s]\n", key)
 
@@ -67,7 +60,8 @@ func (b *BOPLAContext) Fuzz() {
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", activeToken))
 		}
 
-		resp, err := client.Do(req)
+		// PATCH: Using GlobalClient
+		resp, err := GlobalClient.Do(req)
 		if err != nil {
 			pterm.Error.Printf("Request failed for %s: %v\n", key, err)
 			continue

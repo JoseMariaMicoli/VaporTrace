@@ -116,25 +116,50 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 
 | COMMAND | DESCRIPTION | EXAMPLE |
 | --- | --- | --- |
-| `auth` | Set identity tokens in the session store | `auth attacker <token>` |
-| `sessions` | View currently loaded tokens | `sessions` |
-| `bola` | Execute a live BOLA ID-swap probe | `bola <url> <id>` |
-| `test-bola` | Run logic verification against httpbin | `test-bola` |
-| `bopla` | Execute Mass Assignment fuzzing | `bopla <url> '{"id":1}'` |
-| `test-bopla` | Verify BOPLA injection logic | `test-bopla` |
-| `bfla` | Execute Method Shuffling / Verb Tampering | `bfla <url>` |
-| `test-bfla` | Verify BFLA logic against httpbin | `test-bfla` |
-| `map` | Execute full Phase 2 Recon | `map -u <url>` |
-| `exhaust` | Execute Phase 4.1 Resource Exhaustion | `exhaust <url> <param>` |
-| `ssrf` | Execute Phase 4.2 SSRF Tracking | `ssrf <url> <param> <callback>` |
-| `audit` | Execute Phase 4.3 Security Audit | `audit <url>` |
-| `probe` | Execute Phase 4.4 Integration Probe | `probe <url> [type]` |
-| `init_db` | Initialize Phase 5 SQLite Persistence | `init_db` |
-| `reset_db` | Wipe local mission data | `reset_db` |
-| `report` | Generate Classified Mission Report | `report` |
-| `triage` | Scan local logs for leaked credentials | `triage` |
-| `clear` | Reset the terminal view | `clear` |
-| `exit` | Gracefully shutdown the suite | `exit` |
+| **Identity & Sessions** |  |  |
+| `auth` | Set identity tokens (JWT/Cookies) in the session store | `auth attacker <token>` |
+| `sessions` | View currently loaded tokens for Victim/Attacker | `sessions` |
+| **Discovery & Recon** |  |  |
+| `map` | Execute full Phase 2 Recon (Endpoint mapping) | `map -u <url>` |
+| `swagger` | Parse OpenAPI/Swagger JSON to map attack surface | `swagger <url>` |
+| `scrape` | Extract hidden API paths from JavaScript files | `scrape <url>` |
+| `mine` | Fuzz for hidden parameters (debug, admin, etc.) | `mine <url> /users` |
+| `proxy` | Route all tactical traffic through Burp Suite | `proxy http://127.0.0.1:8080` |
+| `proxy off` | Disable the interceptor and go direct | `proxy off` |
+| **Logic Exploitation** |  |  |
+| `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
+| `bopla` | Execute Mass Assignment / BOPLA fuzzing (API3) | `bopla <url> '{"id":1}'` |
+| `bfla` | Execute Method Shuffling / Verb Tampering (API5) | `bfla <url>` |
+| `exhaust` | Execute Phase 4.1 Resource Exhaustion (API4) | `exhaust <url> <param>` |
+| `ssrf` | Execute Phase 4.2 SSRF Tracking (API7) | `ssrf <url> <param> <cb>` |
+| `audit` | Execute Phase 4.3 Security Misconfig Audit (API8) | `audit <url>` |
+| `probe` | Execute Phase 4.4 Integration Probe (API10) | `probe <url> stripe` |
+| **Logic Verification** |  |  |
+| `test-bola` | Run BOLA logic verification against httpbin | `test-bola` |
+| `test-bopla` | Verify BOPLA/Mass-Assignment injection engine | `test-bopla` |
+| `test-bfla` | Verify BFLA/Verb-tampering logic | `test-bfla` |
+| `test-exhaust` | Verify pagination fuzzing and latency detection | `test-exhaust` |
+| `test-ssrf` | Verify SSRF redirect/tracking logic | `test-ssrf` |
+| `test-audit` | Verify the Misconfig/CORS scanner | `test-audit` |
+| `test-probe` | Verify Webhook/Integration spoofing logic | `test-probe` |
+| **System & Debrief** |  |  |
+| `init_db` | Initialize Phase 5 SQLite Persistence & Logging | `init_db` |
+| `reset_db` | **Wipe all** local mission data (Purge) | `reset_db` |
+| `report` | Generate Classified Markdown Mission Report | `report` |
+| `clear` | Reset the terminal view/banner | `clear` |
+| `exit` | Gracefully shutdown the tactical suite | `exit` |
+
+---
+
+### Final Patch Checklist
+
+To ensure the commands above function as expected:
+
+1. **Global Client:** Ensure `pkg/logic/context.go` and `pkg/discovery/discovery.go` both export `GlobalClient`.
+2. **Removal of Local Clients:** In your uploaded files (e.g., `bola.go`, `exhaustion.go`), ensure you have removed the `client := &http.Client{...}` blocks so they default to the global proxied client.
+3. **UI Bridge:** Ensure your `shell.go` switch-case triggers these functions.
+
+Would you like me to generate the **Phase 5 Intelligence** logic to handle the `report` generation from the database?
 
 ### 3. Tactical Workflow Example (BOPLA / API3)
 
