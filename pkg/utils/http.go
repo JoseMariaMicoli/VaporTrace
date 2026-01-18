@@ -22,6 +22,6 @@ func GetClient(proxyAddr string) (*http.Client, error) {
 
 	return &http.Client{
 		Transport: transport,
-		Timeout:   time.Second * 10,
+		Timeout:   30 * time.Second,
 	}, nil
 }
