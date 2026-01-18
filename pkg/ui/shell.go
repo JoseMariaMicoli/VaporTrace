@@ -63,6 +63,8 @@ func (s *Shell) Start() {
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
 		readline.PcItem("bfla"),
+		readline.PcItem("exhaust"),
+		readline.PcItem("test-exhaust"),
 		readline.PcItem("test-bola"),
 		readline.PcItem("test-bopla"),
 		readline.PcItem("test-bfla"),
@@ -131,6 +133,19 @@ func (s *Shell) handleCommand(input string) {
 		s.Active = false
 	case "map":
 		pterm.Info.Println("Executing Phase 2: Mapping Logic sequence...")
+	case "exhaust":
+		if len(parts) < 3 {
+			pterm.Info.Println("Usage: exhaust <url> <parameter>")
+			pterm.Info.Println("Example: exhaust https://api.target.com/v1/users limit")
+			return
+		}
+		probe := &logic.ExhaustionContext{TargetURL: parts[1], ParamName: parts[2]}
+		probe.FuzzPagination()
+
+	case "test-exhaust":
+		pterm.Info.Println("Simulating Pagination Fuzzing against httpbin...")
+		test := &logic.ExhaustionContext{TargetURL: "https://httpbin.org/get", ParamName: "limit"}
+		test.FuzzPagination()
 	case "bola":
 		if len(parts) < 3 {
 			pterm.Info.Println("Usage: bola <url> <victim_id>")
@@ -226,6 +241,8 @@ func (s *Shell) ShowUsage() {
 		{"bola", "Phase 3 BOLA test", "bola <url> <id>"},
 		{"bopla", "BOPLA / API3 Mass Assignment", "bopla <url> '{\"id\":1}'"},
 		{"bfla", "BFLA / API5 Method Shuffling", "bfla <url>"},
+		{"exhaust", "API4 Pagination Fuzzing", "exhaust <url> limit"},
+		{"test-exhaust", "Verify Exhaustion logic", "test-exhaust"},
 		{"test-bola", "Verify BOLA logic", "test-bola"},
 		{"test-bopla", "Verify BOPLA logic", "test-bopla"},
 		{"test-bfla", "Verify BFLA logic", "test-bfla"},
@@ -259,6 +276,19 @@ func (s *Shell) ShowHelp(cmd string) {
 	case "bfla":
 		pterm.Println("Tests for Broken Function Level Authorization by attempting administrative HTTP verbs (DELETE, POST, etc.) using a low-privilege session.")
 	case "test-bfla": pterm.Println("Simulates Verb Tampering against httpbin to verify the method-shuffling engine.")
+	case "exhaust":
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("Tests for API4:2023 Resource Exhaustion by fuzzing pagination parameters.")
+		pterm.Println("It attempts to force the server to process massive datasets by exponentially")
+		pterm.Println("increasing parameters like 'limit', 'size', or 'per_page'.")
+		pterm.Println("\nSTRATEGY:")
+		pterm.Println("1. Identifies if the server lacks a maximum cap on requested resources.")
+		pterm.Println("2. Monitors response latency to detect database/memory stress.")
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("exhaust <url> <parameter>")
+	case "test-exhaust":
+		pterm.Println("Diagnostic tool that runs the exhaustion logic against httpbin.org.")
+		pterm.Println("Useful for verifying the network stack and latency timing engine.")
 	default:
 		pterm.Error.Printf("No manual entry for %s\n", cmd)
 	}
