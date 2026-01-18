@@ -5,11 +5,13 @@ import (
 	"io"
 	"strings"
 	"time"
+	"os"
 
 	"github.com/chzyer/readline"
 	"github.com/fatih/color"
 	"github.com/pterm/pterm"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 )
 
 type Shell struct {
@@ -58,6 +60,8 @@ func (s *Shell) Start() {
 	s.RenderBanner()
 
 	completer := readline.NewPrefixCompleter(
+		readline.PcItem("init_db"),
+		readline.PcItem("reset_db"),
 		readline.PcItem("map"),
 		readline.PcItem("mine"),
 		readline.PcItem("bola"),
@@ -133,10 +137,97 @@ func (s *Shell) handleCommand(input string) {
 		if len(parts) > 1 { s.ShowHelp(parts[1]) } else { pterm.Info.Println("Usage: help <command>") }
 	case "clear", "cls", "splash":
 		s.RenderBanner()
-	case "exit", "quit":
-		pterm.NewStyle(pterm.FgRed).Println("\n[!] TERMINATING SESSION...")
-		time.Sleep(500 * time.Millisecond)
-		s.Active = false
+	case "exit":
+        result, _ := pterm.DefaultInteractiveConfirm.
+            WithDefaultText("Terminate mission and exit shell?").
+            WithConfirmStyle(pterm.NewStyle(pterm.FgRed, pterm.Bold)).
+            Show()
+
+        if result {
+            fmt.Println()
+
+            // Step 1: Network
+            pterm.Print(pterm.LightBlue("  ○ "))
+            pterm.Print("Closing active network connections... ")
+            time.Sleep(500 * time.Millisecond)
+            pterm.Success.Println("Done")
+
+            // Step 2: Database (The Guarded Call)
+            pterm.Print(pterm.LightMagenta("  ○ "))
+            pterm.Print("Synchronizing mission logs and closing database... ")
+            db.CloseDB() // This is now safe to call multiple times
+            time.Sleep(1 * time.Second)
+            pterm.Success.Println("Done")
+
+            // Step 3: Session
+            pterm.Print(pterm.LightYellow("  ○ "))
+            pterm.Print("Exiting tactical session... ")
+            time.Sleep(400 * time.Millisecond)
+            pterm.Success.Println("Goodbye")
+
+            fmt.Println()
+            pterm.Info.WithPrefix(pterm.Prefix{Text: "OFFLINE", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgCyan)}).
+                Println("VaporTrace terminated safely. Reveal the invisible.")
+            
+            os.Exit(0) // Ensure the process actually dies
+            return
+        }
+	case "init_db":
+        fmt.Println() // Spacer
+        pterm.DefaultHeader.WithFullWidth(false).Println("Phase 5: Intelligence Initialization")
+
+        // Stage 1: Connection
+        pterm.Print(pterm.LightCyan("  ● ")) 
+        pterm.Print("Establishing link to SQLite persistence... ")
+        db.InitDB() // Calls the logic we built in pkg/db
+        time.Sleep(600 * time.Millisecond)
+        pterm.Success.Println("Connected")
+
+        // Stage 2: Worker Pool
+        pterm.Print(pterm.LightGreen("  ● "))
+        pterm.Print("Spawning asynchronous log worker pool... ")
+        go db.StartAsyncWorker()
+        time.Sleep(800 * time.Millisecond)
+        pterm.Success.Println("Active")
+
+        // Stage 3: Ready State
+        fmt.Println()
+        pterm.Info.WithPrefix(pterm.Prefix{Text: "READY", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgGreen)}).
+            Println("Database persistence is now online. All findings will be logged.")
+
+	case "reset_db":
+        // Safety Warning with Red Bold Style
+        pterm.Warning.WithPrefix(pterm.Prefix{Text: "DANGER", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgRed)}).
+            Println("This action will permanently delete all mission findings and database logs!")
+        
+        // English Confirmation
+        result, _ := pterm.DefaultInteractiveConfirm.
+            WithDefaultText("Are you sure you want to PURGE the database?").
+            WithConfirmStyle(pterm.NewStyle(pterm.FgRed, pterm.Bold)).
+            Show()
+        
+        if result {
+            fmt.Println() // Spacer for visual clarity
+
+            // Stage 1: Purging Data
+            pterm.Print(pterm.LightRed("  × ")) // Deletion icon
+            pterm.Print("Wiping all records from findings table... ")
+            time.Sleep(600 * time.Millisecond)
+            
+            // Stage 2: Resetting Metadata
+            pterm.Print("\n  × ")
+            pterm.Print("Resetting DATABASE ID and Gen Time... ")
+            db.ResetDB() // Executes the SQL DROP and Re-init [cite: 2, 3]
+            time.Sleep(800 * time.Millisecond)
+            pterm.Success.Println("Done")
+
+            // Stage 3: Final Confirmation
+            fmt.Println()
+            pterm.Success.WithPrefix(pterm.Prefix{Text: "CLEAN", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgGreen)}).
+                Println("Database has been successfully purged. System ready for new mission.")
+        } else {
+            pterm.Info.Println("Reset operation aborted by operator.")
+        }
 	case "map":
 		pterm.Info.Println("Executing Phase 2: Mapping Logic sequence...")
 	case "audit":
@@ -283,6 +374,8 @@ func (s *Shell) ShowUsage() {
 	table := pterm.DefaultTable.WithHasHeader().WithBoxed()
 	table.Data = pterm.TableData{
 		{"COMMAND", "DESCRIPTION", "EXAMPLE"},
+		{"init_db",  "Initialize SQLite Persistence", "init_db"},
+		{"reset_db", "Wipe local mission data (Purge)",      "reset_db"},
 		{"auth", "Set identity tokens", "auth attacker <token>"},
 		{"sessions", "View active tokens", "sessions"},
 		{"bola", "Phase 3 BOLA test", "bola <url> <id>"},
@@ -310,6 +403,27 @@ func (s *Shell) ShowHelp(cmd string) {
 	pterm.DefaultHeader.WithFullWidth(false).Printf("Manual: %s\n", cmd)
 	
 	switch cmd {
+	case "init_db":
+	    pterm.Bold.Println("DESCRIPTION:")
+	    pterm.Println("Initializes the Phase 5 SQLite engine and starts the async worker.")
+	    pterm.Println("This creates a persistent link between your tactical actions and the")
+	    pterm.Println("final 'Mission Debrief' report.")
+	    
+	    pterm.Bold.Println("\nTECHNICAL DETAILS:")
+	    pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+	        {Level: 0, Text: "Engine: SQLite3 (Local Persistence)"},
+	        {Level: 0, Text: "I/O Mode: Asynchronous Non-blocking (Goroutine Worker)"},
+	        {Level: 0, Text: "Default File: ./vaportrace.db"},
+	    }}.Render()
+
+	case "reset_db":
+	    pterm.Bold.Println("DESCRIPTION:")
+	    pterm.Println("Safely purges the mission database and metadata.")
+	    pterm.Println("Use this command to 'clean' the environment before a new operation")
+	    pterm.Println("or to reset the DATABASE ID to 1.")
+	    
+	    pterm.Bold.Println("\nWARNING:")
+	    pterm.NewStyle(pterm.FgRed, pterm.Bold).Println("This action is irreversible. All logged findings will be lost.")
 	case "auth":
 		pterm.Println("Configures identity contexts (JWT/Cookies) for cross-account authorization testing.")
 	case "sessions":

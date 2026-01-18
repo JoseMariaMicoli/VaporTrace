@@ -93,7 +93,7 @@ To enter the interactive tactical mode, execute:
 
 ### **Phase 5: Intelligence & Persistence [ACTIVE]**
 
-* [ ] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
+* [x] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
 * [ ] **Async Log Worker:** Non-blocking background commitments of tactical findings.
 * [ ] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
 * [ ] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
