@@ -73,7 +73,7 @@ To enter the interactive tactical mode, execute:
 * [x] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
 * [x] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
 
-### **Phase 5: Intelligence & Persistence (API11) [ACTIVE]**
+### **Phase 5: Intelligence & Persistence [ACTIVE]**
 
 * [x] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
 * [x] **Async Log Worker:** Non-blocking background commitments of tactical findings.
