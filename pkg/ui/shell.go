@@ -66,6 +66,8 @@ func (s *Shell) Start() {
 		readline.PcItem("exhaust"),
 		readline.PcItem("ssrf"),
 		readline.PcItem("audit"),
+		readline.PcItem("probe"),
+		readline.PcItem("test-probe"),
 		readline.PcItem("test-audit"),
 		readline.PcItem("test-ssrf"),
 		readline.PcItem("test-exhaust"),
@@ -144,7 +146,20 @@ func (s *Shell) handleCommand(input string) {
 		}
 		probe := &logic.MisconfigContext{TargetURL: parts[1]}
 		probe.Audit()
+	case "probe":
+		if len(parts) < 2 {
+			pterm.Info.Println("Usage: probe <url> [type]")
+			return
+		}
+		iType := "generic"
+		if len(parts) > 2 { iType = parts[2] }
+		probe := &logic.IntegrationContext{TargetURL: parts[1], IntegrationType: iType}
+		probe.Probe()
 
+	case "test-probe":
+		pterm.Info.Println("Simulating Webhook injection against httpbin...")
+		test := &logic.IntegrationContext{TargetURL: "https://httpbin.org/post", IntegrationType: "generic"}
+		test.Probe()
 	case "test-audit":
 		pterm.Info.Println("Running diagnostic audit against google.com...")
 		test := &logic.MisconfigContext{TargetURL: "https://www.google.com"}
@@ -276,6 +291,8 @@ func (s *Shell) ShowUsage() {
 		{"exhaust", "API4 Pagination Fuzzing", "exhaust <url> limit"},
 		{"ssrf", "API7 SSRF/OOB Tracker", "ssrf <url> param <callback>"}, 
 		{"audit", "API8 Security Misconfig Audit", "audit <url>"},
+		{"probe", "API10 Integration Fuzzer", "probe <url> stripe"},
+		{"test-probe", "Verify Integration logic", "test-probe"},
 		{"test-audit", "Verify Audit Logic", "test-audit"},
 		{"test-ssrf", "Verify SSRF Logic", "test-ssrf"},
 		{"test-exhaust", "Verify Exhaustion logic", "test-exhaust"},
@@ -361,6 +378,31 @@ func (s *Shell) ShowHelp(cmd string) {
 		pterm.Println("   are correctly identifying and reporting server responses.")
 		pterm.Println("\nUSAGE:")
 		pterm.Cyan("test-audit")
+	case "probe":
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("Tests for API10:2023 Unsafe Consumption of APIs.")
+		pterm.Println("This module targets endpoints that process data from third-party services")
+		pterm.Println("(e.g., GitHub webhooks, Stripe events, or Cloud storage callbacks).")
+		
+		pterm.Bold.Println("\nSTRATEGY:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "Signature Bypass: Tests if the API validates HMAC/Webhook signatures."},
+			{Level: 0, Text: "Injection via Trust: Checks if unsanitized 3rd-party data enters DBs/Shells."},
+			{Level: 0, Text: "SSRF via Integration: Injects malicious URLs into integration metadata fields."},
+		}}.Render()
+
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("probe <url> [type]")
+		pterm.Println("Valid types: generic, stripe, github")
+
+	case "test-probe":
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("Safe diagnostic for the Integration Probe logic.")
+		pterm.Println("\nOPERATION:")
+		pterm.Println("Sends mock GitHub/Stripe payloads to httpbin.org/post to verify")
+		pterm.Println("header formation and payload delivery.")
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("test-probe")
 	default:
 		pterm.Error.Printf("No manual entry for %s\n", cmd)
 	}
