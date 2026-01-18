@@ -1,10 +1,10 @@
 ```markdown
-    __   __                       _____                   
+    __   __                    _____                   
     \ \ / /___  _ __  ___  _ __  |_   _| __ __ _  ___ ___ 
      \ V // _ `| '_ \/ _ \| '__|   | || '__/ _` |/ __/ _ \
       \  / (_| | |_)  (_) | |      | || | | (_| | (_|  __/
        \/ \__,_| .__/\___/|_|      |_||_|  \__,_|\___\___|
-               |_|      [ API INFRASTRUCTURE TRACER ]
+               |_|      [ API RECON SUITE]
 ```
 **VaporTrace** is a high-performance Red Team framework engineered in Go for surgical reconnaissance and exploitation of API architectures. It specializes in uncovering "Shadow APIs," analyzing authorization logic (BOLA/BFLA), and mapping the entire attack surface of modern REST/Microservice environments.
 
@@ -38,6 +38,7 @@ To enter the interactive tactical mode, execute:
 ```bash
 ./VaporTrace shell
 
+
 ```
 
 ---
@@ -59,13 +60,13 @@ To enter the interactive tactical mode, execute:
 * [x] **Version Walker:** Identification of deprecated versions (e.g., `/v1/` vs `/v2/`) to find unpatched logic.
 * [x] **Parameter Miner:** Automatic identification of hidden query parameters and headers.
 
-### **Phase 3: Authorization & Logic (API1, API3, API5) [ACTIVE]**
+### **Phase 3: Authorization & Logic (API1, API3, API5) [STABLE]**
 
 * [x] **BOLA Prober (API1):** Tactical ID-swapping engine with persistent session stores for Attacker/Victim contexts.
 * [x] **BOPLA/Mass Assignment (API3):** Fuzzing JSON bodies for administrative or hidden properties.
-* [ ] **BFLA Module (API5):** Testing hierarchical access via HTTP method manipulation (GET vs DELETE).
+* [x] **BFLA Module (API5):** Testing hierarchical access via HTTP method manipulation (GET vs DELETE).
 
-### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [BACKLOG]**
+### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [ACTIVE]**
 
 * [ ] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
 * [ ] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
@@ -82,6 +83,7 @@ To enter the interactive tactical mode, execute:
 go mod tidy
 go build -o VaporTrace
 
+
 ```
 
 ### 2. Interactive Shell Usage
@@ -96,6 +98,8 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `test-bola` | Run logic verification against httpbin | `test-bola` |
 | `bopla` | Execute Mass Assignment fuzzing | `bopla <url> '{"id":1}'` |
 | `test-bopla` | Verify BOPLA injection logic | `test-bopla` |
+| `bfla` | Execute Method Shuffling / Verb Tampering | `bfla <url>` |
+| `test-bfla` | Verify BFLA logic against httpbin | `test-bfla` |
 | `map` | Execute full Phase 2 Recon | `map -u <url>` |
 | `triage` | Scan local logs for leaked credentials | `triage` |
 | `clear` | Reset the terminal view | `clear` |
@@ -115,6 +119,7 @@ vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 # 3. Target a user-settings endpoint with a base JSON object
 # The engine will attempt to inject 'is_admin', 'role', etc.
 vapor@trace:~$ bopla [https://api.target.com/v1/user/me](https://api.target.com/v1/user/me) '{"name":"vapor"}'
+
 
 ```
 
