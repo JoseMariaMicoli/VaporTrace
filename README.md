@@ -1,5 +1,5 @@
 ```markdown
-    __   __                    _____                   
+    __   __                       _____                   
     \ \ / /___  _ __  ___  _ __  |_   _| __ __ _  ___ ___ 
      \ V // _ `| '_ \/ _ \| '__|   | || '__/ _` |/ __/ _ \
       \  / (_| | |_)  (_) | |      | || | | (_| | (_|  __/
@@ -24,35 +24,18 @@
 
 ---
 
-## 🛡️ Strategic Mapping: MITRE ATT&CK®
-
-VaporTrace operations are mapped across the full attack lifecycle to provide stakeholders with clear visibility into adversary emulation:
-
-| PHASE | TACTIC | TECHNIQUE | VAPORTRACE MODULE |
-| --- | --- | --- | --- |
-| **P1: Foundation** | Command and Control | T1105: Ingress Tool Transfer | `Burp Bridge / Proxy Config` |
-| **P2: Discovery** | Reconnaissance | T1595.002: Active Scanning (API) | `map`, `mine`, `version-walker` |
-| **P3: Auth Logic** | Privilege Escalation | T1548: Abuse Elevation Control | `bopla`, `bfla`, `bola` |
-| **P4: Injection** | Impact | T1499: Endpoint DoS | `resource-exhaustion (API4)` |
-| **P4: Injection** | Discovery | T1046: Network Service Discovery | `ssrf-tracker (API7)` |
-| **P5: Reporting** | Reporting | T1592: Gather Victim Host Info | `persistence (SQLite) / report` |
-
----
-
 ## 🖥️ The Tactical Shell: Persistence & Context
 
 The **VaporTrace Shell** is the core differentiator of this framework. Unlike standard one-shot CLI tools, the shell provides a **Persistent Security Context** required for complex logic testing.
 
 ### Strategic Use Case: The "Auth Pivot"
-
-In modern API pentesting, most vulnerabilities aren't found in a single request, but in the **logical relationship** between two accounts.
+In modern API pentesting, most vulnerabilities aren't found in a single request, but in the **logical relationship** between two accounts. 
 
 * **Identity Management:** The shell maintains a global state for `Attacker` and `Victim` tokens. You configure them once, and the engine automatically handles the "Identity Swap" during probes.
 * **Speed:** No need to re-type complex JWTs or headers for every command.
 * **Real-time Triage:** Integrated `pterm` tables provide immediate feedback on whether a request was blocked (403), missing (404), or successfully leaked (200 OK).
 
 To enter the interactive tactical mode, execute:
-
 ```bash
 ./VaporTrace shell
 
@@ -106,29 +89,19 @@ To enter the interactive tactical mode, execute:
 
 ---
 
-## 🖥️ The Tactical Shell: Why Use It?
-
-The **VaporTrace Shell** is designed for the "Pivot & Exploit" phase of an engagement. Unlike one-shot CLI tools, the shell maintains a **Persistent Security Context**.
-
-### Use Case: The "Auth Pivot"
-During an API audit, you often find a resource (e.g., `/api/v1/docs/777`) that belongs to **User A**. To test for BOLA (API1), you need to request that same resource using the session of **User B**. 
-
-1. **Context Persistence:** The shell stores your `Attacker` and `Victim` tokens globally. You set them once with `auth`, and every subsequent probe uses them automatically.
-2. **Speed:** No need to re-type complex JWTs or headers for every command.
-3. **Real-time Triage:** Immediately see formatted tables and VULN alerts as you swap IDs and methods.
-
----
-
 ## 🛠️ Installation & Usage
 
 ### 1. Build from Source
+
 ```bash
 go mod tidy
 go build -o VaporTrace
 
 ```
 
-### 2. Interactive Shell Commands
+### 2. Interactive Shell Usage
+
+Launch the shell with `./VaporTrace shell` and use the following tactics:
 
 | COMMAND | DESCRIPTION | EXAMPLE |
 | --- | --- | --- |
@@ -152,15 +125,22 @@ go build -o VaporTrace
 | `clear` | Reset the terminal view | `clear` |
 | `exit` | Gracefully shutdown the suite | `exit` |
 
-### 3. Tactical Workflow Example (BOPLA / API3)
+### 3. Tactical Workflow Example
+
+Capture your tokens from a proxy and pivot:
 
 ```bash
-# 1. Configure the Attacker Identity (User B)
+# 1. Enter the shell
+./VaporTrace shell
+
+# 2. Set the Attacker Context
 vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 
-# 3. Target a user-settings endpoint with a base JSON object
-# The engine will attempt to inject 'is_admin', 'role', etc.
-vapor@trace:~$ bopla https://api.target.com/v1/user/me '{"name":"vapor"}'
+# 3. Set the Victim Context
+vapor@trace:~$ auth victim eyJhbGciOiJIUzI1...
+
+# 4. Perform the Logic Probe
+vapor@trace:~$ bola [https://api.target.com/v1/user/profile](https://api.target.com/v1/user/profile) 501
 
 ```
 
