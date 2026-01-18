@@ -84,7 +84,7 @@ To enter the interactive tactical mode, execute:
 ### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [ACTIVE]**
 
 * [x] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
-* [ ] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
+* [x] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
 * [ ] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
 * [ ] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
 
