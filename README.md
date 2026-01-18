@@ -1,5 +1,5 @@
 ```markdown
-    __   __                    _____                   
+    __   __                       _____                   
     \ \ / /___  _ __  ___  _ __  |_   _| __ __ _  ___ ___ 
      \ V // _ `| '_ \/ _ \| '__|   | || '__/ _` |/ __/ _ \
       \  / (_| | |_)  (_) | |      | || | | (_| | (_|  __/
@@ -20,6 +20,25 @@
 4. **Logic Risk:** Be aware that automated BOLA/BFLA probing can modify server-side data. Always perform tests in a controlled staging environment when possible.
 
 **By compiling or running this software, you agree to these terms.**
+
+---
+
+## 🖥️ The Tactical Shell: Persistence & Context
+
+The **VaporTrace Shell** is the core differentiator of this framework. Unlike standard one-shot CLI tools, the shell provides a **Persistent Security Context** required for complex logic testing.
+
+### Strategic Use Case: The "Auth Pivot"
+In modern API pentesting, most vulnerabilities aren't found in a single request, but in the **logical relationship** between two accounts. 
+
+* **Identity Management:** The shell maintains a global state for `Attacker` and `Victim` tokens. You configure them once, and the engine automatically handles the "Identity Swap" during probes.
+* **Speed:** No need to re-type complex JWTs or headers for every command.
+* **Real-time Triage:** Integrated `pterm` tables provide immediate feedback on whether a request was blocked (403), missing (404), or successfully leaked (200 OK).
+
+To enter the interactive tactical mode, execute:
+```bash
+./VaporTrace shell
+
+```
 
 ---
 
@@ -55,29 +74,19 @@
 
 ---
 
-## 🖥️ The Tactical Shell: Why Use It?
-
-The **VaporTrace Shell** is designed for the "Pivot & Exploit" phase of an engagement. Unlike one-shot CLI tools, the shell maintains a **Persistent Security Context**.
-
-### Use Case: The "Auth Pivot"
-During an API audit, you often find a resource (e.g., `/api/v1/docs/777`) that belongs to **User A**. To test for BOLA (API1), you need to request that same resource using the session of **User B**. 
-
-1. **Context Persistence:** The shell stores your `Attacker` and `Victim` tokens globally. You set them once with `auth`, and every subsequent probe uses them automatically.
-2. **Speed:** No need to re-type complex JWTs or headers for every command.
-3. **Real-time Triage:** Immediately see formatted tables and VULN alerts as you swap IDs and methods.
-
----
-
 ## 🛠️ Installation & Usage
 
 ### 1. Build from Source
+
 ```bash
 go mod tidy
 go build -o VaporTrace
 
 ```
 
-### 2. Interactive Shell Commands
+### 2. Interactive Shell Usage
+
+Launch the shell with `./VaporTrace shell` and use the following tactics:
 
 | COMMAND | DESCRIPTION | EXAMPLE |
 | --- | --- | --- |
@@ -90,16 +99,21 @@ go build -o VaporTrace
 | `clear` | Reset the terminal view | `clear` |
 | `exit` | Gracefully shutdown the suite | `exit` |
 
-### 3. Real-World BOLA Workflow
+### 3. Tactical Workflow Example
+
+Capture your tokens from a proxy and pivot:
 
 ```bash
-# 1. Configure the Attacker Identity (User B)
+# 1. Enter the shell
+./VaporTrace shell
+
+# 2. Set the Attacker Context
 vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 
-# 2. Configure the Victim Identity (User A)
+# 3. Set the Victim Context
 vapor@trace:~$ auth victim eyJhbGciOiJIUzI1...
 
-# 3. Target a sensitive endpoint with the Victim's Resource ID
+# 4. Perform the Logic Probe
 vapor@trace:~$ bola [https://api.target.com/v1/user/profile](https://api.target.com/v1/user/profile) 501
 
 ```
