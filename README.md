@@ -1,5 +1,5 @@
 ```markdown
-    __   __                       _____                   
+    __   __                    _____                   
     \ \ / /___  _ __  ___  _ __  |_   _| __ __ _  ___ ___ 
      \ V // _ `| '_ \/ _ \| '__|   | || '__/ _` |/ __/ _ \
       \  / (_| | |_)  (_) | |      | || | | (_| | (_|  __/
@@ -46,6 +46,26 @@
 * [ ] **BOPLA/Mass Assignment (API3):** Fuzzing JSON bodies for administrative or hidden properties.
 * [ ] **BFLA Module (API5):** Testing hierarchical access via HTTP method manipulation (GET vs DELETE).
 
+### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [BACKLOG]**
+
+* [ ] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
+* [ ] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
+* [ ] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
+* [ ] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
+
+---
+
+## 🖥️ The Tactical Shell: Why Use It?
+
+The **VaporTrace Shell** is designed for the "Pivot & Exploit" phase of an engagement. Unlike one-shot CLI tools, the shell maintains a **Persistent Security Context**.
+
+### Use Case: The "Auth Pivot"
+During an API audit, you often find a resource (e.g., `/api/v1/docs/777`) that belongs to **User A**. To test for BOLA (API1), you need to request that same resource using the session of **User B**. 
+
+1. **Context Persistence:** The shell stores your `Attacker` and `Victim` tokens globally. You set them once with `auth`, and every subsequent probe uses them automatically.
+2. **Speed:** No need to re-type complex JWTs or headers for every command.
+3. **Real-time Triage:** Immediately see formatted tables and VULN alerts as you swap IDs and methods.
+
 ---
 
 ## 🛠️ Installation & Usage
@@ -59,8 +79,6 @@ go build -o VaporTrace
 
 ### 2. Interactive Shell Commands
 
-Launch the suite and use the built-in tactical commands:
-
 | COMMAND | DESCRIPTION | EXAMPLE |
 | --- | --- | --- |
 | `auth` | Set identity tokens in the session store | `auth attacker <token>` |
@@ -73,8 +91,6 @@ Launch the suite and use the built-in tactical commands:
 | `exit` | Gracefully shutdown the suite | `exit` |
 
 ### 3. Real-World BOLA Workflow
-
-Capture your JWTs from your proxy (e.g., Burp Suite) and pivot to the shell:
 
 ```bash
 # 1. Configure the Attacker Identity (User B)
