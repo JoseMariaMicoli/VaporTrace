@@ -64,6 +64,8 @@ func (s *Shell) Start() {
 		readline.PcItem("bopla"),
 		readline.PcItem("bfla"),
 		readline.PcItem("exhaust"),
+		readline.PcItem("ssrf"),
+		readline.PcItem("test-ssrf"),
 		readline.PcItem("test-exhaust"),
 		readline.PcItem("test-bola"),
 		readline.PcItem("test-bopla"),
@@ -141,7 +143,23 @@ func (s *Shell) handleCommand(input string) {
 		}
 		probe := &logic.ExhaustionContext{TargetURL: parts[1], ParamName: parts[2]}
 		probe.FuzzPagination()
+	case "ssrf":
+		if len(parts) < 4 {
+			pterm.Info.Println("Usage: ssrf <url> <parameter> <callback_url>")
+			return
+		}
+		probe := &logic.SSRFContext{TargetURL: parts[1], ParamName: parts[2], Callback: parts[3]}
+		probe.Probe()
 
+	case "test-ssrf":
+		pterm.Info.Println("Simulating SSRF against httpbin (External Redirect Test)...")
+		// We use httpbin's redirect endpoint to simulate an SSRF-vulnerable parameter
+		test := &logic.SSRFContext{
+			TargetURL: "https://httpbin.org/redirect-to", 
+			ParamName: "url", 
+			Callback:  "https://google.com",
+		}
+		test.Probe()
 	case "test-exhaust":
 		pterm.Info.Println("Simulating Pagination Fuzzing against httpbin...")
 		test := &logic.ExhaustionContext{TargetURL: "https://httpbin.org/get", ParamName: "limit"}
@@ -242,6 +260,8 @@ func (s *Shell) ShowUsage() {
 		{"bopla", "BOPLA / API3 Mass Assignment", "bopla <url> '{\"id\":1}'"},
 		{"bfla", "BFLA / API5 Method Shuffling", "bfla <url>"},
 		{"exhaust", "API4 Pagination Fuzzing", "exhaust <url> limit"},
+		{"ssrf", "API7 SSRF/OOB Tracker", "ssrf <url> param <callback>"}, // New
+		{"test-ssrf", "Verify SSRF Logic", "test-ssrf"},
 		{"test-exhaust", "Verify Exhaustion logic", "test-exhaust"},
 		{"test-bola", "Verify BOLA logic", "test-bola"},
 		{"test-bopla", "Verify BOPLA logic", "test-bopla"},
@@ -289,6 +309,24 @@ func (s *Shell) ShowHelp(cmd string) {
 	case "test-exhaust":
 		pterm.Println("Diagnostic tool that runs the exhaustion logic against httpbin.org.")
 		pterm.Println("Useful for verifying the network stack and latency timing engine.")
+	case "ssrf":
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("Tests for API7:2023 Server-Side Request Forgery by injecting")
+		pterm.Println("internal and external URLs into target parameters.")
+		
+		pterm.Bold.Println("\nSTRATEGY:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "Injects cloud metadata IPs (169.254.169.254)"},
+			{Level: 0, Text: "Injects local loopback (127.0.0.1) to find internal services"},
+			{Level: 0, Text: "Uses a 'Callback' URL for Out-of-Band (OOB) detection"},
+		}}.Render()
+
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("ssrf <url> <parameter> <callback_url>")
+		
+	case "test-ssrf":
+		pterm.Println("Diagnostic tool that simulates an SSRF injection against httpbin.")
+		pterm.Println("Verifies if the engine correctly identifies redirects and successful injections.")
 	default:
 		pterm.Error.Printf("No manual entry for %s\n", cmd)
 	}
