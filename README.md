@@ -95,8 +95,8 @@ To enter the interactive tactical mode, execute:
 
 * [x] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
 * [x] **Async Log Worker:** Non-blocking background commitments of tactical findings.
-* [ ] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
-* [ ] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
+* [x] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
+* [x] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
 
 ---
 

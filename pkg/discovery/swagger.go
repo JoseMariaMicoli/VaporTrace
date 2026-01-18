@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
-// SwaggerDoc now captures BasePath to handle /v2 prefixing
 type SwaggerDoc struct {
 	BasePath string                 `json:"basePath"`
 	Paths    map[string]interface{} `json:"paths"`
@@ -36,10 +36,16 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 		return nil, fmt.Errorf("failed to decode Swagger JSON: %v", err)
 	}
 
+	// PERSISTENCE HOOK: Log successful discovery of documentation
+	db.LogQueue <- db.Finding{
+		Phase:   "PHASE II: DISCOVERY",
+		Target:  url,
+		Details: "Swagger/OpenAPI Documentation Found",
+		Status:  "INFO",
+	}
+
 	var endpoints []string
 	for path := range doc.Paths {
-		// Prepend BasePath (e.g., /v2) to the endpoint (e.g., /pet)
-		// This ensures WalkVersions can detect the versioning pattern
 		fullPath := doc.BasePath + path
 		endpoints = append(endpoints, fullPath)
 	}
@@ -48,10 +54,8 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 }
 
 func WalkVersions(endpoints []string) []string {
-	// Updated regex to find versioning anywhere in the path
 	versionRegex := regexp.MustCompile(`v[0-9]+(\.[0-9]+)?|api|beta|dev`)
 	substitutes := []string{"v1", "v2", "v3", "api", "dev"}
-	
 	candidates := make(map[string]bool)
 
 	for _, path := range endpoints {
@@ -72,17 +76,13 @@ func WalkVersions(endpoints []string) []string {
 	return results
 }
 
-// ProbeEndpoint performs a fast HEAD request through the proxy to verify if a route exists
 func ProbeEndpoint(baseURL string, path string, proxy string) (int, error) {
 	client, err := utils.GetClient(proxy)
 	if err != nil {
 		return 0, err
 	}
 
-	// Build the full target URL
 	fullURL := baseURL + path
-	
-	// HEAD is faster for recon as it returns no body
 	req, err := http.NewRequest(http.MethodHead, fullURL, nil)
 	if err != nil {
 		return 0, err
@@ -93,6 +93,16 @@ func ProbeEndpoint(baseURL string, path string, proxy string) (int, error) {
 		return 0, err
 	}
 	defer resp.Body.Close()
+
+	// PERSISTENCE HOOK: Log discovered live routes
+	if resp.StatusCode == http.StatusOK {
+		db.LogQueue <- db.Finding{
+			Phase:   "PHASE II: DISCOVERY",
+			Target:  fullURL,
+			Details: "Live API Route Discovered",
+			Status:  "SUCCESS",
+		}
+	}
 
 	return resp.StatusCode, nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
 )
 
@@ -67,8 +68,24 @@ func (s *SSRFContext) Probe() {
 			if payload == "http://127.0.0.1:80" || payload == "http://169.254.169.254/latest/meta-data/" {
 				pterm.Warning.Prefix = pterm.Prefix{Text: "VULN", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
 				pterm.Warning.Printf("PROBABLE SSRF: Internal resource responded with status %d\n", resp.StatusCode)
+
+				// PERSISTENCE HOOK: Critical
+				db.LogQueue <- db.Finding{
+					Phase:   "PHASE IV: INJECTION",
+					Target:  s.TargetURL,
+					Details: fmt.Sprintf("SSRF Internal Access: %s", payload),
+					Status:  "CRITICAL VULNERABLE",
+				}
 			} else {
 				pterm.Success.Printf("Payload delivered. Status: %d. Monitor your listener: %s\n", resp.StatusCode, s.Callback)
+				
+				// PERSISTENCE HOOK: Monitor
+				db.LogQueue <- db.Finding{
+					Phase:   "PHASE IV: INJECTION",
+					Target:  s.TargetURL,
+					Details: "SSRF Callback Triggered",
+					Status:  "POTENTIAL CALLBACK",
+				}
 			}
 		}
 	}

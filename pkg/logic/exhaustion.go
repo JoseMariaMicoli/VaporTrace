@@ -7,6 +7,7 @@ import (
 	"net/url" // Added for robust URL parsing
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
 )
 
@@ -62,6 +63,14 @@ func (e *ExhaustionContext) FuzzPagination() {
 			if duration > 2*time.Second {
 				pterm.Warning.Prefix = pterm.Prefix{Text: "VULN", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
 				pterm.Warning.Printf("Resource Exhaustion Detected! Limit %s took %v\n", val, duration)
+
+				// PERSISTENCE HOOK
+				db.LogQueue <- db.Finding{
+					Phase:   "PHASE IV: INJECTION",
+					Target:  e.TargetURL,
+					Details: fmt.Sprintf("DoS / Pagination Exhaustion (Limit: %s)", val),
+					Status:  "VULNERABLE",
+				}
 			} else {
 				pterm.Success.Printf("Limit %s processed in %v\n", val, duration)
 			}

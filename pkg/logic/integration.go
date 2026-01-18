@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
 )
 
@@ -58,6 +59,14 @@ func (i *IntegrationContext) Probe() {
 		// it suggests a lack of signature verification (HMAC).
 		if resp.StatusCode < 300 {
 			pterm.Warning.Printf("Potential Unsafe Consumption: Server accepted %s without signature.\n", name)
+
+			// PERSISTENCE HOOK
+			db.LogQueue <- db.Finding{
+				Phase:   "PHASE IV: INJECTION",
+				Target:  i.TargetURL,
+				Details: fmt.Sprintf("Unverified Integration: %s", name),
+				Status:  "UNSAFE CONSUMPTION",
+			}
 		}
 	}
 }
