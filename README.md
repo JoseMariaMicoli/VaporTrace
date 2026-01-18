@@ -15,7 +15,7 @@
 **THIS TOOL IS FOR AUTHORIZED PENETRATION TESTING AND EDUCATIONAL PURPOSES ONLY.**
 
 1. **Authorization Required:** Never use VaporTrace against targets you do not have explicit, written permission to test.
-2. **No Liability:** The author (JoseMariaMicoli) and contributors assume no liability and are not responsible for any misuse, data loss, service degradation, or legal consequences caused by this program.
+2. **No Liability:** The author and contributors assume no liability and are not responsible for any misuse, data loss, service degradation, or legal consequences caused by this program.
 3. **Local Laws:** It is the user's responsibility to comply with all applicable local, state, and international laws.
 4. **Logic Risk:** Be aware that automated BOLA/BFLA probing can modify server-side data. Always perform tests in a controlled staging environment when possible.
 
@@ -46,48 +46,45 @@
 * [ ] **BOPLA/Mass Assignment (API3):** Fuzzing JSON bodies for administrative or hidden properties.
 * [ ] **BFLA Module (API5):** Testing hierarchical access via HTTP method manipulation (GET vs DELETE).
 
-### **Phase 4: Consumption & Injection (API4, API7, API8, API10)**
-
-* [ ] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
-* [ ] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
-* [ ] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
-* [ ] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
-
 ---
 
 ## 🛠️ Installation & Usage
 
 ### 1. Build from Source
-
 ```bash
 go mod tidy
 go build -o VaporTrace
 
 ```
 
-### 2. Configure Authentication Identities
+### 2. Interactive Shell Commands
 
-Before running authorization attacks, load your captured tokens (JWT/Cookies) into the session store:
+Launch the suite and use the built-in tactical commands:
+
+| COMMAND | DESCRIPTION | EXAMPLE |
+| --- | --- | --- |
+| `auth` | Set identity tokens in the session store | `auth attacker <token>` |
+| `sessions` | View currently loaded tokens | `sessions` |
+| `bola` | Execute a live BOLA ID-swap probe | `bola <url> <id>` |
+| `test-bola` | Run logic verification against httpbin | `test-bola` |
+| `map` | Execute full Phase 2 Recon | `map -u <url>` |
+| `triage` | Scan local logs for leaked credentials | `triage` |
+| `clear` | Reset the terminal view | `clear` |
+| `exit` | Gracefully shutdown the suite | `exit` |
+
+### 3. Real-World BOLA Workflow
+
+Capture your JWTs from your proxy (e.g., Burp Suite) and pivot to the shell:
 
 ```bash
-# Load the Attacker's token (User B)
+# 1. Configure the Attacker Identity (User B)
 vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 
-# Load the Victim's token (User A)
+# 2. Configure the Victim Identity (User A)
 vapor@trace:~$ auth victim eyJhbGciOiJIUzI1...
 
-# Verify loaded contexts
-vapor@trace:~$ sessions
-
-```
-
-### 3. Execute BOLA Probe
-
-Target a specific resource ID using the attacker's context:
-
-```bash
-# Usage: bola <url> <victim_id>
-vapor@trace:~$ bola [https://api.target.com/v1/profile](https://api.target.com/v1/profile) 501
+# 3. Target a sensitive endpoint with the Victim's Resource ID
+vapor@trace:~$ bola [https://api.target.com/v1/user/profile](https://api.target.com/v1/user/profile) 501
 
 ```
 
@@ -96,7 +93,7 @@ vapor@trace:~$ bola [https://api.target.com/v1/profile](https://api.target.com/v
 ## 📡 The Technology Behind the Tracer
 
 * **Language:** Golang (Concurrency-focused, statically linked).
-* **UI Components:** `pterm` for tactical dashboarding and `readline` for shell interactivity.
+* **UI Stack:** `pterm` for tactical dashboarding and `readline` for shell interactivity.
 * **Network Stack:** Custom `net/http` wrapper with `crypto/tls` overrides and robust `net/url` path handling.
 
 **VaporTrace - Reveal the Invisible.**
