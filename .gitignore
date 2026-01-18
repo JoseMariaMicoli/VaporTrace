@@ -1,0 +1,19 @@
+# Binaries
+VaporTrace
+*.exe
+*.bin
+
+# Dependency directories
+vendor/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Temporary files and logs
+*.tmp
+local_build.logs
+/tmp/vaportrace.tmp
+
+# Go-specific
+go.sum (optional, usually kept)
