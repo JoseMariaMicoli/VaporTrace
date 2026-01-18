@@ -2,46 +2,68 @@ package cmd
 
 import (
 	"fmt"
+	"strings" // Added for URL parsing
 
 	"github.com/spf13/cobra"
-	// Ensure this matches your module name in go.mod
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/discovery"
 )
 
-// mapCmd represents the map command
+var targetURL string
+
 var mapCmd = &cobra.Command{
 	Use:   "map",
 	Short: "Reverse engineer API endpoints",
 	Long:  `VaporTrace map will scan for Swagger specs, JS files, and hidden routes.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("VaporTrace Mapping initialized...")
+		if targetURL == "" {
+			fmt.Println("[!] Error: Please provide a target spec URL with -u")
+			return
+		}
 
-		// 1. Get the proxy address from the global flag
-		// We use the persistent flag 'Proxy' defined in root.go
+		fmt.Println("VaporTrace Mapping initialized...")
 		proxyAddr, _ := cmd.Flags().GetString("proxy")
 
-		// 2. Initialize our "Burp-aware" client from pkg/utils
-		client, err := utils.GetClient(proxyAddr)
+		// 1. Parse the Spec
+		endpoints, err := discovery.ParseSwagger(targetURL, proxyAddr)
 		if err != nil {
-			fmt.Println("Error creating HTTP client:", err)
+			fmt.Printf("[!] Mapping failed: %v\n", err)
 			return
 		}
 
-		// 3. Make a test request
-		url := "http://example.com"
-		fmt.Printf("Probing: %s via Proxy: %s\n", url, proxyAddr)
+		fmt.Printf("\n[+] Success! Discovered %d unique endpoints (prefixed with basePath)\n", len(endpoints))
 
-		resp, err := client.Get(url)
-		if err != nil {
-			fmt.Println("Request failed:", err)
-			return
+		// 2. Generate Shadow Routes
+		shadowRoutes := discovery.WalkVersions(endpoints)
+		
+		// 3. Live Validation
+		if len(shadowRoutes) > 0 {
+			fmt.Printf("[*] Phase 2.2: Probing %d shadow candidates via Proxy...\n", len(shadowRoutes))
+			
+			// Identify the Base URL (e.g., https://api.example.com)
+			// We split by "://" to keep the protocol, then take the domain
+			parts := strings.Split(targetURL, "/")
+			baseURL := parts[0] + "//" + parts[2]
+
+			for _, s := range shadowRoutes {
+				status, err := discovery.ProbeEndpoint(baseURL, s, proxyAddr)
+				if err != nil {
+					continue 
+				}
+
+				// Focus on 200, 401, or 403 (anything but 404 is interesting)
+				if status != 404 {
+					fmt.Printf("    [!!!] INTERESTING: %s (Status: %d)\n", s, status)
+				} else {
+					fmt.Printf("    [-] Missing: %s (Status: 404)\n", s)
+				}
+			}
 		}
-		defer resp.Body.Close()
 
-		fmt.Printf("Success! Status Code: %d\n", resp.StatusCode)
+		fmt.Println("\n[*] Recon Complete. Check Burp Suite 'HTTP History' for all validated paths.")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(mapCmd)
+	mapCmd.Flags().StringVarP(&targetURL, "url", "u", "", "URL of the Swagger/OpenAPI spec")
 }
