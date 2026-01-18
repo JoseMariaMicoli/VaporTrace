@@ -63,6 +63,9 @@ func (s *Shell) Start() {
 		readline.PcItem("mine"),
 		readline.PcItem("triage"),
 		readline.PcItem("bola"),
+		readline.PcItem("bopla"),
+		readline.PcItem("test-bola"),
+		readline.PcItem("test-bopla"),
 		readline.PcItem("auth"),
 		readline.PcItem("sessions"),
 		readline.PcItem("help"),
@@ -86,10 +89,10 @@ func (s *Shell) Start() {
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          prompt,
-		HistoryFile:     "/tmp/vaportrace.tmp",
-		AutoComplete:    completer,
+		HistoryFile:      "/tmp/vaportrace.tmp",
+		AutoComplete:     completer,
 		InterruptPrompt: "^C",
-		EOFPrompt:       "exit",
+		EOFPrompt:        "exit",
 	})
 	if err != nil {
 		panic(err)
@@ -135,16 +138,37 @@ func (s *Shell) handleCommand(input string) {
 			pterm.Info.Println("Usage: bola <url> <victim_id>")
 			return
 		}
-		// Real Scenario: Initialize with global session fallback
 		probe := &logic.BOLAContext{
 			BaseURL:  parts[1],
 			VictimID: parts[2],
 		}
 		probe.Probe()
+	case "bopla":
+		if len(parts) < 3 {
+			pterm.Info.Println("Usage: bopla <url> <base_json>")
+			pterm.Info.Println("Example: bopla https://api.com/v1/user '{\"name\":\"john\"}'")
+			return
+		}
+		jsonStr := strings.Join(parts[2:], " ")
+		probe := &logic.BOPLAContext{
+			TargetURL: parts[1],
+			Method:    "PATCH",
+			BaseJSON:  jsonStr,
+		}
+		probe.Fuzz()
+	case "test-bopla":
+		pterm.DefaultHeader.WithFullWidth(false).Println("BOPLA Logic Test Sequence")
+		pterm.Info.Println("Simulating Mass Assignment against httpbin reflection...")
+		test := &logic.BOPLAContext{
+			TargetURL: "https://httpbin.org/patch",
+			Method:    "PATCH",
+			BaseJSON:  `{"username": "vapor_user", "email": "vapor@trace.local"}`,
+		}
+		test.Fuzz()
 	case "auth":
 		if len(parts) < 3 {
 			pterm.Info.Println("Usage: auth <victim|attacker> <token>")
-			return // FIXED: Use return instead of continue
+			return 
 		}
 		if parts[1] == "attacker" {
 			logic.CurrentSession.AttackerToken = parts[2]
@@ -164,8 +188,8 @@ func (s *Shell) handleCommand(input string) {
 		
 		pterm.Info.Println("TEST 1: Simulating Vulnerable Endpoint (Expect VULN)")
 		vuln := &logic.BOLAContext{
-			BaseURL:       "https://httpbin.org/anything", 
-			VictimID:      "user_777_private_data",
+			BaseURL:        "https://httpbin.org/anything", 
+			VictimID:       "user_777_private_data",
 			AttackerToken: "evil_token_v3",
 		}
 		vuln.Probe()
@@ -174,8 +198,8 @@ func (s *Shell) handleCommand(input string) {
 
 		pterm.Info.Println("TEST 2: Simulating Secure Endpoint (Expect SECURE)")
 		secure := &logic.BOLAContext{
-			BaseURL:       "https://httpbin.org/status/403",
-			VictimID:      "", 
+			BaseURL:        "https://httpbin.org/status/403",
+			VictimID:       "", 
 			AttackerToken: "evil_token_v3",
 		}
 		secure.Probe()
@@ -191,6 +215,8 @@ func (s *Shell) ShowUsage() {
 		{"auth", "Set identity tokens", "auth attacker <token>"},
 		{"sessions", "View active tokens", "sessions"},
 		{"bola", "Phase 3 BOLA test", "bola <url> <id>"},
+		{"bopla", "BOPLA / API3 Mass Assignment", "bopla <url> '{\"id\":1}'"},
+		{"test-bopla", "Verify BOPLA logic", "test-bopla"},
 		{"map", "Full Phase 2 API Recon", "map -u <url>"},
 		{"triage", "Scan logs for tokens", "triage"},
 		{"help", "Show manual", "help map"},
@@ -215,6 +241,12 @@ func (s *Shell) ShowHelp(cmd string) {
 		pterm.Println("Analyzes local_build.logs for 'net/v1.0.4' deprecated signatures.")
 	case "bola":
 		pterm.Println("Attempts Broken Object Level Authorization (API1) by swapping identity tokens across resource IDs.")
+	case "test-bola":
+		pterm.Println("Runs a diagnostic BOLA sequence against httpbin to verify identity-swap and detection logic.")
+	case "bopla": 
+		pterm.Println("Attempts Mass Assignment (API3) by injecting administrative properties into JSON payloads.")
+	case "test-bopla": 
+		pterm.Println("Simulates a Mass Assignment attack against a reflection endpoint to verify injection logic.")
 	default:
 		pterm.Error.Printf("No manual entry for %s\n", cmd)
 	}
