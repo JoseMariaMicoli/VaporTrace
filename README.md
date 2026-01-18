@@ -1,11 +1,13 @@
 ```markdown
-    __   __                       _____                    
-    \ \ / /___  _ __  ___  _ __  |_   _| __ __ _  ___ ___ 
-     \ V // _ `| '_ \/ _ \| '__|   | || '__/ _` |/ __/ _ \
-      \  / (_| | |_)  (_) | |      | || | | (_| | (_|  __/
-       \/ \__,_| .__/\___/|_|      |_||_|  \__,_|\___\___|
+    __  __                         _____                    
+    \ \ / /___  _ __  ___  _ __   |_   _| __ __ _  ___ ___ 
+     \ V // _ `| '_ \/ _ \| '__|    | || '__/ _` |/ __/ _ \
+      \  / (_| | |_)  (_) | |       | || | | (_| | (_|  __/
+       \/ \__,_| .__/\___/|_|       |_||_|  \__,_|\___\___|
                |_|      [ Surgical API Exploitation Suite]
+
 ```
+
 **VaporTrace** is a high-performance Red Team framework engineered in Go for surgical reconnaissance and exploitation of API architectures. It specializes in uncovering "Shadow APIs," analyzing authorization logic (BOLA/BFLA), and mapping the entire attack surface of modern REST/Microservice environments.
 
 ---
@@ -34,8 +36,7 @@ VaporTrace operations are mapped across the full attack lifecycle to provide sta
 | **P3: Auth Logic** | Privilege Escalation | T1548: Abuse Elevation Control | `bopla`, `bfla`, `bola` |
 | **P4: Injection** | Impact | T1499: Endpoint DoS | `resource-exhaustion (API4)` |
 | **P4: Injection** | Discovery | T1046: Network Service Discovery | `ssrf-tracker (API7)` |
-
-
+| **P5: Reporting** | Reporting | T1592: Gather Victim Host Info | `persistence (SQLite) / report` |
 
 ---
 
@@ -44,13 +45,15 @@ VaporTrace operations are mapped across the full attack lifecycle to provide sta
 The **VaporTrace Shell** is the core differentiator of this framework. Unlike standard one-shot CLI tools, the shell provides a **Persistent Security Context** required for complex logic testing.
 
 ### Strategic Use Case: The "Auth Pivot"
-In modern API pentesting, most vulnerabilities aren't found in a single request, but in the **logical relationship** between two accounts. 
+
+In modern API pentesting, most vulnerabilities aren't found in a single request, but in the **logical relationship** between two accounts.
 
 * **Identity Management:** The shell maintains a global state for `Attacker` and `Victim` tokens. You configure them once, and the engine automatically handles the "Identity Swap" during probes.
 * **Speed:** No need to re-type complex JWTs or headers for every command.
 * **Real-time Triage:** Integrated `pterm` tables provide immediate feedback on whether a request was blocked (403), missing (404), or successfully leaked (200 OK).
 
 To enter the interactive tactical mode, execute:
+
 ```bash
 ./VaporTrace shell
 
@@ -81,12 +84,19 @@ To enter the interactive tactical mode, execute:
 * [x] **BOPLA/Mass Assignment (API3):** Fuzzing JSON bodies for administrative or hidden properties.
 * [x] **BFLA Module (API5):** Testing hierarchical access via HTTP method manipulation (GET vs DELETE).
 
-### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [ACTIVE]**
+### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [STABLE]**
 
 * [x] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
 * [x] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
 * [x] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
 * [x] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
+
+### **Phase 5: Intelligence & Persistence (API11) [ACTIVE]**
+
+* [ ] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
+* [ ] **Async Log Worker:** Non-blocking background commitments of tactical findings.
+* [ ] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
+* [ ] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
 
 ---
 
@@ -115,6 +125,13 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `bfla` | Execute Method Shuffling / Verb Tampering | `bfla <url>` |
 | `test-bfla` | Verify BFLA logic against httpbin | `test-bfla` |
 | `map` | Execute full Phase 2 Recon | `map -u <url>` |
+| `exhaust` | Execute Phase 4.1 Resource Exhaustion | `exhaust <url> <param>` |
+| `ssrf` | Execute Phase 4.2 SSRF Tracking | `ssrf <url> <param> <callback>` |
+| `audit` | Execute Phase 4.3 Security Audit | `audit <url>` |
+| `probe` | Execute Phase 4.4 Integration Probe | `probe <url> [type]` |
+| `init_db` | Initialize Phase 5 SQLite Persistence | `init_db` |
+| `reset_db` | Wipe local mission data | `reset_db` |
+| `report` | Generate Classified Mission Report | `report` |
 | `triage` | Scan local logs for leaked credentials | `triage` |
 | `clear` | Reset the terminal view | `clear` |
 | `exit` | Gracefully shutdown the suite | `exit` |
@@ -132,7 +149,7 @@ vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 
 # 3. Target a user-settings endpoint with a base JSON object
 # The engine will attempt to inject 'is_admin', 'role', etc.
-vapor@trace:~$ bopla [https://api.target.com/v1/user/me](https://api.target.com/v1/user/me) '{"name":"vapor"}'
+vapor@trace:~$ bopla https://api.target.com/v1/user/me '{"name":"vapor"}'
 
 ```
 
@@ -144,13 +161,15 @@ Use this unified template to document findings across the VaporTrace tactical ph
 
 > **[VAPOR-TRACE-SECURITY-ADVISORY]**
 > **FINDING ID:** VT-{{YEAR}}-{{ID}}
-> **STRATEGIC PHASE:** {{Phase_1_to_4}}
+> **STRATEGIC PHASE:** {{Phase_1_to_5}}
+> **DATABASE ID:** {{DB_Session_ID}}
 > **TARGET ENDPOINT:** `{{target_url}}`
 > **OWASP API TOP 10:** {{OWASP_Category}} (e.g., API4:2023 Resource Exhaustion)
 > **TECHNICAL ANALYSIS:**
 > * **Reconnaissance (P2):** Discovered via version walking / shadow API mining.
 > * **Authorization Context (P3):** Identity swap performed between Attacker and Victim tokens.
 > * **Injection/Consumption (P4):** Logic used to trigger SSRF or Resource Exhaustion.
+> * **Persistence (P5):** All tactical logs committed to SQLite for debrief.
 > 
 > 
 > **REPRODUCTION LOG:**
@@ -161,14 +180,22 @@ Use this unified template to document findings across the VaporTrace tactical ph
 > ```
 > 
 > 
-> **IMPACT:** {{Data_Exfiltration / Service_Instability / Privilege_Escalation}}
-> **REMEDIATION:** {{Engineering_Action_Plan}}
+
+> ```
+> 
+> **IMPACT:** {{Data\_Exfiltration / Service\_Instability / Privilege\_Escalation}}
+> **REMEDIATION:** {{Engineering\_Action\_Plan}}
+> 
+> ```
+> 
+> 
 
 ---
 
 ## 📡 The Technology Behind the Tracer
 
 * **Language:** Golang (Concurrency-focused, statically linked).
+* **Database:** SQLite3 with async I/O worker pool for persistent mission tracking.
 * **UI Stack:** `pterm` for tactical dashboarding and `readline` for shell interactivity.
 * **Network Stack:** Custom `net/http` wrapper with `crypto/tls` overrides and robust `net/url` path handling.
 
