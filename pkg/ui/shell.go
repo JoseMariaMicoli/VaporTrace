@@ -64,8 +64,10 @@ func (s *Shell) Start() {
 		readline.PcItem("triage"),
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
+		readline.PcItem("bfla"),
 		readline.PcItem("test-bola"),
 		readline.PcItem("test-bopla"),
+		readline.PcItem("test-bfla"),
 		readline.PcItem("auth"),
 		readline.PcItem("sessions"),
 		readline.PcItem("help"),
@@ -165,6 +167,17 @@ func (s *Shell) handleCommand(input string) {
 			BaseJSON:  `{"username": "vapor_user", "email": "vapor@trace.local"}`,
 		}
 		test.Fuzz()
+	case "bfla":
+		if len(parts) < 2 {
+			pterm.Info.Println("Usage: bfla <url>")
+			return
+		}
+		probe := &logic.BFLAContext{TargetURL: parts[1]}
+		probe.Probe()
+	case "test-bfla":
+		pterm.Info.Println("Simulating Verb Tampering against httpbin...")
+		test := &logic.BFLAContext{TargetURL: "https://httpbin.org/anything"}
+		test.Probe()
 	case "auth":
 		if len(parts) < 3 {
 			pterm.Info.Println("Usage: auth <victim|attacker> <token>")
@@ -216,7 +229,10 @@ func (s *Shell) ShowUsage() {
 		{"sessions", "View active tokens", "sessions"},
 		{"bola", "Phase 3 BOLA test", "bola <url> <id>"},
 		{"bopla", "BOPLA / API3 Mass Assignment", "bopla <url> '{\"id\":1}'"},
+		{"bfla", "BFLA / API5 Method Shuffling", "bfla <url>"},
+		{"test-bola", "Verify BOLA logic", "test-bola"},
 		{"test-bopla", "Verify BOPLA logic", "test-bopla"},
+		{"test-bfla", "Verify BFLA logic", "test-bfla"},
 		{"map", "Full Phase 2 API Recon", "map -u <url>"},
 		{"triage", "Scan logs for tokens", "triage"},
 		{"help", "Show manual", "help map"},
@@ -247,6 +263,9 @@ func (s *Shell) ShowHelp(cmd string) {
 		pterm.Println("Attempts Mass Assignment (API3) by injecting administrative properties into JSON payloads.")
 	case "test-bopla": 
 		pterm.Println("Simulates a Mass Assignment attack against a reflection endpoint to verify injection logic.")
+	case "bfla":
+		pterm.Println("Tests for Broken Function Level Authorization by attempting administrative HTTP verbs (DELETE, POST, etc.) using a low-privilege session.")
+	case "test-bfla": pterm.Println("Simulates Verb Tampering against httpbin to verify the method-shuffling engine.")
 	default:
 		pterm.Error.Printf("No manual entry for %s\n", cmd)
 	}
