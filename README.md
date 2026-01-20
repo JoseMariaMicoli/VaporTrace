@@ -91,12 +91,40 @@ To enter the interactive tactical mode, execute:
 * [x] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
 * [x] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
 
-### **Phase 5: Intelligence & Persistence [ACTIVE]**
+### **Phase 5: Intelligence & Persistence [STABLE]**
 
 * [x] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
 * [x] **Async Log Worker:** Non-blocking background commitments of tactical findings.
 * [x] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
 * [x] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
+
+### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [UPCOMING]**
+
+* [ ] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
+* [ ] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
+* [ ] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
+
+### **Phase 7: Business Logic & Workflow Fuzzing [UPCOMING]**
+
+* [ ] **State-Machine Mapping:** Identifying logical order (e.g., Pay -> Download) and testing out-of-order execution.
+* [ ] **Race Condition Engine:** Multi-threaded "Turbo Intruder" style probes for currency/credit exploits.
+
+### **Phase 8: Post-Exploitation & Data Exfiltration [UPCOMING]**
+
+* [ ] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
+* [ ] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
+
+### **Phase 9: Engineering & Hardening [ACTIVE]**
+
+* [x] **9.1: Scraper Refinement:** Pre-compiled global regex for high-performance scraping.
+* [x] **9.1.1: Tactical UI:** Integrated spinners and real-time tables for immediate feedback.
+* [ ] **9.2: Surgical BOLA:** Response Diffing engine (Levenshtein) to eliminate False Positives.
+* [ ] **9.3: Concurrency Engine:** High-speed worker pools for massive enumeration.
+
+### **Phase 10: The Vanguard (Future)**
+
+* [ ] **AI-Driven Fuzzing:** Context-aware payload generation using local LLM integration.
+* [ ] **Auto-Exploit PoC:** Standalone script generation for verified vulnerabilities.
 
 ---
 
