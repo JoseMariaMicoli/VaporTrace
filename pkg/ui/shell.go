@@ -443,15 +443,29 @@ func (s *Shell) handleCommand(command string, args []string) {
 		test.FuzzPagination()
 
 	case "bola":
-		if len(args) < 2 {
-			pterm.Info.Println("Usage: bola <url> <victim_id>")
-			return
-		}
-		probe := &logic.BOLAContext{
-			BaseURL:  args[0],
-			VictimID: args[1],
-		}
-		probe.Probe()
+	    if len(args) < 2 {
+	        pterm.Error.Println("Usage: bola -u <url> -v <victim_id> [-a <attacker_id>]")
+	        break
+	    }
+
+	    ctx := &logic.BOLAContext{}
+	    for i := 0; i < len(args); i++ {
+	        switch args[i] {
+	        case "-u":
+	            if i+1 < len(args) { ctx.BaseURL = args[i+1] }
+	        case "-v":
+	            if i+1 < len(args) { ctx.VictimID = args[i+1] }
+	        case "-a":
+	            if i+1 < len(args) { ctx.AttackerID = args[i+1] }
+	        }
+	    }
+
+	    // Validation: Ensure the URL doesn't still have the flag attached
+	    if strings.HasPrefix(ctx.BaseURL, "-u") {
+	        ctx.BaseURL = strings.TrimPrefix(ctx.BaseURL, "-u")
+	    }
+
+	    ctx.Probe()
 
 	case "bopla":
 		if len(args) < 2 {
