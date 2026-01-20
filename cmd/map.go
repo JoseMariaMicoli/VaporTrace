@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/discovery"
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils" // Import Central Utils
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
+	"github.com/pterm/pterm" // Added for tactical UI
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -17,105 +18,80 @@ var (
 
 var mapCmd = &cobra.Command{
 	Use:   "map",
-	Short: "Reverse engineer API endpoints",
-	Long:  `VaporTrace map will scan for Swagger specs, JS files, and hidden routes.`,
+	Short: "Reverse engineer API endpoints with real-time feedback",
 	Run: func(cmd *cobra.Command, args []string) {
 		if targetURL == "" && jsURL == "" {
-			fmt.Println("[!] Error: Please provide a target spec URL (-u) or a JS URL (-j)")
+			pterm.Error.Println("Target specification missing. Use -u (Swagger) or -j (JS Bundle)")
 			return
 		}
 
-		fmt.Println("VaporTrace Mapping initialized...")
+		pterm.DefaultHeader.WithFullWidth().Println("VaporTrace Mapper: Intelligence Gathering")
 
-		// Get the proxy address from the global flag
+		// 1. Networking Setup
 		proxyAddr, _ := cmd.Flags().GetString("proxy")
-
-		// PATCH: Activate the Global Proxy immediately.
-		// All subsequent discovery calls will now route through this automatically.
 		utils.UpdateGlobalClient(proxyAddr)
-
-		// --- SECTION 1: SWAGGER & SHADOW PROBING ---
+		
 		var allEndpoints []string
 
+		// 2. Swagger Probing (Section 1)
 		if targetURL != "" {
-			fmt.Printf("[*] Probing spec: %s via Proxy: %s\n", targetURL, proxyAddr)
-			
-			// Note: We pass proxyAddr just to satisfy the signature, but the logic uses GlobalClient internally now.
+			spinner, _ := pterm.DefaultSpinner.Start("Parsing Swagger/OpenAPI Spec...")
 			endpoints, err := discovery.ParseSwagger(targetURL, proxyAddr)
 			if err != nil {
-				fmt.Printf("[!] Mapping failed: %v\n", err)
+				spinner.Fail(fmt.Sprintf("Swagger Analysis Failed: %v", err))
 			} else {
-				allEndpoints = endpoints
-				fmt.Printf("\n[+] Success! Discovered %d unique endpoints\n", len(endpoints))
-				for _, e := range endpoints {
-					fmt.Printf("    -> %s\n", e)
-				}
-
-				fmt.Println("\n[*] Phase 2.1: Analyzing paths for Shadow API versions (API9)...")
-				shadowRoutes := discovery.WalkVersions(endpoints)
-
-				if len(shadowRoutes) > 0 {
-					fmt.Printf("[!] Found %d potential shadow routes to investigate.\n", len(shadowRoutes))
-					
-					parts := strings.Split(targetURL, "/")
-					if len(parts) >= 3 {
-						baseURL := parts[0] + "//" + parts[2]
-
-						for _, s := range shadowRoutes {
-							status, err := discovery.ProbeEndpoint(baseURL, s, proxyAddr)
-							if err != nil {
-								continue
-							}
-
-							if status != 404 {
-								fmt.Printf("    [!!!] INTERESTING: %s (Status: %d)\n", s, status)
-							}
-						}
-					}
-				}
+				spinner.Success(fmt.Sprintf("Identified %d endpoints from documentation", len(endpoints)))
+				allEndpoints = append(allEndpoints, endpoints...)
 			}
 		}
 
-		// --- SECTION 2: JS ROUTE SCRAPER ---
+		// 3. JS Scraper (Section 2 - The Phase 9.1 Core)
 		if jsURL != "" {
-			fmt.Printf("\n[*] Phase 2.3: Scraping JS Bundle: %s\n", jsURL)
+			spinner, _ := pterm.DefaultSpinner.Start("Deep-Scraping JS Bundle for Hidden Routes...")
 			jsEndpoints, err := discovery.ExtractJSPaths(jsURL, proxyAddr)
 			if err != nil {
-				fmt.Printf("[!] JS Scraping failed: %v\n", err)
+				spinner.Fail(fmt.Sprintf("JS Scraping Failed: %v", err))
+			} else if len(jsEndpoints) == 0 {
+				spinner.Warning("No API patterns matched in the JavaScript bundle")
 			} else {
-				fmt.Printf("[+] Found %d potential endpoints in JS:\n", len(jsEndpoints))
+				spinner.Success(fmt.Sprintf("Harvested %d routes from client-side code", len(jsEndpoints)))
+				
+				// Render a tactical table of findings
+				tableData := pterm.TableData{{"EXTRACTED PATH", "SOURCE"}}
 				for _, je := range jsEndpoints {
-					fmt.Printf("    -> %s (extracted from JS)\n", je)
+					tableData = append(tableData, []string{je, "JS Static Analysis"})
 					allEndpoints = append(allEndpoints, je)
 				}
+				pterm.DefaultTable.WithHasHeader().WithData(tableData).WithBoxed().Render()
 			}
 		}
 
-		// --- SECTION 3: PARAMETER MINER ---
+		// 4. Parameter Mining (Section 3)
 		if mineFlag && len(allEndpoints) > 0 {
-			fmt.Println("\n[*] Phase 2.4: Mining hidden parameters on discovered endpoints...")
+			pterm.DefaultSection.Println("Phase 2.4: Tactical Parameter Mining")
 			
 			parts := strings.Split(targetURL, "/")
 			if len(parts) >= 3 {
 				baseURL := parts[0] + "//" + parts[2]
-				limit := 5
-				for i, endpoint := range allEndpoints {
-					if i >= limit {
-						break
-					}
-					fmt.Printf("    [*] Mining: %s\n", endpoint)
+				
+				// Progress bar for mining
+				pb, _ := pterm.DefaultProgressbar.WithTotal(len(allEndpoints)).WithTitle("Mining Params").Start()
+				for _, endpoint := range allEndpoints {
+					pb.UpdateTitle("Mining: " + endpoint)
 					discovery.MineParameters(baseURL, endpoint, proxyAddr)
+					pb.Increment()
 				}
+				pb.Stop()
 			}
 		}
 
-		fmt.Println("\n[*] Recon Complete. Check Burp Suite 'HTTP History'.")
+		pterm.Success.Println("Mapping Complete. Intelligence persisted to vaportrace.db")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(mapCmd)
 	mapCmd.Flags().StringVarP(&targetURL, "url", "u", "", "URL of the Swagger/OpenAPI spec")
-	mapCmd.Flags().StringVarP(&jsURL, "js", "j", "", "URL of a JavaScript bundle to scrape")
-	mapCmd.Flags().BoolVarP(&mineFlag, "mine", "m", false, "Mine endpoints for hidden parameters")
+	mapCmd.Flags().StringVarP(&jsURL, "js", "j", "", "URL of a JS bundle to scrape")
+	mapCmd.Flags().BoolVarP(&mineFlag, "mine", "m", false, "Enable parameter mining on discovered routes")
 }

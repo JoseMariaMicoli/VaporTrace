@@ -328,7 +328,58 @@ func (s *Shell) handleCommand(command string, args []string) {
 		}
 
 	case "map":
-		pterm.Info.Println("Executing Phase 2: Mapping Logic sequence...")
+    if len(args) < 2 {
+	    pterm.Error.Println("Usage: map -u <url> OR map -j <js_url>")
+	    return 
+	}
+
+    // Parse flags manually for the shell
+    var sURL, jURL string
+    for i, arg := range args {
+        if arg == "-u" && i+1 < len(args) { sURL = args[i+1] }
+        if arg == "-j" && i+1 < len(args) { jURL = args[i+1] }
+    }
+
+    pterm.DefaultSection.Println("Phase 2: Intelligence Mapping")
+    var foundEndpoints []string
+
+    // 1. Process JS Scraper with tactical feedback
+    if jURL != "" {
+        spinner, _ := pterm.DefaultSpinner.Start("Scraping JS Bundle: " + jURL)
+        endpoints, err := discovery.ExtractJSPaths(jURL, "") // GlobalClient used internally
+        
+        if err != nil {
+            spinner.Fail("Scrape failed: " + err.Error())
+        } else if len(endpoints) == 0 {
+            spinner.Warning("No API patterns found in JS.")
+        } else {
+            spinner.Success(fmt.Sprintf("Harvested %d routes", len(endpoints)))
+            foundEndpoints = append(foundEndpoints, endpoints...)
+            
+            // Render the findings table immediately in the shell
+            tableData := pterm.TableData{{"TYPE", "EXTRACTED PATH"}}
+            for _, e := range endpoints {
+                tableData = append(tableData, []string{"JS_ROUTE", e})
+            }
+            pterm.DefaultTable.WithHasHeader().WithData(tableData).WithBoxed().Render()
+        }
+    }
+
+    // 2. Process Swagger if provided
+    if sURL != "" {
+        spinner, _ := pterm.DefaultSpinner.Start("Analyzing Swagger Spec...")
+        endpoints, err := discovery.ParseSwagger(sURL, "")
+        if err != nil {
+            spinner.Fail("Swagger parse failed")
+        } else {
+            spinner.Success(fmt.Sprintf("Found %d documented endpoints", len(endpoints)))
+            foundEndpoints = append(foundEndpoints, endpoints...)
+        }
+    }
+
+    if len(foundEndpoints) > 0 {
+        pterm.Success.Printf("Mapping complete. %d total endpoints stored in session.\n", len(foundEndpoints))
+    }
 
 	case "audit":
 		if len(args) < 1 {
