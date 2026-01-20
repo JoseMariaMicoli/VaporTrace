@@ -118,8 +118,9 @@ To enter the interactive tactical mode, execute:
 
 * [x] **9.1: Scraper Refinement:** Pre-compiled global regex for high-performance scraping.
 * [x] **9.1.1: Tactical UI:** Integrated spinners and real-time tables for immediate feedback.
-* [x] **9.2: Surgical BOLA:** Response Diffing engine (Levenshtein) to eliminate False Positives.
-* [x] **9.3: Concurrency Engine:** High-speed worker pools for massive enumeration.
+* [x] **9.2: Surgical BOLA:** Response Diffing engine (Baseline comparison) to eliminate False Positives.
+* [x] **9.3: Concurrency Engine:** High-speed worker pools with channel-based task distribution for massive enumeration.
+* [x] **9.4: Environment Sensing:** Auto-detection of Burp Suite/ZAP proxies with intelligent "Hit-Mirroring" and custom X-Header signaling.
 
 ### **Phase 10: The Vanguard (Future)**
 
