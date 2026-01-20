@@ -467,6 +467,52 @@ func (s *Shell) handleCommand(command string, args []string) {
 
 	    ctx.Probe()
 
+	case "scan-bola":
+	    // Usage: scan-bola -u <url> -r 1000-1050 -t 10
+	    if len(args) < 4 {
+	        pterm.Error.Println("Usage: scan-bola -u <url> -r <start-end> -t <threads>")
+	        break
+	    }
+
+	    var urlStr, idRange string
+	    threads := 5 
+
+	    for i := 0; i < len(args); i++ {
+	        switch args[i] {
+	        case "-u":
+	            if i+1 < len(args) { urlStr = args[i+1] }
+	        case "-r":
+	            if i+1 < len(args) { idRange = args[i+1] }
+	        case "-t":
+	            if i+1 < len(args) { 
+	                fmt.Sscanf(args[i+1], "%d", &threads) 
+	            }
+	        }
+	    }
+
+	    // Inline Range Parsing: replaces the need for parseRange()
+	    var start, end int
+	    _, err := fmt.Sscanf(idRange, "%d-%d", &start, &end)
+	    if err != nil {
+	        pterm.Error.Println("Invalid range format. Use: 1000-1050")
+	        break
+	    }
+
+	    if start > end {
+	        pterm.Error.Println("Start of range cannot be greater than end.")
+	        break
+	    }
+
+	    // Generate ID list
+	    var ids []string
+	    for i := start; i <= end; i++ {
+	        ids = append(ids, fmt.Sprintf("%d", i))
+	    }
+
+	    // Execute Mass Probe
+	    ctx := &logic.BOLAContext{BaseURL: urlStr}
+	    ctx.MassProbe(ids, threads)
+
 	case "bopla":
 		if len(args) < 2 {
 			pterm.Info.Println("Usage: bopla <url> <base_json>")

