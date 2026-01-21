@@ -126,7 +126,7 @@ To enter the interactive tactical mode, execute:
 * [ ] **Objective:** Connect Discovery modules to Attack modules.
 * [ ] **Sub-task:** Logic to feed `swagger`/`map` results into `scan-bola` (ID-detection).
 * [ ] **Sub-task:** Logic to feed `map` results into `scan-bopla` (JSON detection) and `scan-bfla` (Route mapping).
-**9.6: Universal Proxy Integration (Universal Mirroring)**
+* **9.6: Universal Proxy Integration (Universal Mirroring)**
 * [ ] **Objective:** Refactor the networking layer to support all future modules.
 * [ ] **Sub-task:** Update `SafeDo` to accept a `ModuleID` and `isHit` flag, ensuring any successful exploit (BFLA, BOPLA, Audit, etc.) is automatically mirrored to Burp/ZAP.
 **9.7: Industrialized BOPLA (Mass Assignment)**
