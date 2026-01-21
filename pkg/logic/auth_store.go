@@ -1,10 +1,15 @@
 package logic
 
-// SessionStore holds tokens configured via the 'auth' command
+// SessionStore holds the runtime configuration for the attacker
 type SessionStore struct {
-	VictimToken   string
+	TargetURL     string
 	AttackerToken string
+	VictimToken   string
+	Threads       int
 }
 
-// CurrentSession is the global state for the active CLI session
-var CurrentSession = &SessionStore{}
+// CurrentSession holds the active configuration
+var CurrentSession = SessionStore{
+	TargetURL: "http://localhost",
+	Threads:   10,
+}

