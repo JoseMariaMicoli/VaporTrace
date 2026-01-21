@@ -75,6 +75,7 @@ func (s *Shell) Start() {
 		readline.PcItem("mine"),
 		readline.PcItem("scrape"),
 		readline.PcItem("swagger"),
+		readline.PcItem("pipeline"),
 		readline.PcItem("proxy"), 
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
@@ -447,29 +448,50 @@ func (s *Shell) handleCommand(command string, args []string) {
 		test.FuzzPagination()
 
 	case "bola":
-	    if len(args) < 2 {
-	        pterm.Error.Println("Usage: bola -u <url> -v <victim_id> [-a <attacker_id>]")
-	        break
-	    }
+		// 1. Check for Pipeline Mode (Phase 9.7)
+		isPipeline := false
+		for _, arg := range args {
+			if arg == "--pipeline" || arg == "-p" {
+				isPipeline = true
+			}
+		}
 
-	    ctx := &logic.BOLAContext{}
-	    for i := 0; i < len(args); i++ {
-	        switch args[i] {
-	        case "-u":
-	            if i+1 < len(args) { ctx.BaseURL = args[i+1] }
-	        case "-v":
-	            if i+1 < len(args) { ctx.VictimID = args[i+1] }
-	        case "-a":
-	            if i+1 < len(args) { ctx.AttackerID = args[i+1] }
-	        }
-	    }
+		if isPipeline {
+			if len(logic.GlobalDiscovery.Endpoints) == 0 {
+				pterm.Error.Println("Pipeline is empty. Run 'swagger' then 'pipeline' first.")
+				return
+			}
+			ctx := &logic.BOLAContext{}
+			// Default IDs for the initial scan; Phase 9.8 will allow custom lists
+			idList := []string{"1", "2", "3", "101", "102"} 
+			ctx.ExecuteMassBOLA(idList, 10) 
+			return
+		}
 
-	    // Validation: Ensure the URL doesn't still have the flag attached
-	    if strings.HasPrefix(ctx.BaseURL, "-u") {
-	        ctx.BaseURL = strings.TrimPrefix(ctx.BaseURL, "-u")
-	    }
+		// 2. Existing Surgical Mode
+		if len(args) < 2 {
+			pterm.Error.Println("Usage: bola -u <url> -v <victim_id> [-a <attacker_id>] OR bola --pipeline")
+			return
+		}
 
-	    ctx.Probe()
+		ctx := &logic.BOLAContext{}
+		for i := 0; i < len(args); i++ {
+			switch args[i] {
+			case "-u":
+				if i+1 < len(args) { ctx.BaseURL = args[i+1] }
+			case "-v":
+				if i+1 < len(args) { ctx.VictimID = args[i+1] }
+			case "-a":
+				if i+1 < len(args) { ctx.AttackerID = args[i+1] }
+			}
+		}
+
+		// Validation to strip prefix if user accidentally included it in the value
+		if strings.HasPrefix(ctx.BaseURL, "-u") {
+			ctx.BaseURL = strings.TrimPrefix(ctx.BaseURL, "-u")
+		}
+
+		ctx.Probe()
 
 	case "scan-bola":
 	    // Usage: scan-bola -u <url> -r 1000-1050 -t 10

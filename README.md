@@ -125,24 +125,11 @@ To enter the interactive tactical mode, execute:
 * [x] **9.3: Concurrency Engine:** High-speed worker pools with channel-based task distribution for massive enumeration.
 * [x] **9.4: Environment Sensing:** Auto-detection of Burp Suite/ZAP proxies with intelligent "Hit-Mirroring" and custom X-Header signaling.
 * [x] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
-**9.5: The Tactical Pipeline (The Link)**
-* [x] **Objective:** Connect Discovery modules to Attack modules.
-* [x] **Sub-task:** Logic to feed `swagger`/`map` results into `scan-bola` (ID-detection).
-* [x] **Sub-task:** Logic to feed `map` results into `scan-bopla` (JSON detection) and `scan-bfla` (Route mapping).
-* **9.6: Universal Proxy Integration (Universal Mirroring)**
-* [x] **Objective:** Refactor the networking layer to support all future modules.
-* [x] **Sub-task:** Update `SafeDo` to accept a `ModuleID` and `isHit` flag, ensuring any successful exploit (BFLA, BOPLA, Audit, etc.) is automatically mirrored to Burp/ZAP.
-* **9.7: Industrialized BOPLA (Mass Assignment)**
-* [ ] **Objective:** Upgrade BOPLA from a single probe to a mass-scanner.
-* [ ] **Sub-task:** Integrate the Phase 9.3 Worker Pool for concurrent JSON property fuzzing.
-* [ ] **Sub-task:** Implement automated mirroring to Burp for every successful property injection.
-* **9.8: Industrialized BFLA (Functional Logic)**
-* [ ] **Objective:** Upgrade BFLA from a single probe to a mass-scanner.
-* [ ] **Sub-task:** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
-* [ ] **Sub-task:** Mirror successful unauthorized method calls to Burp Suite.
-* **9.9: Universal Concurrency (Generic Executor)**
-* [ ] **Objective:** Code efficiency and standardization.
-* [ ] **Sub-task:** Create a `GenericExecutor` in `pkg/logic` that all commands (`mine`, `exhaust`, `audit`, etc.) can use to gain high-speed concurrency and Burp integration without duplicating code.
+* [x] **9.6: Universal Proxy Integration:** Refactored `SafeDo` to support multi-module mirroring with `isHit` tactical signaling.
+* [x] **9.7: BOLA Concurrency Engine:** Successfully upgraded the surgical BOLA probe to a high-speed, multi-threaded mass scanner using the Phase 9.3 Worker Pool.
+* [ ] **9.8: Industrialized BOPLA (Mass Assignment):** **[NEXT]** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
+* [ ] **9.9: Industrialized BFLA (Functional Logic):** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
+* [ ] **9.10: Universal Concurrency (Generic Executor):** Standardize all commands (`mine`, `exhaust`, etc.) under a single `GenericExecutor` for code efficiency.
 
 ### **Phase 10: The Vanguard (Future)**
 
