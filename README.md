@@ -121,7 +121,7 @@ To enter the interactive tactical mode, execute:
 * [x] **9.2: Surgical BOLA:** Response Diffing engine (Baseline comparison) to eliminate False Positives.
 * [x] **9.3: Concurrency Engine:** High-speed worker pools with channel-based task distribution for massive enumeration.
 * [x] **9.4: Environment Sensing:** Auto-detection of Burp Suite/ZAP proxies with intelligent "Hit-Mirroring" and custom X-Header signaling.
-* [ ] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
+* [x] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
 **9.5: The Tactical Pipeline (The Link)**
 * [x] **Objective:** Connect Discovery modules to Attack modules.
 * [x] **Sub-task:** Logic to feed `swagger`/`map` results into `scan-bola` (ID-detection).
