@@ -202,6 +202,10 @@ func (s *Shell) handleCommand(command string, args []string) {
 			pterm.Info.Println("Usage: help <command>")
 		}
 
+	// PHASE 9.5: The Pipeline Command
+	case "pipeline":
+		logic.AnalyzeDiscovery() // Processes GlobalDiscovery into categorized targets
+
 	case "clear", "cls", "splash":
 		s.RenderBanner()
 
@@ -603,6 +607,7 @@ func (s *Shell) ShowUsage() {
 		{"swagger", "Parse OpenAPI/Swagger docs for routes", "swagger <url>"},
 		{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 		{"scrape", "Extract API paths from JS files", "scrape <url>"},
+		{"pipeline", "Analyze discovery data for BOLA/BFLA/BOPLA targets"},
 		{"auth", "Set identity tokens", "auth attacker <token>"},
 		{"sessions", "View active tokens", "sessions"},
 		{"bola", "Phase 3 BOLA test", "bola <url> <id>"},
@@ -677,6 +682,20 @@ func (s *Shell) ShowHelp(cmd string) {
 		pterm.Println("Parses Swagger/OpenAPI specs and probes for hidden shadow versions (API9).")
 	case "mine":
 		pterm.Println("Fuzzes discovered endpoints for hidden administrative or debug parameters.")
+	case "pipeline":
+		pterm.Bold.Println("COMMAND: pipeline")
+		pterm.Println("DESCRIPTION:")
+		pterm.Println("The Pipeline engine analyzes all endpoints stored in the Global Tactical Store")
+		pterm.Println("(populated by 'map' or 'swagger' commands). It uses heuristic regex to")
+		pterm.Println("categorize routes as potential BOLA, BFLA, or BOPLA targets.")
+		pterm.Println("\nOPERATION:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "ID Detection: Finds {id} or UUIDs for BOLA testing."},
+			{Level: 0, Text: "Verb Mapping: Prepares all routes for BFLA method shuffling."},
+			{Level: 0, Text: "Write Detection: Flags POST/PUT routes for BOPLA/Mass-Assignment."},
+		}}.Render()
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("pipeline")
 	case "bola":
 		pterm.Println("Attempts Broken Object Level Authorization (API1) by swapping identity tokens across resource IDs.")
 	case "test-bola":

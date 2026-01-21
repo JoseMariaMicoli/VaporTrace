@@ -123,9 +123,9 @@ To enter the interactive tactical mode, execute:
 * [x] **9.4: Environment Sensing:** Auto-detection of Burp Suite/ZAP proxies with intelligent "Hit-Mirroring" and custom X-Header signaling.
 * [ ] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
 **9.5: The Tactical Pipeline (The Link)**
-* [ ] **Objective:** Connect Discovery modules to Attack modules.
-* [ ] **Sub-task:** Logic to feed `swagger`/`map` results into `scan-bola` (ID-detection).
-* [ ] **Sub-task:** Logic to feed `map` results into `scan-bopla` (JSON detection) and `scan-bfla` (Route mapping).
+* [x] **Objective:** Connect Discovery modules to Attack modules.
+* [x] **Sub-task:** Logic to feed `swagger`/`map` results into `scan-bola` (ID-detection).
+* [x] **Sub-task:** Logic to feed `map` results into `scan-bopla` (JSON detection) and `scan-bfla` (Route mapping).
 * **9.6: Universal Proxy Integration (Universal Mirroring)**
 * [ ] **Objective:** Refactor the networking layer to support all future modules.
 * [ ] **Sub-task:** Update `SafeDo` to accept a `ModuleID` and `isHit` flag, ensuring any successful exploit (BFLA, BOPLA, Audit, etc.) is automatically mirrored to Burp/ZAP.
@@ -174,6 +174,8 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `mine` | Fuzz for hidden parameters (debug, admin, etc.) | `mine <url> /users` |
 | `proxy` | Route all tactical traffic through Burp Suite | `proxy http://127.0.0.1:8080` |
 | `proxy off` | Disable the interceptor and go direct | `proxy off` |
+| `pipeline` | Analyzes global discovery to categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
+
 | **Logic Exploitation** |  |  |
 | `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
 | `bopla` | Execute Mass Assignment / BOPLA fuzzing (API3) | `bopla <url> '{"id":1}'` |
@@ -198,16 +200,6 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `exit` | Gracefully shutdown the tactical suite | `exit` |
 
 ---
-
-### Final Patch Checklist
-
-To ensure the commands above function as expected:
-
-1. **Global Client:** Ensure `pkg/logic/context.go` and `pkg/discovery/discovery.go` both export `GlobalClient`.
-2. **Removal of Local Clients:** In your uploaded files (e.g., `bola.go`, `exhaustion.go`), ensure you have removed the `client := &http.Client{...}` blocks so they default to the global proxied client.
-3. **UI Bridge:** Ensure your `shell.go` switch-case triggers these functions.
-
-Would you like me to generate the **Phase 5 Intelligence** logic to handle the `report` generation from the database?
 
 ### 3. Tactical Workflow Example (BOPLA / API3)
 
@@ -251,9 +243,7 @@ Use this unified template to document findings across the VaporTrace tactical ph
 > [RESULT] {{server_response_code}} | {{latency_ms}}ms
 > 
 > ```
-> 
-> 
-
+>
 > ```
 > 
 > **IMPACT:** {{Data\_Exfiltration / Service\_Instability / Privilege\_Escalation}}

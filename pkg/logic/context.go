@@ -2,18 +2,35 @@ package logic
 
 import (
 	"net/http"
+	"sync"
 )
 
-// GlobalClient is the shared tactical client used by all logic modules
-// It defaults to a standard client but gets overwritten by the Shell's 'proxy' command
-//var GlobalClient *http.Client
+// GlobalClient is declared here ONCE for the whole 'logic' package
+var GlobalClient *http.Client
+
+type MissionDiscovery struct {
+	Endpoints []string
+	mu        sync.Mutex
+}
+
+var GlobalDiscovery = &MissionDiscovery{
+	Endpoints: []string{},
+}
+
+func (md *MissionDiscovery) AddEndpoint(path string) {
+	md.mu.Lock()
+	defer md.mu.Unlock()
+	for _, e := range md.Endpoints {
+		if e == path { return }
+	}
+	md.Endpoints = append(md.Endpoints, path)
+}
 
 func init() {
-	// Initialize with a default client to prevent nil pointer panics
+	// Initialize it here
 	GlobalClient = &http.Client{}
 }
 
-// SetGlobalClient updates the client for all logic modules (called by UI)
 func SetGlobalClient(client *http.Client) {
 	GlobalClient = client
 }
