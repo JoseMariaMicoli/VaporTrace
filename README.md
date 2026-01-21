@@ -129,15 +129,15 @@ To enter the interactive tactical mode, execute:
 * **9.6: Universal Proxy Integration (Universal Mirroring)**
 * [ ] **Objective:** Refactor the networking layer to support all future modules.
 * [ ] **Sub-task:** Update `SafeDo` to accept a `ModuleID` and `isHit` flag, ensuring any successful exploit (BFLA, BOPLA, Audit, etc.) is automatically mirrored to Burp/ZAP.
-**9.7: Industrialized BOPLA (Mass Assignment)**
+* **9.7: Industrialized BOPLA (Mass Assignment)**
 * [ ] **Objective:** Upgrade BOPLA from a single probe to a mass-scanner.
 * [ ] **Sub-task:** Integrate the Phase 9.3 Worker Pool for concurrent JSON property fuzzing.
 * [ ] **Sub-task:** Implement automated mirroring to Burp for every successful property injection.
-**9.8: Industrialized BFLA (Functional Logic)**
+* **9.8: Industrialized BFLA (Functional Logic)**
 * [ ] **Objective:** Upgrade BFLA from a single probe to a mass-scanner.
 * [ ] **Sub-task:** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
 * [ ] **Sub-task:** Mirror successful unauthorized method calls to Burp Suite.
-**9.9: Universal Concurrency (Generic Executor)**
+* **9.9: Universal Concurrency (Generic Executor)**
 * [ ] **Objective:** Code efficiency and standardization.
 * [ ] **Sub-task:** Create a `GenericExecutor` in `pkg/logic` that all commands (`mine`, `exhaust`, `audit`, etc.) can use to gain high-speed concurrency and Burp integration without duplicating code.
 
