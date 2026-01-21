@@ -13,9 +13,9 @@ import (
 
 // GlobalClient is the central HTTP engine for VaporTrace.
 // It is declared here to be accessible by bola.go and other logic modules.
-var GlobalClient = &http.Client{
+/*var GlobalClient = &http.Client{
 	Timeout: 10 * time.Second,
-}
+}*/
 
 // DetectAndSetProxy checks for common intercepting proxies via HTTP GET.
 // This is a "heavy" check to ensure the proxy is actually processing requests.
