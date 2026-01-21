@@ -77,3 +77,24 @@ func SenseEnvironment() {
 
 	spinner.Info("No Proxy detected. Running in Direct Mode.")
 }
+
+// SafeDo is the tactical gatekeeper for Phase 9.6.
+// It executes the request and mirrors confirmed hits to the proxy.
+func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error) {
+	// Add tracking headers for proxy history
+	req.Header.Set("X-VaporTrace-Module", module)
+	
+	if isHit {
+		req.Header.Set("X-VaporTrace-Signal", "VULN-CONFIRMED")
+		pterm.Warning.Prefix = pterm.Prefix{Text: "MIRROR", Style: pterm.NewStyle(pterm.BgMagenta, pterm.FgWhite)}
+		pterm.Warning.Printfln(" Confirmed hit via %s mirrored to proxy.", module)
+	}
+
+	// Use the GlobalClient (which has the proxy configuration)
+	resp, err := GlobalClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
