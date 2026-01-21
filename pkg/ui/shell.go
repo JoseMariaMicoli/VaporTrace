@@ -565,12 +565,18 @@ func (s *Shell) handleCommand(command string, args []string) {
 		test.Fuzz()
 
 	case "bfla":
-		if len(args) < 1 {
-			pterm.Info.Println("Usage: bfla <url>")
+		isPipeline := false
+		for _, arg := range args {
+			if arg == "--pipeline" || arg == "-p" {
+				isPipeline = true
+			}
+		}
+
+		if isPipeline {
+			logic.ExecuteMassBFLA(10)
 			return
 		}
-		probe := &logic.BFLAContext{TargetURL: args[0]}
-		probe.Probe()
+		pterm.Error.Println("Usage: bfla --pipeline")
 
 	case "test-bfla":
 		pterm.Info.Println("Simulating Verb Tampering against httpbin...")
