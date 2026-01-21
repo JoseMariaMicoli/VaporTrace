@@ -178,7 +178,6 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `proxy` | Route all tactical traffic through Burp Suite | `proxy http://127.0.0.1:8080` |
 | `proxy off` | Disable the interceptor and go direct | `proxy off` |
 | `pipeline` | Analyzes global discovery to categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
-
 | **Logic Exploitation** |  |  |
 | `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
 | `bopla` | Execute Mass Assignment / BOPLA fuzzing (API3) | `bopla <url> '{"id":1}'` |
