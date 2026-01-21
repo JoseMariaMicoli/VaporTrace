@@ -130,7 +130,7 @@ To enter the interactive tactical mode, execute:
 * [x] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
 * [x] **9.6: Universal Proxy Integration:** Refactored `SafeDo` to support multi-module mirroring with `isHit` tactical signaling.
 * [x] **9.7: BOLA Concurrency Engine:** Successfully upgraded the surgical BOLA probe to a high-speed, multi-threaded mass scanner using the Phase 9.3 Worker Pool.
-* [x] **9.8: Industrialized BOPLA (Mass Assignment):** **[NEXT]** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
+* [x] **9.8: Industrialized BOPLA (Mass Assignment):** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
 * [x] **9.9: Industrialized BFLA (Functional Logic):** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
 * [ ] **9.10: Universal Concurrency (Generic Executor):** Standardize all commands (`mine`, `exhaust`, etc.) under a single `GenericExecutor` for code efficiency.
 
