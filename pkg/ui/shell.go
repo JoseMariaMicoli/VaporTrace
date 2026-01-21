@@ -540,18 +540,19 @@ func (s *Shell) handleCommand(command string, args []string) {
 	    ctx.MassProbe(ids, threads)
 
 	case "bopla":
-		if len(args) < 2 {
-			pterm.Info.Println("Usage: bopla <url> <base_json>")
-			pterm.Info.Println("Example: bopla https://api.com/v1/user '{\"name\":\"john\"}'")
+		// Usage: bopla --pipeline
+		isPipeline := false
+		for _, arg := range args {
+			if arg == "--pipeline" || arg == "-p" {
+				isPipeline = true
+			}
+		}
+
+		if isPipeline {
+			logic.ExecuteMassBOPLA(10)
 			return
 		}
-		jsonStr := strings.Join(args[1:], " ")
-		probe := &logic.BOPLAContext{
-			TargetURL: args[0],
-			Method:    "PATCH",
-			BaseJSON:  jsonStr,
-		}
-		probe.Fuzz()
+		pterm.Error.Println("Usage: bopla --pipeline")
 
 	case "test-bopla":
 		pterm.DefaultHeader.WithFullWidth(false).Println("BOPLA Logic Test Sequence")

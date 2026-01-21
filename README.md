@@ -32,14 +32,17 @@ VaporTrace operations are mapped across the full attack lifecycle to provide sta
 | PHASE | TACTIC | TECHNIQUE | VAPORTRACE COMPONENT |
 | --- | --- | --- | --- |
 | **P1: Foundation** | Command and Control | T1105: Ingress Tool Transfer | `Burp Bridge / Proxy Config` |
-| **P2: Discovery** | Reconnaissance | T1595.002: Active Scanning (API) | `map`, `mine`, `version-walker` |
-| **P2: Discovery** | Reconnaissance | T1592: Gather Victim Host Info | **`pipeline` (Endpoint Categorization)** |
-| **P3: Auth Logic** | Privilege Escalation | T1548: Abuse Elevation Control | `scan-bopla`, `scan-bfla`, `scan-bola` |
+| **P2: Discovery** | Reconnaissance | T1595.002: Active Scanning | `map`, `swagger`, `mine` |
+| **P2: Discovery** | Reconnaissance | T1592: Victim Info | **`pipeline` (Endpoint Categorization)** |
+| **P3: Auth Logic** | **Privilege Escalation** | **T1548: Abuse Elevation** | **`bola --pipeline` (Mass Engine)** |
+| **P3: Auth Logic** | **Privilege Escalation** | **T1548.002: Mass Assignment** | **`bopla --pipeline` (Property Fuzzer)** |
+| **P3: Auth Logic** | Privilege Escalation | T1548: Abuse Elevation | `scan-bfla` (Verb Tampering) |
 | **P4: Injection** | Impact | T1499: Endpoint DoS | `resource-exhaustion (API4)` |
 | **P4: Injection** | Discovery | T1046: Network Service Discovery | `ssrf-tracker (API7)` |
-| **P5: Reporting** | Reporting | T1592: Gather Victim Host Info | `persistence (SQLite) / report` |
-| **Standardization** | C2 / Exfiltration | T1071.001: Web Protocols | **`SafeDo` (Traffic Mirroring)** |
-| **Standardization** | Credential Access | T1557: Adversary-in-the-Middle | **`X-VaporTrace-Signal` (Proxy Integration)** |
+| **P5: Reporting** | Reporting | T1592: Victim Info | `persistence (SQLite) / report` |
+| **Standardization** | **Exfiltration** | **T1071.001: Web Protocols** | **`SafeDo` (Universal Mirroring)** |
+| **Standardization** | Credential Access | T1557: AiTM | **`X-VaporTrace-Signal`** |
+
 
 ---
 
@@ -127,7 +130,7 @@ To enter the interactive tactical mode, execute:
 * [x] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
 * [x] **9.6: Universal Proxy Integration:** Refactored `SafeDo` to support multi-module mirroring with `isHit` tactical signaling.
 * [x] **9.7: BOLA Concurrency Engine:** Successfully upgraded the surgical BOLA probe to a high-speed, multi-threaded mass scanner using the Phase 9.3 Worker Pool.
-* [ ] **9.8: Industrialized BOPLA (Mass Assignment):** **[NEXT]** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
+* [x] **9.8: Industrialized BOPLA (Mass Assignment):** **[NEXT]** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
 * [ ] **9.9: Industrialized BFLA (Functional Logic):** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
 * [ ] **9.10: Universal Concurrency (Generic Executor):** Standardize all commands (`mine`, `exhaust`, etc.) under a single `GenericExecutor` for code efficiency.
 
