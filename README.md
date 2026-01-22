@@ -110,13 +110,13 @@ To enter the interactive tactical mode, execute:
 * [x] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
 * [x] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
 
-### **Phase 7: Business Logic & Workflow Fuzzing [ACTIVE]**
+### **Phase 7: Business Logic & Workflow Fuzzing [STABLE]**
 
 * [x] **Flow Engine Implementation** Command suite, recording, and replay
 * [x] **State-Machine Mapping** Logical order enforcement & out-of-order testing
-* [ ] **Race Condition Engine** Multi-threaded "Turbo Intruder" probes
+* [x] **Race Condition Engine** Multi-threaded "Turbo Intruder" probes
 
-### **Phase 8: Post-Exploitation & Data Exfiltration [UPCOMING]**
+### **Phase 8: Post-Exploitation & Data Exfiltration [ACTIVE]**
 
 * [ ] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
 * [ ] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
