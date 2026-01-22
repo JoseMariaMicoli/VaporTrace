@@ -1,4 +1,4 @@
-package logic
+package cmd
 
 import (
 	"bufio"

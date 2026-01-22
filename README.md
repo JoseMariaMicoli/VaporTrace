@@ -104,13 +104,13 @@ To enter the interactive tactical mode, execute:
 * [x] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
 * [x] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
 
-### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [ACTIVE]**
+### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [STABLE]**
 
-* [ ] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
-* [ ] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
-* [ ] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
+* [x] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
+* [x] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
+* [x] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
 
-### **Phase 7: Business Logic & Workflow Fuzzing [UPCOMING]**
+### **Phase 7: Business Logic & Workflow Fuzzing [ACTIVE]**
 
 * [ ] **State-Machine Mapping:** Identifying logical order (e.g., Pay -> Download) and testing out-of-order execution.
 * [ ] **Race Condition Engine:** Multi-threaded "Turbo Intruder" style probes for currency/credit exploits.
@@ -167,6 +167,9 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `mine` | Fuzz for hidden parameters (debug, admin, etc.) | `mine <url> /users` |
 | `proxy` | Route all tactical traffic through Burp Suite | `proxy http://127.0.0.1:8080` |
 | `proxy off` | Disable the interceptor and go direct | `proxy off` |
+| `proxies load <f>` | Ingests proxy list | Enables IP rotation for all outbound traffic. |
+| `proxies reset` | Flushes pool | Returns to Direct/Burp mode. |
+| `target <url>` | Locks base URL | Sets the scope for automated pipeline execution. |
 | `pipeline` | Analyzes global discovery to categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
 | **Logic Exploitation** |  |  |
 | `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
