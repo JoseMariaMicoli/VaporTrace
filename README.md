@@ -104,7 +104,7 @@ To enter the interactive tactical mode, execute:
 * [x] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
 * [x] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
 
-### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [UPCOMING]**
+### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [ACTIVE]**
 
 * [ ] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
 * [ ] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
