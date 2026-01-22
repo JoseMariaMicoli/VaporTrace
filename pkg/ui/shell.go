@@ -51,8 +51,10 @@ func (s *Shell) RenderBanner() {
 
 	// Check if proxy is active for the UI
 	gateway := "DIRECT"
-	if os.Getenv("HTTP_PROXY") != "" {
-		gateway = "http://127.0.0.1:8080 (BURP)"
+	if len(logic.ProxyPool) > 0 {
+	    gateway = fmt.Sprintf("ROTATING (%d IPs)", len(logic.ProxyPool))
+	} else if os.Getenv("HTTP_PROXY") != "" {
+	    gateway = "http://127.0.0.1:8080 (BURP)"
 	}
 
 	// Stylized Table using a sleeker box style
@@ -72,12 +74,17 @@ func (s *Shell) Start() {
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("init_db"),
 		readline.PcItem("reset_db"),
+		readline.PcItem("target"),
 		readline.PcItem("map"),
 		readline.PcItem("mine"),
 		readline.PcItem("scrape"),
 		readline.PcItem("swagger"),
 		readline.PcItem("pipeline"),
-		readline.PcItem("proxy"), 
+		readline.PcItem("proxy"),
+		readline.PcItem("proxies",        // <--- Ensure comma here
+			readline.PcItem("load"),  // <--- Ensure comma here
+			readline.PcItem("reset"), // <--- Ensure comma here
+		),
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
 		readline.PcItem("bfla"),
@@ -156,6 +163,35 @@ func (s *Shell) Start() {
 
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
+	case "target":
+        if len(args) < 1 {
+            pterm.Error.Println("Usage: target <url> (e.g., target https://api.target.com)")
+            return
+        }
+        // Normalize and set the target in the global logic store
+        targetURL := args[0]
+        if !strings.HasPrefix(targetURL, "http") {
+            targetURL = "https://" + targetURL
+        }
+        logic.CurrentSession.TargetURL = targetURL
+        pterm.Success.Printfln("Target locked: %s", targetURL)
+	case "proxies":
+        if len(args) < 1 {
+            pterm.Info.Println("Usage: proxies load <file> | proxies reset")
+            return
+        }
+        if args[0] == "load" && len(args) == 2 {
+            err := logic.LoadProxiesFromFile(args[1])
+            if err == nil {
+                logic.InitializeRotaryClient()
+            }
+        } else if args[0] == "reset" {
+            logic.ProxyPool = []string{}
+            logic.InitializeRotaryClient()
+            pterm.Success.Println("Proxy pool purged. Identity returned to default (Direct/Burp).")
+        } else {
+            pterm.Warning.Println("Invalid subcommand. Use 'load <file>' or 'reset'.")
+        }
 	case "proxy":
 		if len(args) < 1 {
 			pterm.Info.Println("Usage: proxy <url> (e.g., proxy http://127.0.0.1:8080)")
@@ -576,6 +612,8 @@ func (s *Shell) ShowUsage() {
 		{"init_db", "Initialize SQLite Persistence", "init_db"},
 		{"reset_db", "Wipe local mission data (Purge)", "reset_db"},
 		{"proxy", "Toggle Burp Suite Proxy (8080)", "proxy on"},
+		{"proxies load", "Load IP rotation pool from text file", "6.2"},
+        {"proxies reset", "Clear pool and return to direct mode", "6.2"},
 		{"swagger", "Parse OpenAPI/Swagger docs for routes", "swagger <url>"},
 		{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 		{"scrape", "Extract API paths from JS files", "scrape <url>"},
@@ -623,7 +661,16 @@ func (s *Shell) ShowHelp(cmd string) {
 			{Level: 0, Text: "I/O Mode: Asynchronous Non-blocking (Goroutine Worker)"},
 			{Level: 0, Text: "Default File: ./vaportrace.db"},
 		}}.Render()
-
+	case "proxies":
+        pterm.Bold.Println("PHASE 6.2: IP ROTATION & EVASION")
+        pterm.Println("Distributes requests across a pool of HTTP/SOCKS5 proxies to bypass rate-limits.")
+        pterm.Println("\nCOMMANDS:")
+        pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+            {Level: 0, Text: "load <file> : Ingests a line-separated list of proxy URLs."},
+            {Level: 0, Text: "reset        : Wipes the pool. VaporTrace will fall back to Burp or Direct."},
+        }}.Render()
+        pterm.Println("\nFILE FORMAT:")
+        pterm.Cyan("http://user:pass@host:port\nsocks5://host:port")
 	case "reset_db":
 		pterm.Bold.Println("DESCRIPTION:")
 		pterm.Println("Safely purges the mission database and metadata.")
