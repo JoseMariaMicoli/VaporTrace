@@ -121,7 +121,7 @@ To enter the interactive tactical mode, execute:
 * [x] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
 * [x] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
 
-### **Phase 9: Engineering & Hardening [STABLE]**
+### **Phase 9: Engineering & Hardening [ACTIVE]**
 
 * [x] **9.1: Scraper Refinement:** Pre-compiled global regex for high-performance scraping.
 * [x] **9.1.1: Tactical UI:** Integrated spinners and real-time tables for immediate feedback.
@@ -134,6 +134,9 @@ To enter the interactive tactical mode, execute:
 * [x] **9.8: Industrialized BOPLA (Mass Assignment):** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
 * [x] **9.9: Industrialized BFLA (Functional Logic):** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
 * [x] **9.10: Universal Concurrency (Generic Executor):** Standardize all commands (`mine`, `exhaust`, etc.) under a single `GenericExecutor` for code efficiency.
+* [ ] **Phase 8.3: Automated OOB & Metadata Exploitation** - [ ] Auto-probe `169.254.169.254` for AWS/GCP/Azure credentials.
+   * - [ ] Out-of-Band (OOB) validation for discovered API tokens.
+   * - [ ] Background exploitation worker for discovered infrastructure leaks.
 
 ### **Phase 10: The Vanguard (Future)**
 
