@@ -118,7 +118,7 @@ To enter the interactive tactical mode, execute:
 
 ### **Phase 8: Post-Exploitation & Data Exfiltration [ACTIVE]**
 
-* [ ] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
+* [x] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
 * [ ] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
 
 ### **Phase 9: Engineering & Hardening [STABLE]**
@@ -193,6 +193,7 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `test-ssrf` | Verify SSRF redirect/tracking logic | `test-ssrf` |
 | `test-audit` | Verify the Misconfig/CORS scanner | `test-audit` |
 | `test-probe` | Verify Webhook/Integration spoofing logic | `test-probe` |
+| `loot`| Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).| `loot` |
 | **System & Debrief** | | |
 | `init_db` | Initialize Phase 5 SQLite Persistence & Logging | `init_db` |
 | `reset_db` | **Wipe all** local mission data (Purge) | `reset_db` |
