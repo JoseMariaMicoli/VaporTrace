@@ -112,8 +112,9 @@ To enter the interactive tactical mode, execute:
 
 ### **Phase 7: Business Logic & Workflow Fuzzing [ACTIVE]**
 
-* [x] **State-Machine Mapping:** Identifying logical order (e.g., Pay -> Download) and testing out-of-order execution.
-* [ ] **Race Condition Engine:** Multi-threaded "Turbo Intruder" style probes for currency/credit exploits.
+* [x] **Flow Engine Implementation** Command suite, recording, and replay
+* [ ] **State-Machine Mapping** Logical order enforcement & out-of-order testing
+* [ ] **Race Condition Engine** Multi-threaded "Turbo Intruder" probes
 
 ### **Phase 8: Post-Exploitation & Data Exfiltration [UPCOMING]**
 
