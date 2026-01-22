@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"io"
+    "bytes"
 
 	"github.com/pterm/pterm"
 )
@@ -94,24 +96,36 @@ func DetectAndSetProxy() {
 	InitializeRotaryClient()
 }
 
-// SafeDo is the tactical gatekeeper for Phase 9.6 & Phase 6.
-// It executes the request with randomized evasion headers and mirrors hits to the proxy.
 func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error) {
-	// 1. Apply Phase 6 Evasion (Randomization & Jitter from evasion.go)
-	ApplyEvasion(req)
+    ApplyEvasion(req)
+    req.Header.Set("X-VaporTrace-Module", module)
+    
+    if isHit {
+        pterm.Info.Printfln("Mirroring tactical HIT to proxy history [%s]", module)
+    }
 
-	// 2. Add tracking headers for proxy history and IR triage
-	req.Header.Set("X-VaporTrace-Module", module)
-	
-	if isHit {
-		pterm.Info.Printfln("Mirroring tactical HIT to proxy history [%s]", module)
-	}
+    if GlobalClient.Transport == nil {
+        InitializeRotaryClient()
+    }
 
-	// 3. Execute via the global client (Handles Proxy Selection & Rotation)
-	// Note: We check if GlobalClient.Transport is nil to prevent panic
-	if GlobalClient.Transport == nil {
-		InitializeRotaryClient()
-	}
+    resp, err := GlobalClient.Do(req)
+    if err != nil {
+        return nil, err
+    }
 
-	return GlobalClient.Do(req)
+    // --- PHASE 8.1: LOOT EXTRACTION HOOK ---
+    // Read the body to scan it
+    bodyBytes, _ := io.ReadAll(resp.Body)
+    resp.Body.Close()
+
+    // Pass to the Scanner (We will create this in logic/loot.go)
+    if len(bodyBytes) > 0 {
+        go ScanForLoot(string(bodyBytes), req.URL.String())
+    }
+
+    // Restore the body so the rest of the app can use it
+    resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+    // ---------------------------------------
+
+    return resp, nil
 }

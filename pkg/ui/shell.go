@@ -93,6 +93,10 @@ func (s *Shell) Start() {
 	        readline.PcItem("race"),
 	        readline.PcItem("clear"),
 	    ),
+	    readline.PcItem("loot",
+		    readline.PcItem("list"),
+		    readline.PcItem("clear"),
+		),
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
 		readline.PcItem("bfla"),
@@ -171,6 +175,25 @@ func (s *Shell) Start() {
 
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
+	case "loot":
+	    if len(args) < 1 {
+	        pterm.Info.Println("Usage: loot list | loot clear")
+	        return
+	    }
+	    if args[0] == "list" {
+	        pterm.DefaultHeader.WithFullWidth(false).Println("DISCOVERY VAULT")
+	        if len(logic.Vault) == 0 {
+	            pterm.Warning.Println("No sensitive data recovered yet.")
+	            return
+	        }
+	        for _, f := range logic.Vault {
+	            pterm.Info.Printfln("[%s] %s (Source: %s)", pterm.Yellow(f.Type), f.Value, pterm.Gray(f.Source))
+	        }
+	    } else if args[0] == "clear" {
+	        logic.Vault = []logic.Finding{}
+	        pterm.Success.Println("Vault purged.")
+	    }
+
 	case "flow":
 		if len(args) < 1 {
 			pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("TACTICAL FLOW ENGINE")
@@ -325,7 +348,14 @@ func (s *Shell) handleCommand(command string, args []string) {
 			Println("Mission Intelligence has been successfully exported.")
 
 	case "usage":
-		s.ShowUsage()
+		// This is the correct place to check args[0]
+		if len(args) > 0 && args[0] == "loot" {
+			pterm.DefaultHeader.WithFullWidth(false).Println("PHASE 8.1: PII SCANNER")
+			pterm.Println("Automatically scans all incoming HTTP traffic for secrets.")
+			pterm.Println("Currently monitoring: AWS Keys, JWTs, Credit Cards, Emails, and Slack Tokens.")
+		} else {
+			s.ShowUsage()
+		}
 
 	case "help":
 		if len(args) > 0 {
@@ -706,9 +736,10 @@ func (s *Shell) ShowUsage() {
 		{"init_db", "Initialize SQLite Persistence", "init_db"},
 		{"reset_db", "Wipe local mission data (Purge)", "reset_db"},
 		{"proxy", "Toggle Burp Suite Proxy (8080)", "proxy on"},
-		{"proxies load", "Load IP rotation pool from text file", "6.2"},
-        {"proxies reset", "Clear pool and return to direct mode", "6.2"},        
-	    {"flow", "Record and replay multi-step business logic", "Logic"},
+		{"proxies load", "Load IP rotation pool from text file", "proxies load p.txt"},
+		{"proxies reset", "Clear pool and return to direct mode", "proxies reset"},
+		{"flow", "Record and replay multi-step business logic", "flow add"},
+		{"loot", "[Phase 8.1] View/Clear captured PII and Secrets", "loot list"},
 		{"swagger", "Parse OpenAPI/Swagger docs for routes", "swagger <url>"},
 		{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 		{"scrape", "Extract API paths from JS files", "scrape <url>"},
@@ -789,32 +820,33 @@ func (s *Shell) ShowHelp(cmd string) {
 			}).Render()
 		}
 	case "flow":
-        pterm.DefaultHeader.WithFullWidth(false).Println("USAGE: TACTICAL FLOWS")
-        pterm.Println("VaporTrace mimics complex user journeys to find Business Logic flaws.")
-        
-        fmt.Println(pterm.Bold.Sprint("\nVariable Chaining (Phase 7.1):"))
-        pterm.Println("Capture values using GJSON paths. Example: 'data.user.id'")
-        pterm.Println("Inject them in later steps using: {{data.user.id}}")
+		pterm.DefaultHeader.WithFullWidth(false).Println("USAGE: TACTICAL FLOWS")
+		pterm.Println("VaporTrace mimics complex user journeys to find Business Logic flaws.")
 
-        fmt.Println(pterm.Bold.Sprint("\nState-Machine Mapping (Phase 7.2):"))
-        pterm.Println("Use 'flow step <id>' to execute a sensitive action (like /download)")
-        pterm.Println("without the prerequisite steps (like /pay).")
+		fmt.Println(pterm.Bold.Sprint("\nVariable Chaining (Phase 7.1):"))
+		pterm.Println("Capture values using GJSON paths. Example: 'data.user.id'")
+		pterm.Println("Inject them in later steps using: {{data.user.id}}")
 
-        fmt.Println(pterm.Bold.Sprint("\nRace Condition Engine (Phase 7.3):"))
-        pterm.Println("Use 'flow race <id> <threads>' to fire synchronized requests.")
-        pterm.Println("Attempts to exploit TOCTOU flaws (e.g., double-spending).")
-        
-        
+		fmt.Println(pterm.Bold.Sprint("\nState-Machine Mapping (Phase 7.2):"))
+		pterm.Println("Use 'flow step <id>' to execute a sensitive action (like /download)")
+		pterm.Println("without the prerequisite steps (like /pay).")
 
-        fmt.Println(pterm.Bold.Sprint("\nCommands:"))
-        pterm.BulletListPrinter{Items: []pterm.BulletListItem{
-            {Level: 0, Text: "flow add   : Interactive step recording"},
-            {Level: 0, Text: "flow run   : Full sequence execution"},
-            {Level: 0, Text: "flow step  : Targeted out-of-order execution"},
-            {Level: 0, Text: "flow race  : Synchronized high-concurrency probe"},
-            {Level: 0, Text: "flow list  : View sequence and variables"},
-            {Level: 0, Text: "flow clear : Clear flow and state memory"},
-        }}.Render()
+		fmt.Println(pterm.Bold.Sprint("\nRace Condition Engine (Phase 7.3):"))
+		pterm.Println("Use 'flow race <id> <threads>' to fire synchronized requests.")
+		pterm.Println("Attempts to exploit TOCTOU flaws (e.g., double-spending).")
+
+		fmt.Println(pterm.Bold.Sprint("\nCommands:"))
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "flow add   : Interactive step recording"},
+			{Level: 0, Text: "flow run   : Full sequence execution"},
+			{Level: 0, Text: "flow step  : Targeted out-of-order execution"},
+			{Level: 0, Text: "flow race  : Synchronized high-concurrency probe"},
+			{Level: 0, Text: "flow list  : View sequence and variables"},
+			{Level: 0, Text: "flow clear : Clear flow and state memory"},
+		}}.Render()
+
+    // DELETED: case "usage" block (It was causing the error and is not needed here)
+
 	case "auth":
 		pterm.Println("Configures identity contexts (JWT/Cookies) for cross-account authorization testing.")
 	case "sessions":
