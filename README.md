@@ -112,7 +112,7 @@ To enter the interactive tactical mode, execute:
 
 ### **Phase 7: Business Logic & Workflow Fuzzing [ACTIVE]**
 
-* [ ] **State-Machine Mapping:** Identifying logical order (e.g., Pay -> Download) and testing out-of-order execution.
+* [x] **State-Machine Mapping:** Identifying logical order (e.g., Pay -> Download) and testing out-of-order execution.
 * [ ] **Race Condition Engine:** Multi-threaded "Turbo Intruder" style probes for currency/credit exploits.
 
 ### **Phase 8: Post-Exploitation & Data Exfiltration [UPCOMING]**
@@ -157,21 +157,23 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 
 | COMMAND | DESCRIPTION | EXAMPLE |
 | --- | --- | --- |
-| **Identity & Sessions** |  |  |
+| **Identity & Sessions** | | |
 | `auth` | Set identity tokens (JWT/Cookies) in the session store | `auth attacker <token>` |
 | `sessions` | View currently loaded tokens for Victim/Attacker | `sessions` |
-| **Discovery & Recon** |  |  |
+| **Discovery & Recon** | | |
 | `map` | Execute full Phase 2 Recon (Endpoint mapping) | `map -u <url>` |
 | `swagger` | Parse OpenAPI/Swagger JSON to map attack surface | `swagger <url>` |
 | `scrape` | Extract hidden API paths from JavaScript files | `scrape <url>` |
 | `mine` | Fuzz for hidden parameters (debug, admin, etc.) | `mine <url> /users` |
 | `proxy` | Route all tactical traffic through Burp Suite | `proxy http://127.0.0.1:8080` |
 | `proxy off` | Disable the interceptor and go direct | `proxy off` |
-| `proxies load <f>` | Ingests proxy list | Enables IP rotation for all outbound traffic. |
-| `proxies reset` | Flushes pool | Returns to Direct/Burp mode. |
-| `target <url>` | Locks base URL | Sets the scope for automated pipeline execution. |
-| `pipeline` | Analyzes global discovery to categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
-| **Logic Exploitation** |  |  |
+| `proxies load <f>` | Ingests proxy list for IP rotation | `proxies load list.txt` |
+| `proxies reset` | Flushes pool (Returns to Direct/Burp mode) | `proxies reset` |
+| `target <url>` | Locks base URL for automated pipeline | `target https://api.target.com` |
+| `pipeline` | Categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
+| **Logic Exploitation** | | |
+| `flow add` | Record business logic sequence (Interactive) | `flow add` |
+| `flow run` | Replay sequence with variable injection | `flow run` |
 | `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
 | `bopla` | Execute Mass Assignment / BOPLA fuzzing (API3) | `bopla <url> '{"id":1}'` |
 | `bfla` | Execute Method Shuffling / Verb Tampering (API5) | `bfla <url>` |
@@ -179,7 +181,7 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `ssrf` | Execute Phase 4.2 SSRF Tracking (API7) | `ssrf <url> <param> <cb>` |
 | `audit` | Execute Phase 4.3 Security Misconfig Audit (API8) | `audit <url>` |
 | `probe` | Execute Phase 4.4 Integration Probe (API10) | `probe <url> stripe` |
-| **Logic Verification** |  |  |
+| **Logic Verification** | | |
 | `test-bola` | Run BOLA logic verification against httpbin | `test-bola` |
 | `test-bopla` | Verify BOPLA/Mass-Assignment injection engine | `test-bopla` |
 | `test-bfla` | Verify BFLA/Verb-tampering logic | `test-bfla` |
@@ -187,7 +189,7 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `test-ssrf` | Verify SSRF redirect/tracking logic | `test-ssrf` |
 | `test-audit` | Verify the Misconfig/CORS scanner | `test-audit` |
 | `test-probe` | Verify Webhook/Integration spoofing logic | `test-probe` |
-| **System & Debrief** |  |  |
+| **System & Debrief** | | |
 | `init_db` | Initialize Phase 5 SQLite Persistence & Logging | `init_db` |
 | `reset_db` | **Wipe all** local mission data (Purge) | `reset_db` |
 | `report` | Generate Classified Markdown Mission Report | `report` |
