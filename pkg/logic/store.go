@@ -6,6 +6,18 @@ import (
 	"time"
 )
 
+// FlowStep defines a tactical action in a chain for Phase 7
+type FlowStep struct {
+	Name        string
+	Method      string
+	URL         string
+	Body        string
+	ExtractPath string // Logic for Phase 7.2 (JSON path to extract)
+}
+
+// ActiveFlow stores the sequence currently being recorded
+var ActiveFlow []FlowStep
+
 // EndpointEntry stores the path and the specific engines assigned by the analyzer.
 // This is the core metadata structure that allows the Pipeline to route tasks.
 type EndpointEntry struct {

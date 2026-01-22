@@ -85,6 +85,12 @@ func (s *Shell) Start() {
 			readline.PcItem("load"),  // <--- Ensure comma here
 			readline.PcItem("reset"), // <--- Ensure comma here
 		),
+		readline.PcItem("flow",
+	        readline.PcItem("add"),
+	        readline.PcItem("run"),
+	        readline.PcItem("list"),
+	        readline.PcItem("clear"),
+	    ),
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
 		readline.PcItem("bfla"),
@@ -163,6 +169,65 @@ func (s *Shell) Start() {
 
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
+	case "flow":
+        if len(args) < 1 {
+            pterm.Info.Println("Usage: flow <add|run|list|clear>")
+            return
+        }
+        switch args[0] {
+        case "add":
+            pterm.DefaultSection.Println("Flow Step Recorder")
+            
+            name, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Step Name (e.g., GetUser)").Show()
+            method, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Method (GET/POST)").Show()
+            
+            // 1. Capture the URL with the potentially "dirty" default value
+            rawURL, _ := pterm.DefaultInteractiveTextInput.
+                WithDefaultText("Target URL").
+                WithDefaultValue(logic.CurrentSession.TargetURL).
+                Show()
+                
+            rawBody, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Body (JSON/Raw)").Show()
+
+            // 2. Aggressive Sanitization
+            // We strip ANSI first, then we trim whitespace
+            cleanURL := utils.StripANSI(rawURL)
+            cleanURL = strings.TrimSpace(cleanURL)
+            
+            cleanBody := utils.StripANSI(rawBody)
+            cleanBody = strings.TrimSpace(cleanBody)
+
+            // 3. Logic Fallback: If pterm still returned the default value wrapped in ANSI,
+            // and our target matches the core of that string, we override with the "known good" target.
+            if strings.Contains(cleanURL, logic.CurrentSession.TargetURL) {
+                cleanURL = logic.CurrentSession.TargetURL
+            }
+
+            // 4. Persistence
+            logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
+                Name:   name, 
+                Method: strings.ToUpper(method), 
+                URL:    cleanURL, 
+                Body:   cleanBody,
+            })
+            
+            pterm.Success.Printfln("Step '%s' recorded to: %s", name, cleanURL)
+
+        case "run":
+            logic.RunFlow()
+
+        case "list":
+            if len(logic.ActiveFlow) == 0 { pterm.Warning.Println("Flow is empty."); return }
+            data := pterm.TableData{{"#", "NAME", "METHOD", "URL"}}
+            for i, s := range logic.ActiveFlow {
+                data = append(data, []string{strconv.Itoa(i + 1), s.Name, s.Method, s.URL})
+            }
+            pterm.DefaultTable.WithHasHeader().WithData(data).Render()
+
+        case "clear":
+            logic.ActiveFlow = []logic.FlowStep{}
+            pterm.Info.Println("Flow sequence purged.")
+        }
 	case "target":
         if len(args) < 1 {
             pterm.Error.Println("Usage: target <url> (e.g., target https://api.target.com)")
@@ -613,7 +678,8 @@ func (s *Shell) ShowUsage() {
 		{"reset_db", "Wipe local mission data (Purge)", "reset_db"},
 		{"proxy", "Toggle Burp Suite Proxy (8080)", "proxy on"},
 		{"proxies load", "Load IP rotation pool from text file", "6.2"},
-        {"proxies reset", "Clear pool and return to direct mode", "6.2"},
+        {"proxies reset", "Clear pool and return to direct mode", "6.2"},        
+	    {"flow", "Record and replay multi-step business logic", "Logic"},
 		{"swagger", "Parse OpenAPI/Swagger docs for routes", "swagger <url>"},
 		{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 		{"scrape", "Extract API paths from JS files", "scrape <url>"},
@@ -662,15 +728,15 @@ func (s *Shell) ShowHelp(cmd string) {
 			{Level: 0, Text: "Default File: ./vaportrace.db"},
 		}}.Render()
 	case "proxies":
-        pterm.Bold.Println("PHASE 6.2: IP ROTATION & EVASION")
-        pterm.Println("Distributes requests across a pool of HTTP/SOCKS5 proxies to bypass rate-limits.")
-        pterm.Println("\nCOMMANDS:")
-        pterm.BulletListPrinter{Items: []pterm.BulletListItem{
-            {Level: 0, Text: "load <file> : Ingests a line-separated list of proxy URLs."},
-            {Level: 0, Text: "reset        : Wipes the pool. VaporTrace will fall back to Burp or Direct."},
-        }}.Render()
-        pterm.Println("\nFILE FORMAT:")
-        pterm.Cyan("http://user:pass@host:port\nsocks5://host:port")
+		pterm.Bold.Println("PHASE 6.2: IP ROTATION & EVASION")
+		pterm.Println("Distributes requests across a pool of HTTP/SOCKS5 proxies to bypass rate-limits.")
+		pterm.Println("\nCOMMANDS:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "load <file> : Ingests a line-separated list of proxy URLs."},
+			{Level: 0, Text: "reset        : Wipes the pool. VaporTrace will fall back to Burp or Direct."},
+		}}.Render()
+		pterm.Println("\nFILE FORMAT:")
+		pterm.Cyan("http://user:pass@host:port\nsocks5://host:port")
 	case "reset_db":
 		pterm.Bold.Println("DESCRIPTION:")
 		pterm.Println("Safely purges the mission database and metadata.")
@@ -685,6 +751,7 @@ func (s *Shell) ShowHelp(cmd string) {
 			{"swagger", "Map API surface via OpenAPI/Swagger docs", "swagger <url>"},
 			{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 			{"scrape", "Extract API paths from JS source", "scrape <url>"},
+			{"flow", "Business Logic sequencing engine", "flow <add|run|list|clear>"},
 		}
 		for _, item := range helpItems {
 			pterm.DefaultBulletList.WithItems([]pterm.BulletListItem{
@@ -692,7 +759,19 @@ func (s *Shell) ShowHelp(cmd string) {
 				{Level: 1, Text: pterm.Gray("Usage: ") + item[2]},
 			}).Render()
 		}
-
+	case "flow":
+		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("TACTICAL FLOW ENGINE")
+		pterm.Info.Println("Phase 7.1: Business Logic Sequencing")
+		pterm.Println("\nDESCRIPTION:")
+		pterm.Println("Allows researchers to chain multiple API requests into a logical transaction.")
+		pterm.Println("Essential for testing multi-step vulnerabilities like Password Reset bypasses.")
+		pterm.Println("\nCOMMANDS:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "add   : Interactive wizard to record a new request step."},
+			{Level: 0, Text: "run   : Replays the sequence through the Rotary Evasion Layer."},
+			{Level: 0, Text: "list  : Displays the current tactical queue and captured variables."},
+			{Level: 0, Text: "clear : Purges the current sequence from memory."},
+		}}.Render()
 	case "auth":
 		pterm.Println("Configures identity contexts (JWT/Cookies) for cross-account authorization testing.")
 	case "sessions":
