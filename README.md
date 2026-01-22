@@ -116,10 +116,10 @@ To enter the interactive tactical mode, execute:
 * [x] **State-Machine Mapping** Logical order enforcement & out-of-order testing
 * [x] **Race Condition Engine** Multi-threaded "Turbo Intruder" probes
 
-### **Phase 8: Post-Exploitation & Data Exfiltration [ACTIVE]**
+### **Phase 8: Post-Exploitation & Data Exfiltration [STABLE]**
 
 * [x] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
-* [ ] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
+* [x] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
 
 ### **Phase 9: Engineering & Hardening [STABLE]**
 
