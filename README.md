@@ -185,6 +185,8 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `ssrf` | Execute Phase 4.2 SSRF Tracking (API7) | `ssrf <url> <param> <cb>` |
 | `audit` | Execute Phase 4.3 Security Misconfig Audit (API8) | `audit <url>` |
 | `probe` | Execute Phase 4.4 Integration Probe (API10) | `probe <url> stripe` |
+| **Logic Post Exploitation**| | |
+| `loot`| Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).| `loot` |
 | **Logic Verification** | | |
 | `test-bola` | Run BOLA logic verification against httpbin | `test-bola` |
 | `test-bopla` | Verify BOPLA/Mass-Assignment injection engine | `test-bopla` |
@@ -193,7 +195,6 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `test-ssrf` | Verify SSRF redirect/tracking logic | `test-ssrf` |
 | `test-audit` | Verify the Misconfig/CORS scanner | `test-audit` |
 | `test-probe` | Verify Webhook/Integration spoofing logic | `test-probe` |
-| `loot`| Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).| `loot` |
 | **System & Debrief** | | |
 | `init_db` | Initialize Phase 5 SQLite Persistence & Logging | `init_db` |
 | `reset_db` | **Wipe all** local mission data (Purge) | `reset_db` |
