@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/pterm/pterm"
 	"github.com/tidwall/gjson"
@@ -71,4 +72,58 @@ func executeStep(i int, step FlowStep, engine string) {
 	}
 
 	pterm.Success.Printfln("Step %d [%s]: %d", i+1, step.Name, resp.StatusCode)
+}
+
+// RunRace executes a high-concurrency synchronized attack (Phase 7.3)
+func RunRace(index int, threads int) {
+	if index < 0 || index >= len(ActiveFlow) {
+		pterm.Error.Println("Invalid step index. Use 'flow list'.")
+		return
+	}
+
+	step := ActiveFlow[index]
+	var wg sync.WaitGroup
+	
+	// The Synchronized Starting Gate
+	startGate := make(chan struct{})
+
+	pterm.Warning.Printfln("PHASE 7.3: Priming %d concurrent threads against [%s]", threads, step.Name)
+
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func(threadID int) {
+			defer wg.Done()
+			
+			// 1. Prepare Request (Inject current state)
+			finalURL := step.URL
+			finalBody := step.Body
+			for k, v := range FlowContext {
+				finalURL = strings.ReplaceAll(finalURL, "{{"+k+"}}", v)
+				finalBody = strings.ReplaceAll(finalBody, "{{"+k+"}}", v)
+			}
+			
+			req, _ := http.NewRequest(step.Method, finalURL, bytes.NewBufferString(finalBody))
+			
+			// 2. WAIT FOR GATE
+			<-startGate 
+			
+			// 3. EXECUTE (Jitter is DISABLED for maximum collision probability)
+			resp, err := SafeDo(req, false, "RACE_ENGINE") 
+			
+			if err == nil {
+				// We only print successes or critical failures to avoid terminal flooding
+				if resp.StatusCode < 400 {
+					pterm.Success.Printfln("Thread %d | COLLISION SUCCESS: %d", threadID, resp.StatusCode)
+				}
+			}
+		}(i)
+	}
+
+	pterm.Info.Println("All threads ready. Releasing synchronizer...")
+	
+	// BOOM: Close the channel to release all goroutines simultaneously
+	close(startGate) 
+	
+	wg.Wait()
+	pterm.Success.Println("Race Condition probe sequence complete.")
 }
