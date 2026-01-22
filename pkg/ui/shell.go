@@ -34,12 +34,17 @@ func NewShell() *Shell {
 func (s *Shell) RenderBanner() {
 	fmt.Print("\033[H\033[2J") // Clear screen
 
-	// Using a "Deep Sea/Cyan" theme for a more sophisticated look
-	pterm.DefaultHeader.
-		WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).
-		WithTextStyle(pterm.NewStyle(pterm.FgBlack, pterm.Bold)).
-		WithMargin(10).
-		Println("VaporTrace | Surgical API Exploitation Suite")
+	// Match the ASCII Art from README.md
+	bannerStyle := pterm.NewStyle(pterm.FgCyan, pterm.Bold)
+	bannerStyle.Println(`
+    __  __                         _____                    
+    \ \ / /___  _ __  ___  _ __   |_   _| __ __ _  ___ ___ 
+     \ V // _ ` + "`" + `| '_ \/ _ \| '__|    | || '__/ _` + "`" + `|/ __/ _ \
+      \  / (_| | |_)  (_) | |       | || | | (_| | (_|  __/
+       \/ \__,_| .__/\___/|_|       |_||_|  \__,_|\___\___|
+               |_|      [ Surgical API Exploitation Suite]`)
+
+	pterm.Println(pterm.Cyan("────────────────────────────────────────────────────────────"))
 
 	statusColor := pterm.FgLightGreen
 	statusText := "● SYSTEM ONLINE"
@@ -52,19 +57,19 @@ func (s *Shell) RenderBanner() {
 	// Check if proxy is active for the UI
 	gateway := "DIRECT"
 	if len(logic.ProxyPool) > 0 {
-	    gateway = fmt.Sprintf("ROTATING (%d IPs)", len(logic.ProxyPool))
+		gateway = fmt.Sprintf("ROTATING (%d IPs)", len(logic.ProxyPool))
 	} else if os.Getenv("HTTP_PROXY") != "" {
-	    gateway = "http://127.0.0.1:8080 (BURP)"
+		gateway = "http://127.0.0.1:8080 (BURP)"
 	}
 
-	// Stylized Table using a sleeker box style
+	// Stylized Table using the logic from your shell.go
 	pterm.DefaultTable.WithData(pterm.TableData{
 		{"UPSTREAM GATEWAY", "LOGIC ENGINE", "BUILD VERSION"},
-		{gateway, statusColor.Sprintf(statusText), "v2.0.1-stable"},
+		{pterm.LightBlue(gateway), statusColor.Sprintf(statusText), pterm.LightMagenta("v3.1-Flash")},
 	}).WithBoxed().Render()
 
 	pterm.Printf("\n%s Use 'usage' for tactics or 'help' for manuals.\n\n",
-		pterm.LightBlue("»"))
+		pterm.Cyan("»"))
 }
 
 // Start launches the interactive tactical loop with Auto-Completion
