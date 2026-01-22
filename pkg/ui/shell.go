@@ -90,6 +90,7 @@ func (s *Shell) Start() {
 	        readline.PcItem("run"),
 	        readline.PcItem("list"),
 	        readline.PcItem("step"),
+	        readline.PcItem("race"),
 	        readline.PcItem("clear"),
 	    ),
 		readline.PcItem("bola"),
@@ -239,6 +240,14 @@ func (s *Shell) handleCommand(command string, args []string) {
 				return
 			}
 			logic.RunStep(id - 1)
+		case "race":
+		    if len(args) < 3 {
+		        pterm.Info.Println("Usage: flow race <step_id> <threads>")
+		        return
+		    }
+		    id, _ := strconv.Atoi(args[1])
+		    threads, _ := strconv.Atoi(args[2])
+		    logic.RunRace(id-1, threads)
 
 		case "clear":
 			logic.ActiveFlow = []logic.FlowStep{}
@@ -780,25 +789,32 @@ func (s *Shell) ShowHelp(cmd string) {
 			}).Render()
 		}
 	case "flow":
-	    pterm.DefaultHeader.WithFullWidth(false).Println("USAGE: TACTICAL FLOWS")
-	    pterm.Println("VaporTrace mimics complex user journeys to find Business Logic flaws.")
-	    
-	    fmt.Println(pterm.Bold.Sprint("\nVariable Chaining (Phase 7.1):"))
-	    pterm.Println("Capture values using GJSON paths. Example: 'data.user.id'")
-	    pterm.Println("Inject them in later steps using: {{data.user.id}}")
+        pterm.DefaultHeader.WithFullWidth(false).Println("USAGE: TACTICAL FLOWS")
+        pterm.Println("VaporTrace mimics complex user journeys to find Business Logic flaws.")
+        
+        fmt.Println(pterm.Bold.Sprint("\nVariable Chaining (Phase 7.1):"))
+        pterm.Println("Capture values using GJSON paths. Example: 'data.user.id'")
+        pterm.Println("Inject them in later steps using: {{data.user.id}}")
 
-	    fmt.Println(pterm.Bold.Sprint("\nState-Machine Mapping (Phase 7.2):"))
-	    pterm.Println("Use 'flow step <id>' to execute a sensitive action (like /download)")
-	    pterm.Println("without the prerequisite steps (like /pay).")
-	    
-	    fmt.Println(pterm.Bold.Sprint("\nCommands:"))
-	    pterm.BulletListPrinter{Items: []pterm.BulletListItem{
-	        {Level: 0, Text: "flow add   : Interactive step recording"},
-	        {Level: 0, Text: "flow run   : Full sequence execution"},
-	        {Level: 0, Text: "flow step  : Targeted out-of-order execution"},
-	        {Level: 0, Text: "flow list  : View sequence and variables"},
-	        {Level: 0, Text: "flow clear : Clear flow variables"},
-	    }}.Render()
+        fmt.Println(pterm.Bold.Sprint("\nState-Machine Mapping (Phase 7.2):"))
+        pterm.Println("Use 'flow step <id>' to execute a sensitive action (like /download)")
+        pterm.Println("without the prerequisite steps (like /pay).")
+
+        fmt.Println(pterm.Bold.Sprint("\nRace Condition Engine (Phase 7.3):"))
+        pterm.Println("Use 'flow race <id> <threads>' to fire synchronized requests.")
+        pterm.Println("Attempts to exploit TOCTOU flaws (e.g., double-spending).")
+        
+        
+
+        fmt.Println(pterm.Bold.Sprint("\nCommands:"))
+        pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+            {Level: 0, Text: "flow add   : Interactive step recording"},
+            {Level: 0, Text: "flow run   : Full sequence execution"},
+            {Level: 0, Text: "flow step  : Targeted out-of-order execution"},
+            {Level: 0, Text: "flow race  : Synchronized high-concurrency probe"},
+            {Level: 0, Text: "flow list  : View sequence and variables"},
+            {Level: 0, Text: "flow clear : Clear flow and state memory"},
+        }}.Render()
 	case "auth":
 		pterm.Println("Configures identity contexts (JWT/Cookies) for cross-account authorization testing.")
 	case "sessions":
