@@ -89,6 +89,7 @@ func (s *Shell) Start() {
 	        readline.PcItem("add"),
 	        readline.PcItem("run"),
 	        readline.PcItem("list"),
+	        readline.PcItem("step"),
 	        readline.PcItem("clear"),
 	    ),
 		readline.PcItem("bola"),
@@ -170,64 +171,83 @@ func (s *Shell) Start() {
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
 	case "flow":
-        if len(args) < 1 {
-            pterm.Info.Println("Usage: flow <add|run|list|clear>")
-            return
-        }
-        switch args[0] {
-        case "add":
-            pterm.DefaultSection.Println("Flow Step Recorder")
-            
-            name, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Step Name (e.g., GetUser)").Show()
-            method, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Method (GET/POST)").Show()
-            
-            // 1. Capture the URL with the potentially "dirty" default value
-            rawURL, _ := pterm.DefaultInteractiveTextInput.
-                WithDefaultText("Target URL").
-                WithDefaultValue(logic.CurrentSession.TargetURL).
-                Show()
-                
-            rawBody, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Body (JSON/Raw)").Show()
+		if len(args) < 1 {
+			pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("TACTICAL FLOW ENGINE")
+			pterm.Info.Println("Phase 7.1/7.2: State-Machine & Sequence Analysis")
+			fmt.Println("\nAvailable Subcommands:")
+			fmt.Println("  add   - Record a new step (Interactive)")
+			fmt.Println("  run   - Execute the current sequence")
+			fmt.Println("  list  - View the recorded sequence and context")
+			fmt.Println("  step  - [Phase 7.2] Execute a single step (Out-of-order test)")
+			fmt.Println("  clear - Purge the current flow and captured context")
+			return
+		}
 
-            // 2. Aggressive Sanitization
-            // We strip ANSI first, then we trim whitespace
-            cleanURL := utils.StripANSI(rawURL)
-            cleanURL = strings.TrimSpace(cleanURL)
-            
-            cleanBody := utils.StripANSI(rawBody)
-            cleanBody = strings.TrimSpace(cleanBody)
+		switch args[0] {
+		case "add":
+			pterm.DefaultSection.Println("Flow Step Recorder")
+			name, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Step Name").Show()
+			method, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Method (GET/POST/PUT)").Show()
+			
+			rawURL, _ := pterm.DefaultInteractiveTextInput.
+				WithDefaultText("Target URL").
+				WithDefaultValue(logic.CurrentSession.TargetURL).
+				Show()
+				
+			rawBody, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Body (Use {{var}} for variables)").Show()
+			extract, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("JSON Path to Extract (optional)").Show()
 
-            // 3. Logic Fallback: If pterm still returned the default value wrapped in ANSI,
-            // and our target matches the core of that string, we override with the "known good" target.
-            if strings.Contains(cleanURL, logic.CurrentSession.TargetURL) {
-                cleanURL = logic.CurrentSession.TargetURL
-            }
+			// Sanitization for Phase 6.3 ANSI Safety
+			cleanURL := utils.StripANSI(rawURL)
+			cleanBody := utils.StripANSI(rawBody)
+			cleanExtract := utils.StripANSI(extract)
 
-            // 4. Persistence
-            logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
-                Name:   name, 
-                Method: strings.ToUpper(method), 
-                URL:    cleanURL, 
-                Body:   cleanBody,
-            })
-            
-            pterm.Success.Printfln("Step '%s' recorded to: %s", name, cleanURL)
+			logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
+				Name:        name,
+				Method:      strings.ToUpper(method),
+				URL:         strings.TrimSpace(cleanURL),
+				Body:        strings.TrimSpace(cleanBody),
+				ExtractPath: strings.TrimSpace(cleanExtract),
+			})
+			pterm.Success.Printfln("Step '%s' added to sequence.", name)
 
-        case "run":
-            logic.RunFlow()
+		case "run":
+			logic.RunFlow()
 
-        case "list":
-            if len(logic.ActiveFlow) == 0 { pterm.Warning.Println("Flow is empty."); return }
-            data := pterm.TableData{{"#", "NAME", "METHOD", "URL"}}
-            for i, s := range logic.ActiveFlow {
-                data = append(data, []string{strconv.Itoa(i + 1), s.Name, s.Method, s.URL})
-            }
-            pterm.DefaultTable.WithHasHeader().WithData(data).Render()
+		case "list":
+			pterm.DefaultSection.Println("Current Tactical Flow")
+			if len(logic.ActiveFlow) == 0 {
+				pterm.Warning.Println("Queue is empty.")
+				return
+			}
+			for i, s := range logic.ActiveFlow {
+				pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+					{Level: 0, Text: pterm.Cyan(fmt.Sprintf("[%d] %s", i+1, s.Name))},
+					{Level: 1, Text: pterm.Gray(fmt.Sprintf("%s %s", s.Method, s.URL))},
+				}}.Render()
+			}
 
-        case "clear":
-            logic.ActiveFlow = []logic.FlowStep{}
-            pterm.Info.Println("Flow sequence purged.")
-        }
+		case "step":
+			// Phase 7.2: Out-of-order State Machine Test
+			if len(args) < 2 {
+				pterm.Error.Println("Usage: flow step <id>")
+				return
+			}
+			id, err := strconv.Atoi(args[1])
+			if err != nil {
+				pterm.Error.Println("Invalid step ID.")
+				return
+			}
+			logic.RunStep(id - 1)
+
+		case "clear":
+			logic.ActiveFlow = []logic.FlowStep{}
+			logic.FlowContext = make(map[string]string) // Reset State-Machine memory
+			pterm.Success.Println("Flow and State Context purged.")
+
+		default:
+			pterm.Error.Printfln("Unknown flow command: %s", args[0])
+		}
 	case "target":
         if len(args) < 1 {
             pterm.Error.Println("Usage: target <url> (e.g., target https://api.target.com)")
@@ -760,18 +780,25 @@ func (s *Shell) ShowHelp(cmd string) {
 			}).Render()
 		}
 	case "flow":
-		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("TACTICAL FLOW ENGINE")
-		pterm.Info.Println("Phase 7.1: Business Logic Sequencing")
-		pterm.Println("\nDESCRIPTION:")
-		pterm.Println("Allows researchers to chain multiple API requests into a logical transaction.")
-		pterm.Println("Essential for testing multi-step vulnerabilities like Password Reset bypasses.")
-		pterm.Println("\nCOMMANDS:")
-		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
-			{Level: 0, Text: "add   : Interactive wizard to record a new request step."},
-			{Level: 0, Text: "run   : Replays the sequence through the Rotary Evasion Layer."},
-			{Level: 0, Text: "list  : Displays the current tactical queue and captured variables."},
-			{Level: 0, Text: "clear : Purges the current sequence from memory."},
-		}}.Render()
+	    pterm.DefaultHeader.WithFullWidth(false).Println("USAGE: TACTICAL FLOWS")
+	    pterm.Println("VaporTrace mimics complex user journeys to find Business Logic flaws.")
+	    
+	    fmt.Println(pterm.Bold.Sprint("\nVariable Chaining (Phase 7.1):"))
+	    pterm.Println("Capture values using GJSON paths. Example: 'data.user.id'")
+	    pterm.Println("Inject them in later steps using: {{data.user.id}}")
+
+	    fmt.Println(pterm.Bold.Sprint("\nState-Machine Mapping (Phase 7.2):"))
+	    pterm.Println("Use 'flow step <id>' to execute a sensitive action (like /download)")
+	    pterm.Println("without the prerequisite steps (like /pay).")
+	    
+	    fmt.Println(pterm.Bold.Sprint("\nCommands:"))
+	    pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+	        {Level: 0, Text: "flow add   : Interactive step recording"},
+	        {Level: 0, Text: "flow run   : Full sequence execution"},
+	        {Level: 0, Text: "flow step  : Targeted out-of-order execution"},
+	        {Level: 0, Text: "flow list  : View sequence and variables"},
+	        {Level: 0, Text: "flow clear : Clear flow variables"},
+	    }}.Render()
 	case "auth":
 		pterm.Println("Configures identity contexts (JWT/Cookies) for cross-account authorization testing.")
 	case "sessions":
