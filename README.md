@@ -113,7 +113,7 @@ To enter the interactive tactical mode, execute:
 ### **Phase 7: Business Logic & Workflow Fuzzing [ACTIVE]**
 
 * [x] **Flow Engine Implementation** Command suite, recording, and replay
-* [ ] **State-Machine Mapping** Logical order enforcement & out-of-order testing
+* [x] **State-Machine Mapping** Logical order enforcement & out-of-order testing
 * [ ] **Race Condition Engine** Multi-threaded "Turbo Intruder" probes
 
 ### **Phase 8: Post-Exploitation & Data Exfiltration [UPCOMING]**
