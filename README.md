@@ -175,8 +175,9 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | **Logic Exploitation** | | |
 | `flow add` | Record business logic sequence (Interactive) | `flow add` |
 | `flow run` | Replay sequence with variable injection | `flow run` |
-| `flow step` | `flow step <id>` | Tests prerequisite bypasses. |
-| `flow race` | `flow race <id> <threads>` | High-concurrency synchronized TOCTOU attack. |
+| `flow step` | Tests prerequisite bypasses. | `flow step <id>` |
+| `flow race` | High-concurrency synchronized TOCTOU attack. | `flow race <id> <threads>` |
+| `flow clear` | Reset flow variables. | `flow clear` |
 | `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
 | `bopla` | Execute Mass Assignment / BOPLA fuzzing (API3) | `bopla <url> '{"id":1}'` |
 | `bfla` | Execute Method Shuffling / Verb Tampering (API5) | `bfla <url>` |
