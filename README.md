@@ -120,7 +120,7 @@ To enter the interactive tactical mode, execute:
 * [ ] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
 * [ ] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
 
-### **Phase 9: Engineering & Hardening [ACTIVE]**
+### **Phase 9: Engineering & Hardening [STABLE]**
 
 * [x] **9.1: Scraper Refinement:** Pre-compiled global regex for high-performance scraping.
 * [x] **9.1.1: Tactical UI:** Integrated spinners and real-time tables for immediate feedback.
