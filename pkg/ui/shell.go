@@ -181,23 +181,36 @@ func (s *Shell) Start() {
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
 	case "loot":
-	    if len(args) < 1 {
-	        pterm.Info.Println("Usage: loot list | loot clear")
-	        return
-	    }
-	    if args[0] == "list" {
-	        pterm.DefaultHeader.WithFullWidth(false).Println("DISCOVERY VAULT")
-	        if len(logic.Vault) == 0 {
-	            pterm.Warning.Println("No sensitive data recovered yet.")
-	            return
-	        }
-	        for _, f := range logic.Vault {
-	            pterm.Info.Printfln("[%s] %s (Source: %s)", pterm.Yellow(f.Type), f.Value, pterm.Gray(f.Source))
-	        }
-	    } else if args[0] == "clear" {
-	        logic.Vault = []logic.Finding{}
-	        pterm.Success.Println("Vault purged.")
-	    }
+		if len(args) < 1 {
+			pterm.Info.Println("Usage: loot list | loot clear")
+			return
+		}
+
+		subCmd := args[0]
+		switch subCmd {
+		case "list":
+			pterm.DefaultHeader.WithFullWidth(false).
+				WithBackgroundStyle(pterm.NewStyle(pterm.BgLightBlue)).
+				Println("DISCOVERY VAULT")
+
+			if len(logic.Vault) == 0 {
+				pterm.Warning.Println("No sensitive data recovered yet.")
+			} else {
+				for _, f := range logic.Vault {
+					pterm.Info.Printfln("[%s] %s (Source: %s)",
+						pterm.Yellow(f.Type),
+						f.Value,
+						pterm.Gray(f.Source))
+				}
+			}
+
+		case "clear":
+			logic.Vault = []logic.Finding{}
+			pterm.Success.Println("Vault purged.")
+
+		default:
+			pterm.Error.Printfln("Unknown sub-command: %s", subCmd)
+		}
 
 	case "flow":
 		if len(args) < 1 {
@@ -269,13 +282,13 @@ func (s *Shell) handleCommand(command string, args []string) {
 			}
 			logic.RunStep(id - 1)
 		case "race":
-		    if len(args) < 3 {
-		        pterm.Info.Println("Usage: flow race <step_id> <threads>")
-		        return
-		    }
-		    id, _ := strconv.Atoi(args[1])
-		    threads, _ := strconv.Atoi(args[2])
-		    logic.RunRace(id-1, threads)
+			if len(args) < 3 {
+				pterm.Info.Println("Usage: flow race <step_id> <threads>")
+				return
+			}
+			id, _ := strconv.Atoi(args[1])
+			threads, _ := strconv.Atoi(args[2])
+			logic.RunRace(id-1, threads)
 
 		case "clear":
 			logic.ActiveFlow = []logic.FlowStep{}
@@ -285,35 +298,38 @@ func (s *Shell) handleCommand(command string, args []string) {
 		default:
 			pterm.Error.Printfln("Unknown flow command: %s", args[0])
 		}
+
 	case "target":
-        if len(args) < 1 {
-            pterm.Error.Println("Usage: target <url> (e.g., target https://api.target.com)")
-            return
-        }
-        // Normalize and set the target in the global logic store
-        targetURL := args[0]
-        if !strings.HasPrefix(targetURL, "http") {
-            targetURL = "https://" + targetURL
-        }
-        logic.CurrentSession.TargetURL = targetURL
-        pterm.Success.Printfln("Target locked: %s", targetURL)
+		if len(args) < 1 {
+			pterm.Error.Println("Usage: target <url> (e.g., target https://api.target.com)")
+			return
+		}
+		// Normalize and set the target in the global logic store
+		targetURL := args[0]
+		if !strings.HasPrefix(targetURL, "http") {
+			targetURL = "https://" + targetURL
+		}
+		logic.CurrentSession.TargetURL = targetURL
+		pterm.Success.Printfln("Target locked: %s", targetURL)
+
 	case "proxies":
-        if len(args) < 1 {
-            pterm.Info.Println("Usage: proxies load <file> | proxies reset")
-            return
-        }
-        if args[0] == "load" && len(args) == 2 {
-            err := logic.LoadProxiesFromFile(args[1])
-            if err == nil {
-                logic.InitializeRotaryClient()
-            }
-        } else if args[0] == "reset" {
-            logic.ProxyPool = []string{}
-            logic.InitializeRotaryClient()
-            pterm.Success.Println("Proxy pool purged. Identity returned to default (Direct/Burp).")
-        } else {
-            pterm.Warning.Println("Invalid subcommand. Use 'load <file>' or 'reset'.")
-        }
+		if len(args) < 1 {
+			pterm.Info.Println("Usage: proxies load <file> | proxies reset")
+			return
+		}
+		if args[0] == "load" && len(args) == 2 {
+			err := logic.LoadProxiesFromFile(args[1])
+			if err == nil {
+				logic.InitializeRotaryClient()
+			}
+		} else if args[0] == "reset" {
+			logic.ProxyPool = []string{}
+			logic.InitializeRotaryClient()
+			pterm.Success.Println("Proxy pool purged. Identity returned to default (Direct/Burp).")
+		} else {
+			pterm.Warning.Println("Invalid subcommand. Use 'load <file>' or 'reset'.")
+		}
+
 	case "proxy":
 		if len(args) < 1 {
 			pterm.Info.Println("Usage: proxy <url> (e.g., proxy http://127.0.0.1:8080)")
@@ -353,7 +369,6 @@ func (s *Shell) handleCommand(command string, args []string) {
 			Println("Mission Intelligence has been successfully exported.")
 
 	case "usage":
-		// This is the correct place to check args[0]
 		if len(args) > 0 && args[0] == "loot" {
 			pterm.DefaultHeader.WithFullWidth(false).Println("PHASE 8.1: PII SCANNER")
 			pterm.Println("Automatically scans all incoming HTTP traffic for secrets.")
@@ -568,8 +583,22 @@ func (s *Shell) handleCommand(command string, args []string) {
 			pterm.Info.Println("Usage: probe <url> [type]")
 			return
 		}
+
 		iType := "generic"
-		if len(args) > 1 { iType = args[1] }
+		if len(args) > 1 {
+			iType = args[1]
+		}
+
+		// CRITICAL FIX: Append to 'ActiveFlow' so 'flow run' can see it
+		logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
+			Name:   fmt.Sprintf("Probe-%s", iType),
+			Method: "GET", 
+			URL:    args[0],
+			Body:   "",
+		})
+		
+		pterm.Success.Printfln("Task added to Tactical Queue (Flow): [%s] %s", pterm.Cyan(iType), args[0])
+
 		probe := &logic.IntegrationContext{TargetURL: args[0], IntegrationType: iType}
 		probe.Probe()
 
@@ -723,8 +752,8 @@ func (s *Shell) handleCommand(command string, args []string) {
 	case "test-bola":
 		pterm.Info.Println("Diagnostic BOLA test against httpbin...")
 		vuln := &logic.BOLAContext{
-			BaseURL:       "https://httpbin.org/anything",
-			VictimID:      "private_id_777",
+			BaseURL:        "https://httpbin.org/anything",
+			VictimID:       "private_id_777",
 			AttackerToken: logic.CurrentSession.AttackerToken,
 		}
 		vuln.ProbeSilent()
@@ -824,6 +853,23 @@ func (s *Shell) ShowHelp(cmd string) {
 				{Level: 1, Text: pterm.Gray("Usage: ") + item[2]},
 			}).Render()
 		}
+	case "loot":
+	    pterm.DefaultHeader.WithFullWidth(false).Println("PHASE 8.3: DISCOVERY VAULT & CLOUD PIVOT")
+	    pterm.Bold.Println("DESCRIPTION:")
+	    pterm.Println("Manages the storage of detected secrets and handles tactical exfiltration.")
+	    pterm.Println("High-value findings are encrypted using AES-256-GCM (Ghost-Pipeline Standard).")
+	    
+	    pterm.Bold.Println("\nAUTOMATED CLOUD PIVOT:")
+	    pterm.Println("Upon detection of 169.254.169.254, the engine spawns an IMDSv2 prober in the background.")
+
+	    pterm.Bold.Println("\nCOMMANDS:")
+	    pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+	        {Level: 0, Text: pterm.Cyan("list") + "  : Displays the table of captured secrets, tokens, and PII."},
+	        {Level: 0, Text: pterm.Cyan("clear") + " : Purges the Vault from current session memory."},
+	    }}.Render()
+
+	    pterm.Bold.Println("\nSTEALTH SIGNATURE:")
+	    pterm.Warning.Println("Deprecated dependency 'net/v1.0.4' (Camouflaged AES Payload)")
 	case "flow":
 		pterm.DefaultHeader.WithFullWidth(false).Println("USAGE: TACTICAL FLOWS")
 		pterm.Println("VaporTrace mimics complex user journeys to find Business Logic flaws.")

@@ -99,6 +99,11 @@ func DetectAndSetProxy() {
 func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error) {
     ApplyEvasion(req)
     req.Header.Set("X-VaporTrace-Module", module)
+
+    // --- PHASE 8.2: CLOUD PIVOT TRIGGER ---
+    // Added trigger to detect metadata services before request execution
+    TriggerCloudPivot(req.URL.String())
+    // --------------------------------------
     
     if isHit {
         pterm.Info.Printfln("Mirroring tactical HIT to proxy history [%s]", module)
@@ -118,7 +123,7 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
     bodyBytes, _ := io.ReadAll(resp.Body)
     resp.Body.Close()
 
-    // Pass to the Scanner (We will create this in logic/loot.go)
+    // Pass to the Scanner (Implemented in logic/loot.go)
     if len(bodyBytes) > 0 {
         go ScanForLoot(string(bodyBytes), req.URL.String())
     }
