@@ -120,7 +120,8 @@ To enter the interactive tactical mode, execute:
 
 * [x] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
 * [x] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
-* [x] **Automated OOB & Metadata Exploitation** - [ ] Auto-probe `169.254.169.254` for AWS/GCP/Azure credentials.
+* [ ] **Automated OOB & Metadata Exploitation** 
+    - [x] Auto-probe `169.254.169.254` for AWS/GCP/Azure credentials.
     - [ ] Out-of-Band (OOB) validation for discovered API tokens.
     - [ ] Background exploitation worker for discovered infrastructure leaks.
 
