@@ -9,6 +9,10 @@
 ```
 **VaporTrace** is a high-performance Red Team framework engineered in Go for surgical reconnaissance and exploitation of API architectures. It specializes in uncovering "Shadow APIs," analyzing authorization logic (BOLA/BFLA), and mapping the entire attack surface of modern REST/Microservice environments.
 
+> **Project Phase:** Engineering & Hardening: Refactoring Surgical Reporting & Vault Integration.
+> **Research Status:** RED TEAM R&D / API SECURITY GAP ANALYSIS
+> **Core Principle:** Logic-First Exploitation & Non-Destructive Ingestion
+
 ---
 
 ## ⚠️ FULL LEGAL DISCLAIMER & RULES OF ENGAGEMENT
@@ -66,87 +70,80 @@ To enter the interactive tactical mode, execute:
 ```bash
 ./VaporTrace shell
 
-
 ```
 
 ---
 
-## 🚀 Strategic Roadmap
+### 🚀 STRATEGIC ROADMAP: OPERATIONAL STATUS
 
-### **Phase 1: The Foundation [STABLE]**
+| PHASE | ICON | OBJECTIVE | STATUS | SUB-PHASE INTEGRITY & TACTICAL MILESTONES |
+| --- | --- | --- | --- | --- |
+| **P1** | 🏗️ | **Foundation** | 🟢 | ✅ Cobra CLI Engine <br>
 
-* [x] **Cobra CLI Engine:** Subcommand-based architecture (`map`, `scan`, `auth`).
-* [x] **Interactive Shell UI:** Advanced REPL with `readline` auto-completion and `pterm` styling.
-* [x] **The Burp Bridge:** Industrial-strength HTTP client with native proxy support.
-* [x] **SSL/TLS Hardening:** Automatic bypass of self-signed certs for intercepting proxies.
-* [x] **Global Config:** Persistent flag management for headers and authentication.
+<br> ✅ Interactive Shell UI <br>
 
-### **Phase 2: Discovery & Inventory (API9) [STABLE]**
+<br> ✅ The Burp Bridge <br>
 
-* [x] **Spec Ingestion:** Automated parsing of Swagger (v2) and OpenAPI (v3) definitions.
-* [x] **JS Route Scraper:** Regex-based endpoint extraction from client-side JavaScript bundles.
-* [x] **Version Walker:** Identification of deprecated versions (e.g., `/v1/` vs `/v2/`) to find unpatched logic.
-* [x] **Parameter Miner:** Automatic identification of hidden query parameters and headers.
+<br> ✅ SSL/TLS Hardening <br>
 
-### **Phase 3: Authorization & Logic (API1, API3, API5) [STABLE]**
+<br> ✅ Global Persistent Config |
+| **P2** | 🔍 | **Discovery** | 🟢 | ✅ Spec Ingestion (Swagger/OAS) <br>
 
-* [x] **BOLA Prober (API1):** Tactical ID-swapping engine with persistent session stores for Attacker/Victim contexts.
-* [x] **BOPLA/Mass Assignment (API3):** Fuzzing JSON bodies for administrative or hidden properties.
-* [x] **BFLA Module (API5):** Testing hierarchical access via HTTP method manipulation (GET vs DELETE).
+<br> ✅ JS Route Scraper <br>
 
-### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [STABLE]**
+<br> ✅ Version Walker (`/v1/` vs `/v2/`) <br>
 
-* [x] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
-* [x] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
-* [x] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
-* [x] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
+<br> ✅ Parameter Miner |
+| **P3** | 🔑 | **Auth Logic** | 🟢 | ✅ BOLA Prober (API1) <br>
 
-### **Phase 5: Intelligence & Persistence [STABLE]**
+<br> ✅ BOPLA (API3: Mass Assignment) <br>
 
-* [x] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
-* [x] **Async Log Worker:** Non-blocking background commitments of tactical findings.
-* [x] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
-* [x] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
+<br> ✅ BFLA Module (API5: Method Shuffling) |
+| **P4** | 💉 | **Injection** | 🟢 | ✅ Resource Exhaustion (API4) <br>
 
-### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [STABLE]**
+<br> ✅ SSRF Tracker (API7) <br>
 
-* [x] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
-* [x] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
-* [x] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
+<br> ✅ Security Misconfig (API8) <br>
 
-### **Phase 7: Business Logic & Workflow Fuzzing [STABLE]**
+<br> ✅ Integration Probe (API10) |
+| **P5** | 🗄️ | **Intelligence** | 🟢 | ✅ SQLite Persistence <br>
 
-* [x] **Flow Engine Implementation** Command suite, recording, and replay
-* [x] **State-Machine Mapping** Logical order enforcement & out-of-order testing
-* [x] **Race Condition Engine** Multi-threaded "Turbo Intruder" probes
+<br> ✅ Async Log Worker <br>
 
-### **Phase 8: Post-Exploitation & Data Exfiltration [ACTIVE]**
+<br> ✅ NIST Mission Reporting <br>
 
-* [x] **8.1: Discovery Vault:** Real-time regex-based scanning of all response bodies for secrets (Credit Cards, SSN, JWTs).
-* [x] **8.2: Cloud Pivot Engine:** Automatic interception of requests to IMDS (169.254.169.254) for credential harvesting.
-* [x] **8.3: Ghost-Weaver Agent:** Background process for OIDC interception and encrypted exfiltration.
-* [x] **8.4: NHPP Evasion:** Masking tactical data as legitimate-looking "Deprecated Dependency" system logs.
-* [x] **Automated OOB validation** for discovered API tokens and infrastructure leaks.
+<br> ✅ Database Lifecycle Mgmt |
+| **P6** | 🌫️ | **Evasion** | 🟢 | ✅ Header/JA3 Randomization <br>
 
-### **Phase 9: Engineering & Hardening [STABLE]**
+<br> ✅ IP Rotation (Tor/Proxy) <br>
 
-* [x] **9.1: Scraper Refinement:** Pre-compiled global regex for high-performance scraping.
-* [x] **9.1.1: Tactical UI:** Integrated spinners and real-time tables for immediate feedback.
-* [x] **9.2: Surgical BOLA:** Response Diffing engine (Baseline comparison) to eliminate False Positives.
-* [x] **9.3: Concurrency Engine:** High-speed worker pools with channel-based task distribution for massive enumeration.
-* [x] **9.4: Environment Sensing:** Auto-detection of Burp Suite/ZAP proxies with intelligent "Hit-Mirroring" and custom X-Header signaling.
-* [x] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
-* [x] **9.6: Universal Proxy Integration:** Refactored `SafeDo` to support multi-module mirroring with `isHit` tactical signaling.
-* [x] **9.7: BOLA Concurrency Engine:** Successfully upgraded the surgical BOLA probe to a high-speed, multi-threaded mass scanner using the Phase 9.3 Worker Pool.
-* [x] **9.8: Industrialized BOPLA (Mass Assignment):** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
-* [x] **9.9: Industrialized BFLA (Functional Logic):** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
-* [x] **9.10: Universal Concurrency (Generic Executor):** Standardize all commands (`mine`, `exhaust`, etc.) under a single `GenericExecutor` for code efficiency.
-* [x] **9.11: Ghost Masquerade:** Process renaming to `kworker_system_auth` for stealth operations.
+<br> ✅ NHPP Timing Jitter |
+| **P7** | 🔄 | **Business Flow** | 🟢 | ✅ Flow Recording/Replay <br>
 
-### **Phase 10: The Vanguard (Future)**
+<br> ✅ State-Machine Mapping <br>
 
-* [ ] **AI-Driven Fuzzing:** Context-aware payload generation using local LLM integration.
-* [ ] **Auto-Exploit PoC:** Standalone script generation for verified vulnerabilities.
+<br> ✅ Multi-threaded Race Engine |
+| **P8** | 🏴‍☠️ | **Post-Exfil** | 🟢 | ✅ 8.1: Discovery Vault (Secrets) <br>
+
+<br> ✅ 8.2: Cloud Pivot (IMDS) <br>
+
+<br> ✅ 8.3: Ghost-Weaver Agent <br>
+
+<br> ✅ 8.4: NHPP Log Masquerading |
+| **P9** | 🛠️ | **Engineering** | 🔴 | ✅ 9.1: Report Engine Refinement <br>
+
+<br> ✅ 9.3: Concurrency Worker Pool <br>
+
+<br> ✅ 9.4: Environment Sensing <br>
+
+<br> ✅ 9.6: Universal Proxy (SafeDo) <br>
+
+<br> ✅ 9.11: Ghost Masquerade <br>
+
+<br> ❌ **9.12: UI Sovereignty (tview Migration)** |
+| **P10** | 🤖 | **The Vanguard** | ⚪ | ❌ 10.1: AI-Driven Contextual Fuzzing <br>
+
+<br> ❌ 10.2: Automated Exploit PoC Gen |
 
 ---
 
@@ -157,7 +154,6 @@ To enter the interactive tactical mode, execute:
 ```bash
 go mod tidy
 go build -o VaporTrace
-
 
 ```
 
@@ -230,12 +226,11 @@ vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 # The engine will attempt to inject 'is_admin', 'role', etc.
 vapor@trace:~$ bopla [https://api.target.com/v1/user/me](https://api.target.com/v1/user/me) '{"name":"vapor"}'
 
-
 ```
 
 ---
 
-### **📑 Tactical Incident Response (IR) Template**
+### **📑 Tactical Incident Response (IR) Template (NIST SP 800-61 R3 Alignment)**
 
 Use this unified template to document findings across the VaporTrace tactical phases. Note the new **Mirroring** section for P9.6.
 
@@ -253,25 +248,33 @@ Use this unified template to document findings across the VaporTrace tactical ph
 > * **Mirroring (P9.6):** Request captured in proxy history via `X-VaporTrace-Signal`.
 > * **Injection/Consumption (P4):** Logic used to trigger SSRF or Resource Exhaustion.
 > * **Persistence (P5):** All tactical logs committed to SQLite for debrief.
->  
->  
+> 
+> 
 > **REPRODUCTION LOG:**
-> 
-> 
-
 > ```bash
 > vapor@trace:~$ {{executed_command}}
 > [MIRROR] Confirmed hit via {{Module}} mirrored to proxy.
 > [RESULT] {{server_response_code}} | {{latency_ms}}ms
->  
 > 
 > ```
 > 
 > 
->  
->  
 > **IMPACT:** {{Data_Exfiltration / Service_Instability / Privilege_Escalation}}
 > **REMEDIATION:** {{Engineering_Action_Plan}}
+
+---
+
+## IV. DFIR RESPONSE GUIDANCE
+
+#### **1. Detection & Analysis (ID.AN)**
+
+* **Network Artifacts:** Monitor for anomalous traffic mirroring or the presence of the `X-VaporTrace-Signal` header. Watch for SSRF patterns targeting internal IP metadata ranges.
+* **Endpoint Artifacts:** Audit for background processes renamed to `kworker_system_auth` or unauthorized access to `/proc/net/arp` and OIDC cache files.
+
+#### **2. Containment & Eradication (PR.PT)**
+
+* **Logic Hardening:** Implement Object-Level Authorization (OLA) at the middleware layer to mitigate BOLA.
+* **Metadata Protection:** Enforce IMDSv2 with session-oriented headers to prevent unauthenticated credential harvesting.
 
 ---
 
