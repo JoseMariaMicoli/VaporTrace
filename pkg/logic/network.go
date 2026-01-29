@@ -1,13 +1,13 @@
 package logic
 
 import (
+	"bytes"
 	"crypto/tls"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
-	"io"
-    "bytes"
 
 	"github.com/pterm/pterm"
 )
@@ -16,9 +16,8 @@ import (
 var detectedProxy *url.URL
 
 // InitializeRotaryClient sets up the GlobalClient with a dynamic proxy selector.
-// This supports Phase 9.4 (Sensing) and Phase 6.2 (IP Rotation) simultaneously.
+// REGLA DE ORO: Utilizes the GlobalClient declared in store.go.
 func InitializeRotaryClient() {
-	// Ensure GlobalClient is initialized to avoid nil pointer if this is called early
 	if GlobalClient == nil {
 		GlobalClient = &http.Client{
 			Timeout: 30 * time.Second,
@@ -27,26 +26,21 @@ func InitializeRotaryClient() {
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		// Dynamic Proxy Selector: Evaluated for every single request.
-		// This allows us to toggle between Burp and IP Rotation mid-session.
+		// Dynamic Proxy Selector for Phase 9.4 (Sensing) and Phase 6.2 (IP Rotation)
 		Proxy: func(req *http.Request) (*url.URL, error) {
-			// Priority 1: Phase 6.2 IP Rotation (Proxy Pool)
-			// If the user loaded a proxy list, we prioritize rotation for stealth.
+			// Priority 1: Phase 6.2 IP Rotation
 			poolProxy := GetRandomProxy()
 			if poolProxy != "" {
 				return url.Parse(poolProxy)
 			}
 
-			// Priority 2: Phase 9.4 Auto-detected Proxy (Burp/ZAP)
-			// If no pool exists, we fall back to the intercepted research proxy.
+			// Priority 2: Phase 9.4 Auto-detected Proxy
 			if detectedProxy != nil {
 				return detectedProxy, nil
 			}
 
-			// Fallback: Direct Connection
 			return nil, nil
 		},
-		// Performance tuning for industrialized scanning
 		MaxIdleConns:        100,
 		IdleConnTimeout:     90 * time.Second,
 		TLSHandshakeTimeout: 10 * time.Second,
@@ -70,9 +64,9 @@ func DetectAndSetProxy() {
 		
 		_, err := client.Get("http://httpbin.org/get")
 		if err == nil {
-			pterm.Success.Printfln("Phase 9.4: Auto-detected Burp/ZAP Proxy at %s", p)
+			pterm.Success.Printfln("Phase 9.4: Auto-detected Proxy at %s", p)
 			detectedProxy = proxyURL
-			InitializeRotaryClient() // Re-initialize with the detected proxy
+			InitializeRotaryClient()
 			return
 		}
 	}
@@ -96,41 +90,48 @@ func DetectAndSetProxy() {
 	InitializeRotaryClient()
 }
 
+// SafeDo executes the request with evasion and triggers the loot scanner.
+// This is the core ingestion point for the Discovery Vault.
 func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error) {
-    ApplyEvasion(req)
-    req.Header.Set("X-VaporTrace-Module", module)
+	ApplyEvasion(req)
+	req.Header.Set("X-VaporTrace-Module", module)
 
-    // --- PHASE 8.2: CLOUD PIVOT TRIGGER ---
-    // Added trigger to detect metadata services before request execution
-    TriggerCloudPivot(req.URL.String())
-    // --------------------------------------
-    
-    if isHit {
-        pterm.Info.Printfln("Mirroring tactical HIT to proxy history [%s]", module)
-    }
+	// --- PHASE 8.2: CLOUD PIVOT TRIGGER ---
+	// Pre-execution trigger to catch Metadata targets before the request is sent
+	TriggerCloudPivot(req.URL.String())
+	
+	if isHit {
+		pterm.Info.Printfln("Mirroring tactical HIT to proxy history [%s]", module)
+	}
 
-    if GlobalClient.Transport == nil {
-        InitializeRotaryClient()
-    }
+	// Ensure transport is ready
+	if GlobalClient.Transport == nil {
+		InitializeRotaryClient()
+	}
 
-    resp, err := GlobalClient.Do(req)
-    if err != nil {
-        return nil, err
-    }
+	resp, err := GlobalClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
 
-    // --- PHASE 8.1: LOOT EXTRACTION HOOK ---
-    // Read the body to scan it
-    bodyBytes, _ := io.ReadAll(resp.Body)
-    resp.Body.Close()
+	// --- PHASE 8.1: LOOT EXTRACTION HOOK (REGLA DE ORO) ---
+	// Non-destructive capture: Read the entire body into memory
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		// Even if read fails, ensure we close the body and return the response
+		resp.Body.Close()
+		return resp, err
+	}
+	resp.Body.Close()
 
-    // Pass to the Scanner (Implemented in logic/loot.go)
-    if len(bodyBytes) > 0 {
-        go ScanForLoot(string(bodyBytes), req.URL.String())
-    }
+	// Trigger the asynchronous scanner if data exists
+	if len(bodyBytes) > 0 {
+		// pterm.Debug.Printfln("Ingesting %d bytes for scanning from %s", len(bodyBytes), req.URL.String())
+		go ScanForLoot(string(bodyBytes), req.URL.String())
+	}
 
-    // Restore the body so the rest of the app can use it
-    resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-    // ---------------------------------------
+	// Restore the body for downstream consumers (the probe command logic)
+	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-    return resp, nil
+	return resp, nil
 }
