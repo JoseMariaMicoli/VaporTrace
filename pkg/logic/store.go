@@ -19,7 +19,6 @@ type FlowStep struct {
 var ActiveFlow []FlowStep
 
 // EndpointEntry stores the path and the specific engines assigned by the analyzer.
-// This is the core metadata structure that allows the Pipeline to route tasks.
 type EndpointEntry struct {
 	Path    string
 	Engines []string
@@ -32,14 +31,14 @@ type DiscoveryStore struct {
 }
 
 // GlobalDiscovery is the centralized singleton for all discovery and engine operations.
-// It replaces the previous simple map to allow for industrialized metadata tagging.
 var GlobalDiscovery = DiscoveryStore{
 	Inventory: make(map[string]*EndpointEntry),
 }
 
-// GlobalClient is the shared HTTP client used for tactical requests.
+// GlobalClient (Unified Phase 8.4): Shared HTTP client for all tactical operations.
+// Centralized here to avoid redeclaration collisions across the logic package.
 var GlobalClient = &http.Client{
-	Timeout: 10 * time.Second,
+	Timeout: 30 * time.Second,
 }
 
 // SetGlobalClient allows the UI or main package to override the default client (e.g., for Proxy support).
@@ -54,7 +53,7 @@ func (ds *DiscoveryStore) AddEndpoint(path string) {
 	if _, exists := ds.Inventory[path]; !exists {
 		ds.Inventory[path] = &EndpointEntry{
 			Path:    path,
-			Engines: []string{}, // This will be populated by the AnalyzeDiscovery function in pipeline.go
+			Engines: []string{}, 
 		}
 	}
 }

