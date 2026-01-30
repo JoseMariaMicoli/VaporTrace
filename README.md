@@ -130,12 +130,16 @@ To enter the interactive tactical mode, execute:
 | ✅ | 9.9 | **Industrialized BFLA:** Method Matrix worker pool (Verb-Tampering). | DONE |
 | ✅ | 9.10 | **Universal Concurrency:** `GenericExecutor` standardization. | DONE |
 | ✅ | 9.11 | **Ghost Masquerade:** Process renaming to `kworker_system_auth`. | DONE |
-| ❌ | 9.12 | **UI Sovereignty:** Migration to `tview` multi-pane dashboarding. | DEFERRED |
 | ❌ | 9.13 | **Refactor:** Surgical Reporting & Vault Integration	[PLANNED]
-| **Sprint 10: Vanguard** |  |  |  |
-| ✅ | 10.1 | **Task Force:** Universal Target Function (Global Context) | DONE |
-| ❌ | **10.2** | **AI-Driven Fuzzing:** Context-aware payload generation (Local LLM). | **ACTIVE** |
-| ❌ | 10.3 | **Auto-Exploit PoC:** Standalone script generation for verified vulns. | PLANNED |
+**Sprint 10** 
+  ✅ | **10.1** | **Universal Target Function (Global Context)** | **[Done]** |
+| ❌ | **10.2** | **Project Mosaic: The Hydra-TUI Dashboard** | **[ACTIVE]** |
+| ❌ | **10.2.1** | **Terminal Multi-Pane (Quadrants + F-Tabs Switcher)** | **[PENDING]** |
+| ❌ | **10.2.2** | **Legacy Shell Fallback (CLI Flag Logic)** | **[PENDING]** |
+| ❌ | **10.3** | **Contextual Aggregator & Information Gathering** | **[PLANNED]** |
+| ❌ | **10.4** | **Tactical Interceptor (F2 Modal Manipulation)** | **[PLANNED]** |
+| ❌ | **10.5** | **AI Base Integration (Heuristic Brain)** | **[PLANNED]** |
+| ❌ | **10.6** | **AI Payload Generation & Autonomous Fuzzing** | **[PLANNED]** |
 
 ---
 
