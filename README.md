@@ -130,7 +130,7 @@ To enter the interactive tactical mode, execute:
 | ✅ | 9.9 | **Industrialized BFLA:** Method Matrix worker pool (Verb-Tampering). | DONE |
 | ✅ | 9.10 | **Universal Concurrency:** `GenericExecutor` standardization. | DONE |
 | ✅ | 9.11 | **Ghost Masquerade:** Process renaming to `kworker_system_auth`. | DONE |
-| ❌ | 9.13 | **Refactor:** Surgical Reporting & Vault Integration	[PLANNED]
+| ❌ | 9.13 | **Refactor:** Surgical Reporting & Vault Integration	| **[PLANNED]** |
 **Sprint 10** 
   ✅ | **10.1** | **Universal Target Function (Global Context)** | **[Done]** |
 | ❌ | **10.2** | **Project Mosaic: The Hydra-TUI Dashboard** | **[ACTIVE]** |
