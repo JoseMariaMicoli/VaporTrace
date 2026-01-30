@@ -133,9 +133,9 @@ To enter the interactive tactical mode, execute:
 | ❌ | 9.13 | **Refactor:** Surgical Reporting & Vault Integration	| **[PLANNED]** |
 **Sprint 10** 
   ✅ | **10.1** | **Universal Target Function (Global Context)** | **DONE** |
-| ❌ | **10.2** | **Project Mosaic: The Hydra-TUI Dashboard** | **[ACTIVE]** |
-| ❌ | **10.2.1** | **Terminal Multi-Pane (Quadrants + F-Tabs Switcher)** | **[PENDING]** |
-| ❌ | **10.2.2** | **Legacy Shell Fallback (CLI Flag Logic)** | **[PENDING]** |
+| ✅ | **10.2** | **Project Mosaic: The Hydra-TUI Dashboard** | **DONE** |
+| ✅ | **10.2.1** | **Terminal Multi-Pane (Quadrants + F-Tabs Switcher)** | **DONE** |
+| ❌ | **10.2.2** | **Legacy Shell Fallback (CLI Flag Logic)** | **[ACTIVE]** |
 | ❌ | **10.3** | **Contextual Aggregator & Information Gathering** | **[PLANNED]** |
 | ❌ | **10.4** | **Tactical Interceptor (F2 Modal Manipulation)** | **[PLANNED]** |
 | ❌ | **10.5** | **AI Base Integration (Heuristic Brain)** | **[PLANNED]** |
