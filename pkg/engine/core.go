@@ -314,38 +314,56 @@ func ExecuteCommand(rawCmd string) {
 	}
 }
 
-// seedDatabase injects 20 dummy findings
+// seedDatabase injects a massive dataset (120+ entries) strictly aligned to VaporTrace Mapping
 func seedDatabase() {
 	time.Sleep(500 * time.Millisecond)
 
+	// Base dataset mapped to your specific VaporTrace Suite
 	findings := []db.Finding{
-		{Phase: "PHASE III: AUTH LOGIC", Target: "https://api.target.com/users/102", Details: "BOLA ID Swap: Accessed User 102", Status: "EXPLOITED", OWASP_ID: "API1:2023", MITRE_ID: "T1548", NIST_Tag: "DE.AE"},
-		{Phase: "PHASE III: AUTH LOGIC", Target: "https://api.target.com/users/103", Details: "BOLA ID Swap: Accessed User 103", Status: "EXPLOITED", OWASP_ID: "API1:2023", MITRE_ID: "T1548", NIST_Tag: "DE.AE"},
-		{Phase: "PHASE III: AUTH LOGIC", Target: "https://api.target.com/users/admin", Details: "BOLA ID Swap: Failed", Status: "INFO", OWASP_ID: "API1:2023", MITRE_ID: "T1548", NIST_Tag: "DE.AE"},
-		{Phase: "PHASE IV: INJECTION", Target: "https://api.target.com/hooks", Details: "SSRF Internal: 169.254.169.254", Status: "CRITICAL", OWASP_ID: "API7:2023", MITRE_ID: "T1071", NIST_Tag: "DE.CM"},
-		{Phase: "PHASE IV: INJECTION", Target: "https://api.target.com/callback", Details: "SSRF Internal: 127.0.0.1", Status: "CRITICAL", OWASP_ID: "API7:2023", MITRE_ID: "T1071", NIST_Tag: "DE.CM"},
-		{Phase: "PHASE IV: INJECTION", Target: "https://api.target.com/img", Details: "SSRF: Open Redirect to evil.com", Status: "VULNERABLE", OWASP_ID: "API7:2023", MITRE_ID: "T1071", NIST_Tag: "DE.CM"},
-		{Phase: "PHASE II: DISCOVERY", Target: "https://api.target.com/v1/swagger.json", Details: "Swagger Documentation Exposed", Status: "INFO", OWASP_ID: "API9:2023", MITRE_ID: "T1595", NIST_Tag: "ID.AM"},
-		{Phase: "PHASE II: DISCOVERY", Target: "https://api.target.com/v2/api-docs", Details: "OpenAPI v3 Spec Found", Status: "INFO", OWASP_ID: "API9:2023", MITRE_ID: "T1595", NIST_Tag: "ID.AM"},
-		{Phase: "PHASE II: DISCOVERY", Target: "https://api.target.com/.env", Details: "Environment File (403 Forbidden)", Status: "INFO", OWASP_ID: "API9:2023", MITRE_ID: "T1595", NIST_Tag: "ID.AM"},
-		{Phase: "PHASE VIII: EXFILTRATION", Target: "https://api.target.com/debug", Details: "Leaked AWS_KEY: AKIA........", Status: "VULNERABLE", OWASP_ID: "API2:2023", MITRE_ID: "T1552", NIST_Tag: "PR.AC"},
-		{Phase: "PHASE VIII: EXFILTRATION", Target: "https://api.target.com/logs", Details: "Leaked JWT Token in Body", Status: "VULNERABLE", OWASP_ID: "API2:2023", MITRE_ID: "T1552", NIST_Tag: "PR.AC"},
-		{Phase: "PHASE VIII: EXFILTRATION", Target: "https://api.target.com/slack", Details: "Leaked Slack Webhook URL", Status: "VULNERABLE", OWASP_ID: "API2:2023", MITRE_ID: "T1552", NIST_Tag: "PR.AC"},
-		{Phase: "PHASE III: AUTH LOGIC", Target: "https://api.target.com/admin/user", Details: "BFLA: DELETE Method Allowed", Status: "VULNERABLE", OWASP_ID: "API5:2023", MITRE_ID: "T1548.002", NIST_Tag: "DE.CM"},
-		{Phase: "PHASE III: AUTH LOGIC", Target: "https://api.target.com/admin/settings", Details: "BFLA: POST Method Allowed", Status: "VULNERABLE", OWASP_ID: "API5:2023", MITRE_ID: "T1548.002", NIST_Tag: "DE.CM"},
-		{Phase: "PHASE IV: INJECTION", Target: "https://api.target.com/profile", Details: "BOPLA: 'is_admin' Injected", Status: "EXPLOITED", OWASP_ID: "API3:2023", MITRE_ID: "T1538", NIST_Tag: "PR.AC"},
-		{Phase: "PHASE IV: INJECTION", Target: "https://api.target.com/order", Details: "BOPLA: 'discount' Injected", Status: "EXPLOITED", OWASP_ID: "API3:2023", MITRE_ID: "T1538", NIST_Tag: "PR.AC"},
-		{Phase: "PHASE 9.9: EXHAUSTION", Target: "https://api.target.com/feed", Details: "DoS: limit=1000000 (Latency: 5s)", Status: "VULNERABLE", OWASP_ID: "API4:2023", MITRE_ID: "T1499", NIST_Tag: "RS.AN"},
-		{Phase: "PHASE 9.9: EXHAUSTION", Target: "https://api.target.com/search", Details: "DoS: Deep Pagination (Offset 50k)", Status: "VULNERABLE", OWASP_ID: "API4:2023", MITRE_ID: "T1499", NIST_Tag: "RS.AN"},
-		{Phase: "PHASE II: DISCOVERY", Target: "https://api.target.com", Details: "Missing Header: HSTS", Status: "WEAK CONFIG", OWASP_ID: "API8:2023", MITRE_ID: "T1592", NIST_Tag: "PR.IP"},
-		{Phase: "PHASE II: DISCOVERY", Target: "https://api.target.com", Details: "CORS: * (Wildcard)", Status: "WEAK CONFIG", OWASP_ID: "API8:2023", MITRE_ID: "T1592", NIST_Tag: "PR.IP"},
+		// --- I. INFIL (Recon & Discovery) ---
+		{Phase: "I. INFIL: 2.1 OpenAPI", Target: "/v1/swagger.json", Details: "Shadow API Discovery: Hidden /internal/debug identified.", Status: "INFO", OWASP_ID: "API9:2023", MITRE_ID: "T1595.002", NIST_Tag: "ID.RA"},
+		{Phase: "I. INFIL: 2.2 JS Mining", Target: "main.bundle.js", Details: "Hidden Route Extraction: Scraped 14 endpoints from minified source.", Status: "VULNERABLE", OWASP_ID: "API9:2023", MITRE_ID: "T1592", NIST_Tag: "ID.RA"},
+		{Phase: "I. INFIL: 3.1 Brute-force", Target: "/api/v0/auth", Details: "Legacy Version ID: Deprecated auth route accessible via version fuzzing.", Status: "VULNERABLE", OWASP_ID: "-", MITRE_ID: "T1589", NIST_Tag: "ID.AM"},
+		{Phase: "I. INFIL: 2.2 JS Mining", Target: "vendor.js", Details: "Credential Leak: Found hardcoded Stripe 'pk_test' key.", Status: "CRITICAL", OWASP_ID: "API2:2023", MITRE_ID: "T1592", NIST_Tag: "ID.RA"},
+
+		// --- II. EXPLOIT (Broken Auth & Injection) ---
+		{Phase: "II. EXPLOIT: 4.1 BOLA", Target: "/api/orders/5001", Details: "Unauthorized Data Access: Accessed Order 5001 (User B) as User A.", Status: "EXPLOITED", OWASP_ID: "API1:2023", MITRE_ID: "T1548", NIST_Tag: "PR.AC"},
+		{Phase: "II. EXPLOIT: 5.1 BFLA", Target: "/api/system/reboot", Details: "Administrative Escalation: Standard user triggered restricted system action.", Status: "EXPLOITED", OWASP_ID: "API5:2023", MITRE_ID: "T1548.002", NIST_Tag: "PR.AC"},
+		{Phase: "II. EXPLOIT: 5.2 BOPLA", Target: "/api/v2/profile", Details: "Internal State Injection: Injected 'tier: platinum' via mass assignment.", Status: "EXPLOITED", OWASP_ID: "API6:2023", MITRE_ID: "T1496", NIST_Tag: "PR.DS"},
+		{Phase: "II. EXPLOIT: 6.1 JWT", Target: "X-Auth-Token", Details: "Identity Spoofing: Successfully forged admin token using 'none' algorithm.", Status: "EXPLOITED", OWASP_ID: "API2:2023", MITRE_ID: "T1606", NIST_Tag: "PR.AC"},
+
+		// --- III. EXPAND (Lateral & Infrastructure) ---
+		{Phase: "III. EXPAND: 7.1 SSRF", Target: "169.254.169.254", Details: "Cloud IAM Role Theft: Exfiltrated AWS credentials from metadata service.", Status: "CRITICAL", OWASP_ID: "API7:2023", MITRE_ID: "T1046", NIST_Tag: "DE.CM"},
+		{Phase: "III. EXPAND: 8.1 DoS", Target: "/api/reports/all", Details: "Backend Service Crash: Resource exhaustion via nested JSON payload.", Status: "VULNERABLE", OWASP_ID: "API4:2023", MITRE_ID: "T1499", NIST_Tag: "RS.AN"},
+		{Phase: "III. EXPAND: 9.1 Persist", Target: "Mission Database", Details: "Audit Trail Integrity: Findings persisted with NIST framework tagging.", Status: "INFO", OWASP_ID: "-", MITRE_ID: "T1560", NIST_Tag: "PR.DS"},
+
+		// --- IV. OBFUSC (Stealth Ops) ---
+		{Phase: "IV. OBFUSC: 11.1 Proxy", Target: "127.0.0.1:8080", Details: "Origin IP Masking: Tactical traffic successfully proxied through Burp.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1090", NIST_Tag: "PR.PT"},
+		{Phase: "IV. OBFUSC: 11.2 Rotation", Target: "ProxyPool-Alpha", Details: "Rate-Limit Bypass: Egress IP rotated 15 times during session.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1090.003", NIST_Tag: "PR.PT"},
+		{Phase: "IV. OBFUSC: 12.1 Evasion", Target: "Cloudflare WAF", Details: "WAF Signature Evasion: Randomized JA3 fingerprints and headers.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1562.001", NIST_Tag: "PR.PT"},
+
+		// --- V. COMPL (Finalization) ---
+		{Phase: "V. COMPL: 13.1 Debrief", Target: "mission_logs.md", Details: "Evidence Packaging: Automated Markdown report generated.", Status: "INFO", OWASP_ID: "-", MITRE_ID: "T1020", NIST_Tag: "PR.DS"},
 	}
 
-	for _, f := range findings {
-		utils.RecordFinding(f)
-		time.Sleep(50 * time.Millisecond)
+	// TRIPLE-PLUS LOOP: Generates 120+ findings with randomized variations
+	targets := []string{"prod-api", "dev-cluster", "stg-nodes", "legacy-v1", "edge-gateway"}
+	statusList := []string{"EXPLOITED", "VULNERABLE", "CRITICAL", "ACTIVE", "INFO"}
+
+	utils.TacticalLog("[yellow]Initializing High-Density Data Seeding...[-]")
+
+	for i := 0; i < 8; i++ { // 8 iterations * 15 findings = 120 records
+		for _, f := range findings {
+			// Randomize data to prevent identical duplicates
+			f.Target = fmt.Sprintf("https://%s.target.com%s?id=%d", targets[i%5], f.Target, i*100)
+			f.Status = statusList[i%5]
+
+			utils.RecordFinding(f)
+			time.Sleep(10 * time.Millisecond) // Faster seeding for large volume
+		}
 	}
-	utils.TacticalLog("[green]Seeding Complete. 20 Findings Injected.[-]")
+
+	utils.TacticalLog("[green]Mission Environment Seeded: 120+ Findings mapped to MITRE & OWASP.[-]")
 }
 
 func handleTestCommands(verb string) {
