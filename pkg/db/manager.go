@@ -7,38 +7,39 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pterm/pterm"
 )
 
 var (
 	DB       *sql.DB
-	LogQueue = make(chan Finding, 100)
+	LogQueue = make(chan Finding, 500)
 	isClosed bool
-	mu       sync.Mutex // Ensures thread-safe access to isClosed
+	mu       sync.Mutex
 )
 
 // Finding represents a tactical discovery to be persisted
-// PATCHED Phase 9.13: Added Framework Tagging Columns
 type Finding struct {
-	Phase    string
-	Target   string
-	Details  string
-	Status   string
-	OWASP_ID string // e.g., "API1:2023"
-	MITRE_ID string // e.g., "T1548"
-	NIST_Tag string // e.g., "DE.AE"
+	Phase      string
+	Target     string
+	Details    string
+	Status     string
+	OWASP_ID   string
+	MITRE_ID   string
+	NIST_Tag   string
+	CVE_ID     string
+	CVSS_Score string
 }
 
-// InitDB initializes the SQLite persistence layer and mission schema
+// InitDB initializes the connection and ensures schema integrity.
+// IT DOES NOT SEED DATA.
 func InitDB() {
 	var err error
 	DB, err = sql.Open("sqlite3", "./vaportrace.db")
 	if err != nil {
-		pterm.Error.Printf("Database connection error: %v\n", err)
+		fmt.Printf("Database connection error: %v\n", err)
 		return
 	}
 
-	// Schema updated for Framework Compliance Columns
+	// 1. Create Base Schema (Idempotent)
 	schema := `
     CREATE TABLE IF NOT EXISTS findings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,16 +56,22 @@ func InitDB() {
         key TEXT PRIMARY KEY,
         value TEXT
     );`
+	DB.Exec(schema)
 
-	_, err = DB.Exec(schema)
-	if err != nil {
-		pterm.Error.Printf("Failed to initialize schema: %v\n", err)
-	} else {
-		// Log to console only if needed, otherwise handled by logger
-		DB.Exec("INSERT OR REPLACE INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
+	// 2. FORCE SCHEMA MIGRATION (For Task 12 Compliance)
+	// We blindly try to add columns. If they exist, SQLite returns an error which we ignore.
+	// This ensures old DB files are instantly compatible with the new Report Generator.
+	migrationQueries := []string{
+		"ALTER TABLE findings ADD COLUMN cve_id TEXT DEFAULT '-';",
+		"ALTER TABLE findings ADD COLUMN cvss_score TEXT DEFAULT '0.0';",
+	}
+	for _, q := range migrationQueries {
+		DB.Exec(q)
 	}
 
-	// Reset state and start worker
+	// 3. Set Session Start Time (Only if not exists)
+	DB.Exec("INSERT OR IGNORE INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
+
 	isClosed = false
 	go StartAsyncWorker()
 }
@@ -80,41 +87,45 @@ func StartAsyncWorker() {
 			return
 		}
 
-		query := `INSERT INTO findings (phase, target, details, status, owasp_id, mitre_id, nist_tag) 
-                  VALUES (?, ?, ?, ?, ?, ?, ?)`
-		
-		_, err := DB.Exec(query, f.Phase, f.Target, f.Details, f.Status, f.OWASP_ID, f.MITRE_ID, f.NIST_Tag)
+		// Sanitize inputs to prevent NULL constraints
+		cve := f.CVE_ID
+		if cve == "" {
+			cve = "-"
+		}
+		cvss := f.CVSS_Score
+		if cvss == "" {
+			cvss = "0.0"
+		}
+		nist := f.NIST_Tag
+		if nist == "" {
+			nist = "N/A"
+		}
+
+		query := `INSERT INTO findings (phase, target, details, status, owasp_id, mitre_id, nist_tag, cve_id, cvss_score) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+		_, err := DB.Exec(query, f.Phase, f.Target, f.Details, f.Status, f.OWASP_ID, f.MITRE_ID, nist, cve, cvss)
 		if err != nil {
-			pterm.Debug.Printf("Async commit failed: %v\n", err)
+			// Fail silently to preserve UI stability
 		}
 	}
 }
 
-// ResetDB purges all mission evidence for a fresh operation
+// ResetDB completely wipes the database for a fresh mission.
 func ResetDB() {
 	if DB == nil {
-		pterm.Error.Println("Database connection is not initialized. Run 'init_db' first.")
 		return
 	}
 
-	spinner, _ := pterm.DefaultSpinner.Start("Wiping all records from findings table...")
-
-	_, err := DB.Exec("DELETE FROM findings")
-	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed to purge table: %v", err))
-		return
-	}
-
-	_, err = DB.Exec("DELETE FROM mission_state")
-	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed to purge mission state: %v", err))
-		return
-	}
-
-	spinner.Success("Database purged successfully.")
+	// Atomic Wipe
+	tx, _ := DB.Begin()
+	tx.Exec("DELETE FROM findings")
+	tx.Exec("DELETE FROM sqlite_sequence WHERE name='findings'") // Reset ID to 1
+	tx.Exec("DELETE FROM mission_state")
+	tx.Exec("INSERT INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
+	tx.Commit()
 }
 
-// CloseDB gracefully terminates the SQLite connection and logging channel
 func CloseDB() {
 	mu.Lock()
 	if isClosed {
@@ -125,13 +136,7 @@ func CloseDB() {
 	mu.Unlock()
 
 	if DB != nil {
-		// Close channel to drain worker
 		close(LogQueue)
-
-		err := DB.Close()
-		if err != nil {
-			pterm.Error.Printf("Failed to close database: %v\n", err)
-		}
-		pterm.Debug.Println("Persistence layer decommissioned safely.")
+		DB.Close()
 	}
 }

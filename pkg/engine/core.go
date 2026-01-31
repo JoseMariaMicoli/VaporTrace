@@ -14,6 +14,18 @@ import (
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
+// getTarget helps commands inherit the global target if no argument is provided
+func getTarget(args []string) string {
+	if len(args) > 0 {
+		return args[0]
+	}
+	global := logic.CurrentSession.GetTarget()
+	if global == "" || global == "http://localhost" {
+		return ""
+	}
+	return global
+}
+
 // ExecuteCommand parses raw input strings and routes them to the appropriate logic module.
 func ExecuteCommand(rawCmd string) {
 	if rawCmd == "" {
@@ -45,7 +57,6 @@ func ExecuteCommand(rawCmd string) {
 			if err != nil {
 				utils.TacticalLog(fmt.Sprintf("[red]Target Error:[-] %v", err))
 			} else {
-				// Log Success via Channel (Fixes UI Leak)
 				utils.TacticalLog(fmt.Sprintf("[green]Target Locked:[-] %s", args[0]))
 			}
 		}
@@ -56,11 +67,8 @@ func ExecuteCommand(rawCmd string) {
 
 	// --- DISCOVERY & RECON ---
 	case "swagger":
-		target := logic.CurrentSession.GetTarget()
-		if len(args) > 0 {
-			target = args[0]
-		}
-		if target == "" || target == "http://localhost" {
+		target := getTarget(args)
+		if target == "" {
 			utils.TacticalLog("[red]Error:[-] Usage: swagger <url> (or set global target)")
 			return
 		}
@@ -75,12 +83,9 @@ func ExecuteCommand(rawCmd string) {
 		}()
 
 	case "scrape":
-		target := logic.CurrentSession.GetTarget()
-		if len(args) > 0 {
-			target = args[0]
-		}
+		target := getTarget(args)
 		if target == "" {
-			utils.TacticalLog("[red]Error:[-] Usage: scrape <js_url>")
+			utils.TacticalLog("[red]Error:[-] Usage: scrape <js_url> (or set global target)")
 			return
 		}
 		utils.TacticalLog(fmt.Sprintf("[blue]Scraping JS Bundle: %s...[-]", target))
@@ -94,12 +99,14 @@ func ExecuteCommand(rawCmd string) {
 		}()
 
 	case "mine":
-		target := logic.CurrentSession.GetTarget()
+		target := getTarget(args)
 		endpoint := ""
+		// Handle argument shifting: mine <url> <endpoint> VS mine <endpoint> (w/ global target)
 		if len(args) >= 2 {
 			target = args[0]
 			endpoint = args[1]
-		} else if len(args) == 1 && target != "" {
+		} else if len(args) == 1 && logic.CurrentSession.GetTarget() != "" {
+			target = logic.CurrentSession.GetTarget()
 			endpoint = args[0]
 		}
 
@@ -107,85 +114,176 @@ func ExecuteCommand(rawCmd string) {
 			utils.TacticalLog("[red]Error:[-] Usage: mine <url> <endpoint>")
 			return
 		}
+
 		utils.TacticalLog(fmt.Sprintf("[blue]Mining hidden parameters on %s%s...[-]", target, endpoint))
-		go discovery.MineParameters(target, endpoint, "")
+		go func() {
+			discovery.MineParameters(target, endpoint, "")
+			utils.TacticalLog("[green]Mining Sequence Complete.[-]")
+		}()
 
 	case "map":
-		utils.TacticalLog("[blue]Starting Phase 2 Recon...[-]")
-		target := logic.CurrentSession.GetTarget()
-		if target != "" && target != "http://localhost" {
+		target := getTarget(args)
+		if target != "" {
+			utils.TacticalLog(fmt.Sprintf("[blue]Starting Phase 2 Recon against %s...[-]", target))
 			go func() {
-				_, err := discovery.ParseSwagger(target, "")
+				// 1. Swagger
+				endpoints, err := discovery.ParseSwagger(target, "")
 				if err != nil {
 					utils.TacticalLog(fmt.Sprintf("[red]Swagger Error:[-] %v", err))
+				} else {
+					utils.TacticalLog(fmt.Sprintf("[green]Swagger Mapped:[-] %d routes", len(endpoints)))
 				}
+				// 2. Mining
 				discovery.MineParameters(target, "", "")
+				utils.TacticalLog("[green]Recon Map Finished.[-]")
 			}()
 		} else {
-			utils.TacticalLog("[red]Error:[-] Set global target first.")
+			utils.TacticalLog("[red]Error:[-] Usage: map <url> (or set global target first).")
 		}
 
 	case "pipeline":
-		utils.TacticalLog("[aqua]Running full tactical pipeline...[-]")
-		go logic.RunPipeline(logic.CurrentSession.Threads)
+		utils.TacticalLog("[aqua]Initializing Industrialized Attack Pipeline...[-]")
+		go func() {
+			utils.TacticalLog(fmt.Sprintf("[blue]Concurrency Level: %d threads[-]", logic.CurrentSession.Threads))
+			logic.RunPipeline(logic.CurrentSession.Threads)
+		}()
 
 	// --- LOGIC PROBES ---
 	case "bola":
-		target := logic.CurrentSession.GetTarget()
+		target := getTarget(args)
+		isPipeline := false
+
+		// Check for flags
 		if len(args) > 0 && (args[0] == "--pipeline" || args[0] == "-p") {
-			utils.TacticalLog("[aqua]Starting Pipeline BOLA scan...[-]")
+			isPipeline = true
+		}
+
+		if isPipeline {
+			utils.TacticalLog("[aqua]Starting Mass BOLA Pipeline Scan...[-]")
 			go logic.ExecuteMassBOLA(logic.CurrentSession.Threads)
-		} else if target != "" && target != "http://localhost" {
-			ctx := &logic.BOLAContext{BaseURL: target, VictimID: "1"}
-			if len(args) >= 1 {
-				ctx.VictimID = args[0]
+		} else if target != "" {
+			// Surgical Mode
+			victim := "1"
+			// Logic to handle 'bola <url> <id>' vs 'bola <id>' (global target)
+			if len(args) >= 2 {
+				target = args[0]
+				victim = args[1]
+			} else if len(args) == 1 && logic.CurrentSession.GetTarget() != "" {
+				// Use inherited target
+				victim = args[0]
 			}
-			go ctx.ProbeSilent()
+
+			utils.TacticalLog(fmt.Sprintf("[blue]Launching Surgical BOLA Probe on %s (ID: %s)...[-]", target, victim))
+			ctx := &logic.BOLAContext{BaseURL: target, VictimID: victim}
+			go func() {
+				ctx.ProbeSilent()
+				utils.TacticalLog("[green]Surgical BOLA Probe Finished.[-]")
+			}()
 		} else {
-			utils.TacticalLog("[red]Error:[-] No target set.")
+			utils.TacticalLog("[red]Error:[-] No target set. Use 'target <url>' or 'bola <url> <id>'.")
 		}
 
 	case "bfla":
 		if logic.CurrentSession.GetTarget() != "" {
-			utils.TacticalLog("[aqua]Starting Mass BFLA Matrix...[-]")
+			utils.TacticalLog("[aqua]Starting Mass BFLA Matrix (Verb Tampering)...[-]")
 			go logic.ExecuteMassBFLA(logic.CurrentSession.Threads)
 		} else {
-			utils.TacticalLog("[red]Error:[-] No target set.")
+			utils.TacticalLog("[red]Error:[-] No global target set. Run 'target <url>' first.")
 		}
 
 	case "bopla":
 		if logic.CurrentSession.GetTarget() != "" {
-			utils.TacticalLog("[aqua]Starting Mass BOPLA Fuzzer...[-]")
+			utils.TacticalLog("[aqua]Starting Mass BOPLA Fuzzer (Property Injection)...[-]")
 			go logic.ExecuteMassBOPLA(logic.CurrentSession.Threads)
 		} else {
-			utils.TacticalLog("[red]Error:[-] No target set.")
+			utils.TacticalLog("[red]Error:[-] No global target set. Run 'target <url>' first.")
 		}
 
 	case "exhaust":
+		target := getTarget(args)
+		param := "limit"
+
 		if len(args) >= 2 {
-			ctx := &logic.ExhaustionContext{TargetURL: args[0], ParamName: args[1]}
-			go ctx.FuzzPagination()
-		} else {
+			target = args[0]
+			param = args[1]
+		} else if len(args) == 1 && logic.CurrentSession.GetTarget() != "" {
+			target = logic.CurrentSession.GetTarget()
+			param = args[0]
+		}
+
+		if target == "" {
 			utils.TacticalLog("[red]Usage:[-] exhaust <url> <param>")
+		} else {
+			go func() {
+				utils.TacticalLog(fmt.Sprintf("[blue]Fuzzing Pagination on %s?%s=...[-]", target, param))
+				ctx := &logic.ExhaustionContext{TargetURL: target, ParamName: param}
+				ctx.FuzzPagination()
+			}()
 		}
 
 	case "ssrf":
+		target := getTarget(args)
+		param := "url"
+		cb := "http://127.0.0.1"
+
+		// Handle args: ssrf <url> <param> <cb> OR ssrf <param> <cb> (global)
 		if len(args) >= 3 {
-			ctx := &logic.SSRFContext{TargetURL: args[0], ParamName: args[1], Callback: args[2]}
-			go ctx.Probe()
-		} else {
+			target = args[0]
+			param = args[1]
+			cb = args[2]
+		} else if len(args) == 2 && logic.CurrentSession.GetTarget() != "" {
+			target = logic.CurrentSession.GetTarget()
+			param = args[0]
+			cb = args[1]
+		}
+
+		if target == "" {
 			utils.TacticalLog("[red]Usage:[-] ssrf <url> <param> <callback>")
+		} else {
+			go func() {
+				utils.TacticalLog(fmt.Sprintf("[blue]Probing SSRF on %s (%s)...[-]", target, param))
+				ctx := &logic.SSRFContext{TargetURL: target, ParamName: param, Callback: cb}
+				ctx.Probe()
+			}()
 		}
 
 	case "audit":
-		if len(args) > 0 {
-			ctx := &logic.MisconfigContext{TargetURL: args[0]}
-			go ctx.Audit()
-		} else if t := logic.CurrentSession.GetTarget(); t != "" {
-			ctx := &logic.MisconfigContext{TargetURL: t}
-			go ctx.Audit()
+		target := getTarget(args)
+		if target != "" {
+			utils.TacticalLog(fmt.Sprintf("[blue]Auditing Security Headers/CORS on %s...[-]", target))
+			ctx := &logic.MisconfigContext{TargetURL: target}
+			go func() {
+				ctx.Audit()
+				utils.TacticalLog("[green]Audit Complete.[-]")
+			}()
 		} else {
 			utils.TacticalLog("[red]Usage:[-] audit <url>")
+		}
+
+	case "probe":
+		target := getTarget(args)
+		iType := "generic"
+
+		// Handle args: probe <url> <type> OR probe <type> (global)
+		if len(args) >= 2 {
+			target = args[0]
+			iType = args[1]
+		} else if len(args) == 1 {
+			// Naive check: if arg looks like URL, treat as URL
+			if strings.HasPrefix(args[0], "http") {
+				target = args[0]
+			} else if logic.CurrentSession.GetTarget() != "" {
+				target = logic.CurrentSession.GetTarget()
+				iType = args[0]
+			}
+		}
+
+		if target == "" {
+			utils.TacticalLog("[red]Usage:[-] probe <url> [type] (or set global target)")
+		} else {
+			utils.TacticalLog(fmt.Sprintf("[blue]Launching %s Integration Probe against %s...[-]", iType, target))
+			ctx := &logic.IntegrationContext{TargetURL: target, IntegrationType: iType}
+			go ctx.Probe()
 		}
 
 	// --- FLOW ENGINE ---
@@ -223,16 +321,19 @@ func ExecuteCommand(rawCmd string) {
 
 	// --- SYSTEM & DB ---
 	case "init_db":
+		// STRICT: Only initialize connection, DO NOT SEED.
 		db.InitDB()
-		utils.TacticalLog("[green]Database Persistence Initialized.[-]")
+		utils.TacticalLog("[green]Database Persistence Initialized (Empty State).[-]")
 
 	case "seed_db":
+		// EXPLICIT SEEDING COMMAND
 		utils.TacticalLog("[aqua]Injecting dummy data for report testing...[-]")
 		go seedDatabase()
 
 	case "reset_db":
+		// EXPLICIT PURGE COMMAND
 		db.ResetDB()
-		utils.TacticalLog("[yellow]Database Purged.[-]")
+		utils.TacticalLog("[yellow]Database Purged (Reset).[-]")
 
 	case "report":
 		report.GenerateMissionDebrief()
@@ -266,8 +367,36 @@ func ExecuteCommand(rawCmd string) {
 
 	case "proxy":
 		if len(args) > 0 {
-			utils.UpdateGlobalClient(args[0])
+			if args[0] == "off" {
+				utils.UpdateGlobalClient("")
+			} else {
+				utils.UpdateGlobalClient(args[0])
+			}
+		} else {
+			utils.TacticalLog("[red]Usage:[-] proxy <url> | proxy off")
 		}
+
+	case "proxies":
+		if len(args) > 0 {
+			if args[0] == "load" && len(args) >= 2 {
+				if err := logic.LoadProxiesFromFile(args[1]); err != nil {
+					utils.TacticalLog(fmt.Sprintf("[red]Load Failed:[-] %v", err))
+				} else {
+					logic.InitializeRotaryClient()
+					utils.TacticalLog(fmt.Sprintf("[green]Proxy Pool Loaded:[-] %d proxies active.", len(logic.ProxyPool)))
+				}
+			} else if args[0] == "reset" {
+				logic.ProxyPool = []string{}
+				logic.InitializeRotaryClient()
+				utils.TacticalLog("[yellow]Proxy Pool Reset. Reverting to default transport.[-]")
+			} else {
+				utils.TacticalLog("[red]Usage:[-] proxies load <file> | proxies reset")
+			}
+		}
+
+	case "clear":
+		// Sends signal to TUI to wipe logs
+		utils.TacticalLog("___CLEAR_SCREEN_SIGNAL___")
 
 	case "usage":
 		printUsage()
@@ -321,29 +450,29 @@ func seedDatabase() {
 	// Base dataset mapped to your specific VaporTrace Suite
 	findings := []db.Finding{
 		// --- I. INFIL (Recon & Discovery) ---
-		{Phase: "I. INFIL: 2.1 OpenAPI", Target: "/v1/swagger.json", Details: "Shadow API Discovery: Hidden /internal/debug identified.", Status: "INFO", OWASP_ID: "API9:2023", MITRE_ID: "T1595.002", NIST_Tag: "ID.RA"},
-		{Phase: "I. INFIL: 2.2 JS Mining", Target: "main.bundle.js", Details: "Hidden Route Extraction: Scraped 14 endpoints from minified source.", Status: "VULNERABLE", OWASP_ID: "API9:2023", MITRE_ID: "T1592", NIST_Tag: "ID.RA"},
-		{Phase: "I. INFIL: 3.1 Brute-force", Target: "/api/v0/auth", Details: "Legacy Version ID: Deprecated auth route accessible via version fuzzing.", Status: "VULNERABLE", OWASP_ID: "-", MITRE_ID: "T1589", NIST_Tag: "ID.AM"},
-		{Phase: "I. INFIL: 2.2 JS Mining", Target: "vendor.js", Details: "Credential Leak: Found hardcoded Stripe 'pk_test' key.", Status: "CRITICAL", OWASP_ID: "API2:2023", MITRE_ID: "T1592", NIST_Tag: "ID.RA"},
+		{Phase: "I. INFIL: 2.1 OpenAPI", Target: "/v1/swagger.json", Details: "Shadow API Discovery: Hidden /internal/debug identified.", Status: "INFO", OWASP_ID: "API9:2023", MITRE_ID: "T1595.002", NIST_Tag: "ID.RA", CVE_ID: "-", CVSS_Score: "0.0"},
+		{Phase: "I. INFIL: 2.2 JS Mining", Target: "main.bundle.js", Details: "Hidden Route Extraction: Scraped 14 endpoints from minified source.", Status: "VULNERABLE", OWASP_ID: "API9:2023", MITRE_ID: "T1592", NIST_Tag: "ID.RA", CVE_ID: "-", CVSS_Score: "3.5"},
+		{Phase: "I. INFIL: 3.1 Brute-force", Target: "/api/v0/auth", Details: "Legacy Version ID: Deprecated auth route accessible via version fuzzing.", Status: "VULNERABLE", OWASP_ID: "-", MITRE_ID: "T1589", NIST_Tag: "ID.AM", CVE_ID: "-", CVSS_Score: "5.0"},
+		{Phase: "I. INFIL: 2.2 JS Mining", Target: "vendor.js", Details: "Credential Leak: Found hardcoded Stripe 'pk_test' key.", Status: "CRITICAL", OWASP_ID: "API2:2023", MITRE_ID: "T1592", NIST_Tag: "ID.RA", CVE_ID: "-", CVSS_Score: "9.1"},
 
 		// --- II. EXPLOIT (Broken Auth & Injection) ---
-		{Phase: "II. EXPLOIT: 4.1 BOLA", Target: "/api/orders/5001", Details: "Unauthorized Data Access: Accessed Order 5001 (User B) as User A.", Status: "EXPLOITED", OWASP_ID: "API1:2023", MITRE_ID: "T1548", NIST_Tag: "PR.AC"},
-		{Phase: "II. EXPLOIT: 5.1 BFLA", Target: "/api/system/reboot", Details: "Administrative Escalation: Standard user triggered restricted system action.", Status: "EXPLOITED", OWASP_ID: "API5:2023", MITRE_ID: "T1548.002", NIST_Tag: "PR.AC"},
-		{Phase: "II. EXPLOIT: 5.2 BOPLA", Target: "/api/v2/profile", Details: "Internal State Injection: Injected 'tier: platinum' via mass assignment.", Status: "EXPLOITED", OWASP_ID: "API6:2023", MITRE_ID: "T1496", NIST_Tag: "PR.DS"},
-		{Phase: "II. EXPLOIT: 6.1 JWT", Target: "X-Auth-Token", Details: "Identity Spoofing: Successfully forged admin token using 'none' algorithm.", Status: "EXPLOITED", OWASP_ID: "API2:2023", MITRE_ID: "T1606", NIST_Tag: "PR.AC"},
+		{Phase: "II. EXPLOIT: 4.1 BOLA", Target: "/api/orders/5001", Details: "Unauthorized Data Access: Accessed Order 5001 (User B) as User A.", Status: "EXPLOITED", OWASP_ID: "API1:2023", MITRE_ID: "T1548", NIST_Tag: "PR.AC", CVE_ID: "CVE-202X-BOLA", CVSS_Score: "8.8"},
+		{Phase: "II. EXPLOIT: 5.1 BFLA", Target: "/api/system/reboot", Details: "Administrative Escalation: Standard user triggered restricted system action.", Status: "EXPLOITED", OWASP_ID: "API5:2023", MITRE_ID: "T1548.002", NIST_Tag: "PR.AC", CVE_ID: "CVE-202X-BFLA", CVSS_Score: "9.0"},
+		{Phase: "II. EXPLOIT: 5.2 BOPLA", Target: "/api/v2/profile", Details: "Internal State Injection: Injected 'tier: platinum' via mass assignment.", Status: "EXPLOITED", OWASP_ID: "API6:2023", MITRE_ID: "T1496", NIST_Tag: "PR.DS", CVE_ID: "CVE-202X-MASS", CVSS_Score: "6.5"},
+		{Phase: "II. EXPLOIT: 6.1 JWT", Target: "X-Auth-Token", Details: "Identity Spoofing: Successfully forged admin token using 'none' algorithm.", Status: "EXPLOITED", OWASP_ID: "API2:2023", MITRE_ID: "T1606", NIST_Tag: "PR.AC", CVE_ID: "CVE-202X-JWT", CVSS_Score: "9.8"},
 
 		// --- III. EXPAND (Lateral & Infrastructure) ---
-		{Phase: "III. EXPAND: 7.1 SSRF", Target: "169.254.169.254", Details: "Cloud IAM Role Theft: Exfiltrated AWS credentials from metadata service.", Status: "CRITICAL", OWASP_ID: "API7:2023", MITRE_ID: "T1046", NIST_Tag: "DE.CM"},
-		{Phase: "III. EXPAND: 8.1 DoS", Target: "/api/reports/all", Details: "Backend Service Crash: Resource exhaustion via nested JSON payload.", Status: "VULNERABLE", OWASP_ID: "API4:2023", MITRE_ID: "T1499", NIST_Tag: "RS.AN"},
-		{Phase: "III. EXPAND: 9.1 Persist", Target: "Mission Database", Details: "Audit Trail Integrity: Findings persisted with NIST framework tagging.", Status: "INFO", OWASP_ID: "-", MITRE_ID: "T1560", NIST_Tag: "PR.DS"},
+		{Phase: "III. EXPAND: 7.1 SSRF", Target: "169.254.169.254", Details: "Cloud IAM Role Theft: Exfiltrated AWS credentials from metadata service.", Status: "CRITICAL", OWASP_ID: "API7:2023", MITRE_ID: "T1046", NIST_Tag: "DE.CM", CVE_ID: "CVE-202X-SSRF", CVSS_Score: "10.0"},
+		{Phase: "III. EXPAND: 8.1 DoS", Target: "/api/reports/all", Details: "Backend Service Crash: Resource exhaustion via nested JSON payload.", Status: "VULNERABLE", OWASP_ID: "API4:2023", MITRE_ID: "T1499", NIST_Tag: "RS.AN", CVE_ID: "-", CVSS_Score: "7.5"},
+		{Phase: "III. EXPAND: 9.1 Persist", Target: "Mission Database", Details: "Audit Trail Integrity: Findings persisted with NIST framework tagging.", Status: "INFO", OWASP_ID: "-", MITRE_ID: "T1560", NIST_Tag: "PR.DS", CVE_ID: "-", CVSS_Score: "0.0"},
 
 		// --- IV. OBFUSC (Stealth Ops) ---
-		{Phase: "IV. OBFUSC: 11.1 Proxy", Target: "127.0.0.1:8080", Details: "Origin IP Masking: Tactical traffic successfully proxied through Burp.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1090", NIST_Tag: "PR.PT"},
-		{Phase: "IV. OBFUSC: 11.2 Rotation", Target: "ProxyPool-Alpha", Details: "Rate-Limit Bypass: Egress IP rotated 15 times during session.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1090.003", NIST_Tag: "PR.PT"},
-		{Phase: "IV. OBFUSC: 12.1 Evasion", Target: "Cloudflare WAF", Details: "WAF Signature Evasion: Randomized JA3 fingerprints and headers.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1562.001", NIST_Tag: "PR.PT"},
+		{Phase: "IV. OBFUSC: 11.1 Proxy", Target: "127.0.0.1:8080", Details: "Origin IP Masking: Tactical traffic successfully proxied through Burp.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1090", NIST_Tag: "PR.PT", CVE_ID: "-", CVSS_Score: "0.0"},
+		{Phase: "IV. OBFUSC: 11.2 Rotation", Target: "ProxyPool-Alpha", Details: "Rate-Limit Bypass: Egress IP rotated 15 times during session.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1090.003", NIST_Tag: "PR.PT", CVE_ID: "-", CVSS_Score: "0.0"},
+		{Phase: "IV. OBFUSC: 12.1 Evasion", Target: "Cloudflare WAF", Details: "WAF Signature Evasion: Randomized JA3 fingerprints and headers.", Status: "ACTIVE", OWASP_ID: "-", MITRE_ID: "T1562.001", NIST_Tag: "PR.PT", CVE_ID: "-", CVSS_Score: "0.0"},
 
 		// --- V. COMPL (Finalization) ---
-		{Phase: "V. COMPL: 13.1 Debrief", Target: "mission_logs.md", Details: "Evidence Packaging: Automated Markdown report generated.", Status: "INFO", OWASP_ID: "-", MITRE_ID: "T1020", NIST_Tag: "PR.DS"},
+		{Phase: "V. COMPL: 13.1 Debrief", Target: "mission_logs.md", Details: "Evidence Packaging: Automated Markdown report generated.", Status: "INFO", OWASP_ID: "-", MITRE_ID: "T1020", NIST_Tag: "PR.DS", CVE_ID: "-", CVSS_Score: "0.0"},
 	}
 
 	// TRIPLE-PLUS LOOP: Generates 120+ findings with randomized variations

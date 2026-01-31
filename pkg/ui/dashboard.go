@@ -275,14 +275,25 @@ func startAsyncEngines() {
 	go func() {
 		for msg := range utils.UI_Log_Chan {
 			app.QueueUpdateDraw(func() {
-				if strings.Contains(msg, "Target Locked:") {
+				// Special Signal for Clear Command
+				if msg == "___CLEAR_SCREEN_SIGNAL___" {
+					brainLog.Clear()
+					return
+				}
+
+				// Special handling for Target Updates in sidebar
+				if strings.Contains(msg, "Target Locked") {
 					parts := strings.Split(msg, "Target Locked:[-] ")
 					if len(parts) > 1 {
 						url := strings.TrimSpace(parts[1])
 						targetColumn.SetCell(1, 1, tview.NewTableCell("[green]"+url))
 					}
 				}
-				fmt.Fprintf(brainLog, "[%s] %s\n", time.Now().Format("15:04:05"), msg)
+
+				// Print to BrainLog (Message already formatted by logger.go)
+				fmt.Fprintln(brainLog, msg)
+
+				// Force scroll to end to ensure visibility of latest findings
 				brainLog.ScrollToEnd()
 			})
 		}

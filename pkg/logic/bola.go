@@ -15,7 +15,6 @@ import (
 	"github.com/pterm/pterm"
 )
 
-// BOLAContext defines the parameters for an ID-swap attack
 type BOLAContext struct {
 	BaseURL       string
 	VictimID      string
@@ -23,10 +22,9 @@ type BOLAContext struct {
 	AttackerToken string
 }
 
-// ExecuteMassBOLA handles the industrialized execution of BOLA across the pipeline.
 func ExecuteMassBOLA(concurrency int) {
-	pterm.DefaultSection.Println("Phase 9.7: Industrialized BOLA Engine")
-	
+	utils.TacticalLog("[cyan::b]PHASE 9.7: INDUSTRIALIZED BOLA ENGINE STARTED[-:-:-]")
+
 	GlobalDiscovery.mu.RLock()
 	var targets []string
 	for path, entry := range GlobalDiscovery.Inventory {
@@ -56,6 +54,7 @@ func ExecuteMassBOLA(concurrency int) {
 		}
 		ctx.MassProbe(testIDs, concurrency)
 	}
+	utils.TacticalLog("[green::b]BOLA Engine Execution Completed.[-:-:-]")
 }
 
 func (b *BOLAContext) getResource(resourceID string, token string) (int, string, error) {
@@ -133,14 +132,15 @@ func (b *BOLAContext) ProbeSilent() {
 		return 
 	}
 
-	// PATCHED: Unified Logging with Phase 9.13 Tags
 	utils.RecordFinding(db.Finding{
-		Phase:    "PHASE III: AUTH LOGIC",
-		Target:   b.BaseURL,
-		Details:  fmt.Sprintf("BOLA ID Swap Success: ID %s returned 200 OK", b.VictimID),
-		Status:   "VULNERABLE",
-		OWASP_ID: "API1:2023",
-		MITRE_ID: "T1548", // Abuse Elevation Control Mechanism
-		NIST_Tag: "DE.AE", // Detect Anomalies and Events
+		Phase:      "PHASE III: AUTH LOGIC",
+		Target:     b.BaseURL,
+		Details:    fmt.Sprintf("BOLA ID Swap Success: ID %s returned 200 OK", b.VictimID),
+		Status:     "VULNERABLE",
+		OWASP_ID:   "API1:2023",
+		MITRE_ID:   "T1548",
+		NIST_Tag:   "DE.AE",
+		CVE_ID:     "CVE-202X-BOLA-AUTH",
+		CVSS_Score: "7.5", // CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
 	})
 }
