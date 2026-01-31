@@ -1,10 +1,11 @@
 package logic
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
-	"github.com/pterm/pterm"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
 // PipelineTarget maps a specific path to the engines authorized to attack it
@@ -22,15 +23,16 @@ func AnalyzeDiscovery() {
 	GlobalDiscovery.mu.Lock()
 	defer GlobalDiscovery.mu.Unlock()
 
-	pterm.DefaultSection.Println("Phase 9.5: Tactical Pipeline Analysis")
-	
+	// Redirect feedback to LOG QUADRANT
+	utils.TacticalLog("[cyan::b]PHASE 9.5: TACTICAL PIPELINE ANALYSIS[-:-:-]")
+
 	inventoryCount := len(GlobalDiscovery.Inventory)
 	if inventoryCount == 0 {
-		pterm.Warning.Println("Discovery store is empty. No endpoints to analyze.")
+		utils.TacticalLog("[yellow]WARN:[-] Discovery store is empty. No endpoints to analyze.")
 		return
 	}
 
-	pterm.Info.Printfln("Analyzing %d endpoints for specialized testing...", inventoryCount)
+	utils.TacticalLog(fmt.Sprintf("[blue]⠋[-] Analyzing %d endpoints for specialized testing...", inventoryCount))
 
 	// Reset queue to ensure a clean state if re-run
 	PipelineQueue = []PipelineTarget{}
@@ -38,8 +40,6 @@ func AnalyzeDiscovery() {
 	// Heuristics: Catch Swagger placeholders like {petId} or numeric segments.
 	// This ensures BOLA logic triggers for the correct RESTful patterns.
 	idRegex := regexp.MustCompile(`\{.*\}|[0-9]{1,}`)
-	
-	tableData := pterm.TableData{{"ENDPOINT", "ENGINES"}}
 
 	for path, entry := range GlobalDiscovery.Inventory {
 		// 1. Every endpoint is subject to BFLA (Method Matrix / Verb Tampering)
@@ -52,10 +52,10 @@ func AnalyzeDiscovery() {
 
 		// 3. BOPLA Detection: Look for keywords indicating resource mutation (Mass Assignment)
 		lp := strings.ToLower(path)
-		if strings.Contains(lp, "update") || strings.Contains(lp, "create") || 
-		   strings.Contains(lp, "set") || strings.Contains(lp, "profile") || 
-		   strings.Contains(lp, "pet") || strings.Contains(lp, "user") ||
-		   strings.Contains(lp, "order") {
+		if strings.Contains(lp, "update") || strings.Contains(lp, "create") ||
+			strings.Contains(lp, "set") || strings.Contains(lp, "profile") ||
+			strings.Contains(lp, "pet") || strings.Contains(lp, "user") ||
+			strings.Contains(lp, "order") {
 			engines = append(engines, "BOPLA")
 		}
 
@@ -68,13 +68,10 @@ func AnalyzeDiscovery() {
 			Engines: engines,
 		}
 		PipelineQueue = append(PipelineQueue, target)
-		
-		// Add entry to the UI table
-		tableData = append(tableData, []string{path, strings.Join(engines, ", ")})
 	}
 
-	// Render the tactical map to the console
-	pterm.DefaultTable.WithHasHeader().WithData(tableData).WithBoxed().Render()
+	// Feedback to LOG QUADRANT
+	utils.TacticalLog(fmt.Sprintf("[green]✔[-] Analysis complete. %d targets synchronized to pipeline.", len(PipelineQueue)))
 }
 
 // RunPipeline iterates through the queue and triggers the relevant industrialized engines
@@ -83,24 +80,23 @@ func RunPipeline(concurrency int) {
 	AnalyzeDiscovery()
 
 	if len(PipelineQueue) == 0 {
-		pterm.Warning.Println("Pipeline queue is empty. Run 'map' or 'swagger' first.")
+		utils.TacticalLog("[red]ERROR:[-] Pipeline queue is empty. Run 'map' or 'swagger' first.")
 		return
 	}
 
-	pterm.DefaultSection.Println("Executing Industrialized Attack Pipeline")
+	utils.TacticalLog("[cyan::b]EXECUTING INDUSTRIALIZED ATTACK PIPELINE[-:-:-]")
 
 	// Trigger specialized mass execution engines.
-	// These functions (defined in bola.go, bfla.go, bopla.go) will now
-	// pull targets directly from GlobalDiscovery.Inventory based on the tags.
-	
-	// Phase 9.7: Mass ID Enumeration (BOLA)
+	// These engines will internally call utils.RecordFinding, producing live logs.
+
+	utils.TacticalLog("[blue]⠋[-] Launching Mass BOLA Engine (API1:2023)...")
 	ExecuteMassBOLA(concurrency)
-	
-	// Phase 9.9: Method Matrix Tampering (BFLA)
+
+	utils.TacticalLog("[blue]⠋[-] Launching Mass BFLA Engine (API5:2023)...")
 	ExecuteMassBFLA(concurrency)
 
-	// Phase 9.8: Property Injection / Mass Assignment (BOPLA)
+	utils.TacticalLog("[blue]⠋[-] Launching Property Injection Engine (API3:2023)...")
 	ExecuteMassBOPLA(concurrency)
 
-	pterm.Success.Println("Pipeline execution finished. Use 'report' to view findings.")
+	utils.TacticalLog("[green::b]PIPELINE EXECUTION FINISHED. Use 'report' to view findings.[-:-:-]")
 }

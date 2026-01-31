@@ -12,7 +12,6 @@ import (
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
-	"github.com/pterm/pterm"
 )
 
 // BOLAContext defines the parameters for an ID-swap attack
@@ -25,8 +24,9 @@ type BOLAContext struct {
 
 // ExecuteMassBOLA handles the industrialized execution of BOLA across the pipeline.
 func ExecuteMassBOLA(concurrency int) {
-	pterm.DefaultSection.Println("Phase 9.7: Industrialized BOLA Engine")
-	
+	// Send Section header to TUI
+	utils.TacticalLog("[cyan::b]PHASE 9.7: INDUSTRIALIZED BOLA ENGINE STARTED[-:-:-]")
+
 	GlobalDiscovery.mu.RLock()
 	var targets []string
 	for path, entry := range GlobalDiscovery.Inventory {
@@ -44,7 +44,7 @@ func ExecuteMassBOLA(concurrency int) {
 	GlobalDiscovery.mu.RUnlock()
 
 	if len(targets) == 0 {
-		utils.TacticalLog("No BOLA-vulnerable patterns detected.")
+		utils.TacticalLog("[yellow]No BOLA-vulnerable patterns detected in discovery phase.[-]")
 		return
 	}
 
@@ -65,7 +65,7 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 	}
 
 	target := u.String()
-	
+
 	re := regexp.MustCompile(`\{.*?\}`)
 	if re.MatchString(target) {
 		target = re.ReplaceAllString(target, resourceID)
@@ -75,7 +75,7 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 	}
 
 	req, _ := http.NewRequest("GET", target, nil)
-	
+
 	if token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	} else if CurrentSession.AttackerToken != "" {
@@ -84,7 +84,7 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 
 	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.10 Industrialized)")
 
-	resp, err := SafeDo(req, false, "BOLA-ENGINE") 
+	resp, err := SafeDo(req, false, "BOLA-ENGINE")
 	if err != nil {
 		return 0, "", err
 	}
@@ -124,16 +124,17 @@ func (b *BOLAContext) ProbeSilent() {
 	}
 
 	code, body, err := b.getResource(b.VictimID, activeToken)
-	if err != nil || code != 200 { 
-		return 
+	if err != nil || code != 200 {
+		return
 	}
 
 	lowerBody := strings.ToLower(body)
-	if strings.Contains(lowerBody, "not found") || strings.Contains(lowerBody, "error") || len(body) < 2 { 
-		return 
+	if strings.Contains(lowerBody, "not found") || strings.Contains(lowerBody, "error") || len(body) < 2 {
+		return
 	}
 
 	// PATCHED: Unified Logging with Phase 9.13 Tags
+	// Using utils.RecordFinding which now sanitizes input via logger.go
 	utils.RecordFinding(db.Finding{
 		Phase:    "PHASE III: AUTH LOGIC",
 		Target:   b.BaseURL,
