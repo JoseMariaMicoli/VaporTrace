@@ -2,33 +2,30 @@ package utils
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 	"os"
+	"time"
 
 	"github.com/pterm/pterm"
 )
 
-// GlobalClient is the shared state across ALL modules (Discovery, Logic, UI)
+// GlobalClient is the shared state across ALL modules
 var GlobalClient *http.Client
 
 func init() {
-	// Initialize with a direct connection by default
 	GlobalClient, _ = GetClient("")
 }
 
-// GetClient constructs a tactical HTTP client with TLS-bypass for interception
+// GetClient constructs a tactical HTTP client
 func GetClient(proxyAddr string) (*http.Client, error) {
-	// If no proxy passed, check system environment
 	if proxyAddr == "" {
 		proxyAddr = os.Getenv("HTTP_PROXY")
 	}
 
 	transport := &http.Transport{
-		// InsecureSkipVerify is CRITICAL for Burp's self-signed CA certificates
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, 
-		// Disabling KeepAlives helps Burp intercept individual requests cleanly
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 		DisableKeepAlives: true,
 	}
 
@@ -46,25 +43,42 @@ func GetClient(proxyAddr string) (*http.Client, error) {
 	}, nil
 }
 
-// UpdateGlobalClient is the key function called by the UI/CLI to redirect traffic
+// UpdateGlobalClient handles network reconfiguration safely for TUI/CLI
 func UpdateGlobalClient(proxyAddr string) {
-	pterm.DefaultSpinner.Start("Reconfiguring network stack for Interceptor...")
-	
-	newClient, err := GetClient(proxyAddr)
-	if err != nil {
-		pterm.DefaultSpinner.Fail("Network reconfiguration failed: " + err.Error())
-		return
-	}
+	msg := fmt.Sprintf("Reconfiguring network stack for Interceptor (%s)...", proxyAddr)
 
-	// ATOMIC UPDATE: This changes the pointer for everyone importing 'utils'
-	GlobalClient = newClient
-	
-	// Tactical delay for UI feedback
-	time.Sleep(500 * time.Millisecond)
-	
-	if proxyAddr == "" {
-		pterm.DefaultSpinner.Success("Traffic is now DIRECT (Proxy Disabled)")
+	// CLI Mode: Use Spinner
+	if UIMode == "CLI" {
+		spinner, _ := pterm.DefaultSpinner.Start(msg)
+		newClient, err := GetClient(proxyAddr)
+		if err != nil {
+			spinner.Fail("Network reconfiguration failed: " + err.Error())
+			return
+		}
+		GlobalClient = newClient
+		time.Sleep(500 * time.Millisecond)
+
+		if proxyAddr == "" {
+			spinner.Success("Traffic is now DIRECT (Proxy Disabled)")
+		} else {
+			spinner.Success("Traffic routed to INTERCEPTOR: " + proxyAddr)
+		}
 	} else {
-		pterm.DefaultSpinner.Success("Traffic routed to INTERCEPTOR: " + proxyAddr)
+		// TUI Mode: Use Logger Channel (No stdout/spinners!)
+		TacticalLog("[blue]⠋[-] " + msg)
+		newClient, err := GetClient(proxyAddr)
+		if err != nil {
+			TacticalLog("[red]✖[-] Network config failed: " + err.Error())
+			return
+		}
+		GlobalClient = newClient
+		// Simulate slight delay for user feedback
+		time.Sleep(200 * time.Millisecond)
+
+		if proxyAddr == "" {
+			TacticalLog("[green]✔[-] Traffic is now DIRECT (Proxy Disabled)")
+		} else {
+			TacticalLog(fmt.Sprintf("[green]✔[-] Traffic routed to INTERCEPTOR: %s", proxyAddr))
+		}
 	}
 }

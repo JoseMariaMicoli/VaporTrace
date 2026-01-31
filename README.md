@@ -32,23 +32,30 @@
 
 VaporTrace operations are mapped across the full attack lifecycle to provide stakeholders with clear visibility into adversary emulation.
 
-| PHASE | TACTIC | TECHNIQUE | VAPORTRACE COMPONENT |
-| --- | --- | --- | --- |
-| **P1: Foundation** | Command and Control | T1105: Ingress Tool Transfer | `Burp Bridge / Proxy Config` |
-| **P2: Discovery** | Reconnaissance | T1595.002: Active Scanning | `map`, `swagger`, `mine` |
-| **P2: Discovery** | Reconnaissance | T1592: Victim Info | **`pipeline` (Endpoint Categorization)** |
-| **P3: Auth Logic** | **Privilege Escalation** | **T1548: Abuse Elevation** | **`bola --pipeline` (Mass Engine)** |
-| **P3: Auth Logic** | **Privilege Escalation** | **T1548.002: Mass Assignment** | **`bopla --pipeline` (Property Fuzzer)** |
-| **P3: Auth Logic** | Privilege Escalation | T1548: Abuse Elevation | `scan-bfla` (Verb Tampering) |
-| **P4: Injection** | Impact | T1499: Endpoint DoS | `resource-exhaustion (API4)` |
-| **P4: Injection** | Discovery | T1046: Network Service Discovery | `ssrf-tracker (API7)` |
-| **P5: Reporting** | Reporting | T1592: Victim Info | `persistence (SQLite) / report` |
-| **P8: Exfiltration** | **Exfiltration** | **T1041: Exfiltration Over C2** | **`weaver` (Ghost-Weaver)** |
-| **P8: Discovery** | **Credential Access** | **T1552.001: Files/Env** | **`loot` (Discovery Vault)** |
-| **P8: Discovery** | **Credential Access** | **T1552.005: Cloud Provider** | **`TriggerCloudPivot`** |
-| **Standardization** | **Exfiltration** | **T1071.001: Web Protocols** | **`SafeDo` (Universal Mirroring)** |
-| **Standardization** | Credential Access | T1557: AiTM | **`X-VaporTrace-Signal`** |
-
+| Operational Block | Sprint | Sub-Phase: Technical Implementation | MITRE ATT&CK Tactic | MITRE ID | OWASP API 2023 | Defensive Context |
+| --- | --- | --- | --- | --- | --- | --- |
+| **I. INFILTRATION** | **1-3** | **Surface Reconnaissance** | **Reconnaissance** |  |  | *Mapping the perimeter* |
+|  |  | 2.1: OpenAPI/Swagger Harvesting & Parsing | Active Scanning | **T1595.002** | API9: Improper Inventory | Exposes forgotten "shadow" APIs |
+|  |  | 2.2: JS Bundle Static Analysis (Route Mining) | Gather Victim Host Info | **T1592** | API9: Improper Inventory | Finds endpoints not in public docs |
+|  |  | 3.1: Param Mining & Version Brute-forcing | Gather Victim Identity | **T1589** | - | Identifies deprecated vulnerable versions |
+| **II. EXPLOITATION** | **4-6** | **Auth Logic & Data Extraction** | **Privilege Escalation** |  |  | *Breaking the trust boundary* |
+|  |  | 4.1: BOLA ID-Swapping Logic (`/uid/102` -> `103`) | Abuse Elevation Control | **T1548** | **API1: BOLA** | Most common cause of data breaches |
+|  |  | 5.1: BFLA Method Tampering (Verb Hijacking) | Bypass UAC | **T1548.002** | **API5: BFLA** | Escalates user to admin actions |
+|  |  | 5.2: Mass Assignment (BOPLA) Payload Injection | Data Manipulation | **T1496** | API6: Unsafe Consumption | Modifies internal state via JSON |
+|  |  | 6.1: JWT Algorithm Downgrade & Forge | Forge Web Credentials | **T1606** | API2: Broken Auth | Identity theft at the protocol level |
+| **III. EXPANSION** | **7-9** | **Infrastructure & Internal Pivot** | **Discovery / Impact** |  |  | *Moving beyond the gateway* |
+|  |  | 7.1: SSRF targeting Meta-data Services (169.254) | Network Service Discovery | **T1046** | **API7: SSRF** | Steals cloud provider IAM roles |
+|  |  | 8.1: Resource Exhaustion (Symmetric DoS) | Endpoint DoS | **T1499** | API4: Unrestricted Resource | Crashes backend with single requests |
+|  |  | 9.1: Framework-Tagged Persistence (Phase 9.13) | Archive Collected Data | **T1560** | - | Creates a tactical audit trail |
+| **IV. OBFUSCATION** | **10-12** | **Defense Evasion & C2** | **Defense Evasion** |  |  | *Bypassing the Blue Team* |
+|  |  | 10.1: Project Mosaic (Unified TUI Dash) | App Layer Protocol | **T1071** | - | Stealthy monitoring of attack flow |
+|  |  | 11.1: Multi-hop Proxy & Burp Integration | Proxy Usage | **T1090** | - | Hides origin IP from target logs |
+|  |  | 11.2: IP Rotation / Proxy Pool Logic | Multi-hop Proxy | **T1090.003** | - | Bypasses IP-based rate limiting |
+|  |  | 12.1: User-Agent & Header Randomization | Disable/Modify Tools | **T1562.001** | - | Evades Signature-based WAFs |
+| **V. COMPLETION** | **13-15** | **Mission Finalization** | **Exfiltration** |  |  | *Generating the "Kill Chain" report* |
+|  |  | 13.1: Automated Tactical Debrief Generation | Automated Exfiltration | **T1020** | - | Packages evidence for handoff |
+|  |  | 14.1: Concurrent Multi-URL Pipelines | - | - | - | Scalable bulk auditing |
+|  |  | 15.1: Legacy `shell.go` Official Deprecation | - | - | - | Finalizing the binary footprint |
 
 ---
 
@@ -123,7 +130,7 @@ To enter the interactive tactical mode, execute:
 |  | 9.9 | Industrialized BFLA: Method Matrix worker pool (Verb-Tampering). | ✅ DONE |
 |  | 9.10 | Universal Concurrency: GenericExecutor standardization. | ✅ DONE |
 |  | 9.11 | Ghost Masquerade: Process renaming to kworker_system_auth. | ✅ DONE |
-|  | **9.13** | **Refactor: Framework-Tagged DB (OWASP/MITRE/NIST) Integration** | ❌ **ACTIVE** |
+|  | 9.13 | Refactor: Framework-Tagged DB (OWASP/MITRE/NIST) Integration | ✅ DONE |
 
 ---
 
@@ -131,11 +138,12 @@ To enter the interactive tactical mode, execute:
 
 | Phase | Sub-Phase | Focus / Technical Deliverable | Status |
 | --- | --- | --- | --- |
-| **Sprint 10: Hydra** | 10.1 | Universal Target Function (Global Context) | ✅ DONE |
+| **Sprint 10: Hydra** 
+|  | 10.1 | Universal Target Function (Global Context) | ✅ DONE |
 |  | 10.2 | Project Mosaic: The Hydra-TUI Dashboard | ✅ DONE |
 |  | 10.2.1 | Terminal Multi-Pane (Quadrants + F-Tabs Switcher) | ✅ DONE |
-|  | 10.2.2 | Legacy Shell Fallback (CLI Flag Logic) | ❌ [ACTIVE] |
-|  | 10.3 | Contextual Aggregator & Information Gathering | ❌ [PLANNED] |
+|  | 10.2.2 | Legacy Shell Fallback (CLI Flag Logic) | ✅ DONE |
+|  | **10.3** | **Contextual Aggregator & Information Gathering** | ❌ [**ACTIVE**] |
 |  | 10.4 | Tactical Interceptor (F2 Modal Manipulation) | ❌ [PLANNED] |
 |  | 10.5 | AI Base Integration (Heuristic Brain) | ❌ [PLANNED] |
 |  | 10.6 | AI Payload Generation & Autonomous Fuzzing | ❌ [PLANNED] |
@@ -146,19 +154,24 @@ To enter the interactive tactical mode, execute:
 
 | Phase | Sub-Phase | Focus / Technical Deliverable | Status |
 | --- | --- | --- | --- |
-| **Sprint 11: Autonomy** | 11.1 | Dynamic Dependency Injection (DDI) | ❌ [NEW] |
+| **Sprint 11: Autonomy** 
+|  | 11.1 | Dynamic Dependency Injection (DDI) | ❌ [NEW] |
 |  | 11.2 | State-Machine driven payload selection | ❌ [NEW] |
 |  | 11.3 | Autonomous lateral movement within API subnets | ❌ [NEW] |
-| **Sprint 12: Evasion V2** | 12.1 | Deep Traffic Shaping: Mimicking legitimate API traffic | ❌ [NEW] |
+| **Sprint 12: Evasion V2** 
+|  | 12.1 | Deep Traffic Shaping: Mimicking legitimate API traffic | ❌ [NEW] |
 |  | 12.2 | Encrypted OOB: Secure exfiltration via custom protocols | ❌ [NEW] |
 |  | 12.3 | Behavioral Jitter: Randomized inter-packet timing | ❌ [NEW] |
-| **Sprint 13: The Hive** | 13.1 | **Hybrid C2 Architecture:** gRPC Control Plane | ❌ [NEW] |
+| **Sprint 13: The Hive** 
+|  | 13.1 | **Hybrid C2 Architecture:** gRPC Control Plane | ❌ [NEW] |
 |  | 13.2 | RESTful Management API for the Hive Master | ❌ [NEW] |
 |  | 13.3 | **VaporTrace Console:** Web-based Mission Dashboard | ❌ [NEW] |
-| **Sprint 14: Pivot** | 14.1 | Cross-Tenant Leakage: Exploiting shared infrastructure | ❌ [NEW] |
+| **Sprint 14: Pivot** 
+|  | 14.1 | Cross-Tenant Leakage: Exploiting shared infrastructure | ❌ [NEW] |
 |  | 14.2 | K8s Escape: API-to-Cluster orchestration pivoting | ❌ [NEW] |
 |  | 14.3 | Serverless Poisoning: Attacking Lambda/Cloud-Function logic | ❌ [NEW] |
-| **Sprint 15: Mastery** | 15.1 | Post-Quantum Cryptography for NHPP | ❌ [NEW] |
+| **Sprint 15: Mastery** 
+|  | 15.1 | Post-Quantum Cryptography for NHPP | ❌ [NEW] |
 |  | 15.2 | Multi-Agent Swarm Logic (Coordinated BOLA) | ❌ [NEW] |
 
 ---

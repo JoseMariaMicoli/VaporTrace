@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/engine" // New Unified Engine
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -24,11 +25,15 @@ var (
 	statusFooter *tview.TextView
 	cmdInput     *tview.InputField
 
+	// Command History
+	cmdHistory   []string
+	historyIndex int
+
 	knownCommands = []string{
 		"auth", "sessions", "map", "swagger", "scrape", "mine", "proxy", "proxies", "target", "pipeline",
 		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe",
 		"weaver", "loot", "test-bola", "test-bopla", "test-bfla", "test-exhaust", "test-ssrf", "test-audit", "test-probe",
-		"init_db", "reset_db", "report", "clear", "exit",
+		"init_db", "seed_db", "reset_db", "report", "clear", "exit", "usage", "help",
 	}
 
 	spinnerIdx    = 0
@@ -36,12 +41,15 @@ var (
 )
 
 func InitTacticalDashboard() {
+	utils.SetLoggerMode("TUI")
+
 	app = tview.NewApplication()
 	pages = tview.NewPages()
 
 	header = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
 	statusFooter = tview.NewTextView().SetDynamicColors(true)
 
+	// --- INPUT FIELD SETUP ---
 	cmdInput = tview.NewInputField().
 		SetLabel("[aqua]VAPOR/INT> [white]").
 		SetFieldBackgroundColor(tcell.ColorBlack).
@@ -49,7 +57,9 @@ func InitTacticalDashboard() {
 	cmdInput.SetBorder(true).SetBorderColor(tcell.ColorBlue)
 
 	cmdInput.SetAutocompleteFunc(func(currentText string) (entries []string) {
-		if len(currentText) == 0 { return nil }
+		if len(currentText) == 0 {
+			return nil
+		}
 		for _, cmd := range knownCommands {
 			if strings.HasPrefix(strings.ToLower(cmd), strings.ToLower(currentText)) {
 				entries = append(entries, cmd)
@@ -58,36 +68,52 @@ func InitTacticalDashboard() {
 		return
 	})
 
+	// --- PIPELINE QUADRANT ---
 	targetColumn = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorBlue)
 	targetColumn.SetTitle(" [blue]PIPELINE [white]").SetBorder(true)
-	targetColumn.SetCell(0, 0, tview.NewTableCell("[black:blue] ENDPOINT "))
-	targetColumn.SetCell(0, 1, tview.NewTableCell("[black:blue] RISK "))
+	targetColumn.SetCell(0, 0, tview.NewTableCell("[black:blue] PROPERTY "))
+	targetColumn.SetCell(0, 1, tview.NewTableCell("[black:blue] VALUE "))
+	targetColumn.SetCell(1, 0, tview.NewTableCell("TARGET"))
+	targetColumn.SetCell(1, 1, tview.NewTableCell("[red]NOT SET"))
 
-	// --- TYPE ASSERTION FIXES BELOW ---
-	brainLog = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetChangedFunc(func() {
-		app.Draw()
-		brainLog.ScrollToEnd()
-	})
-	brainLog.SetTitle(" [green]VAPOR_LOGS [white]").SetBorder(true)
+	// --- PAGES SETUP ---
+	brainLog = tview.NewTextView().
+		SetDynamicColors(true).
+		SetRegions(true).  // Added: Enables internal region tagging for complex logs
+		SetWordWrap(true). // Prevents truncation of long attack payloads
+		SetChangedFunc(func() {
+			brainLog.ScrollToEnd() // Ensures the latest tactical data is always visible
+			app.Draw()
+		})
+	brainLog.SetTitle(" [green]VAPOR_LOGS (TACTICAL FEED) [white]").SetBorder(true)
+	brainLog.SetScrollable(true)
 
-	mapView = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
+	mapView = tview.NewTextView().
+		SetDynamicColors(true).
+		SetRegions(true).  // Added: Allows interactive highlighting of endpoints
+		SetWordWrap(true). // Prevents map breakage on small terminal windows
+		SetTextAlign(tview.AlignCenter)
 	mapView.SetTitle(" [blue]ATTACK_SURFACE [white]").SetBorder(true)
 
-	lootTable = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorDarkCyan)
+	lootTable = tview.NewTable().
+		SetBorders(true).
+		SetBordersColor(tcell.ColorDarkCyan).
+		SetSelectable(true, false) // Added: Allows navigating through captured secrets
 	lootTable.SetTitle(" [magenta]LOOT_VAULT [white]").SetBorder(true)
 
-	// Fix: Asserting (*tview.Box) back to (*tview.TextView)
-	reqView = tview.NewTextView().SetDynamicColors(true)
+	reqView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true)
 	reqView.SetTitle(" [yellow]TRAFFIC_REQ [white]").SetBorder(true)
-	
-	resView = tview.NewTextView().SetDynamicColors(true)
+
+	resView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true)
 	resView.SetTitle(" [green]TRAFFIC_RES [white]").SetBorder(true)
-	
+
 	trafficSplit := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(reqView, 0, 1, false).
 		AddItem(resView, 0, 1, false)
 
-	aiView = tview.NewTextView().SetDynamicColors(true)
+	aiView = tview.NewTextView().
+		SetDynamicColors(true).
+		SetWordWrap(true) // Prevents AI analysis text from cutting off
 	aiView.SetTitle(" [white:blue] LOGIC_ANALYZER [white] ").SetBorder(true)
 
 	pages.AddPage("logs", brainLog, true, true)
@@ -96,33 +122,86 @@ func InitTacticalDashboard() {
 	pages.AddPage("traffic", trafficSplit, true, false)
 	pages.AddPage("ai", aiView, true, false)
 
+	// --- LAYOUT ---
 	mainFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(header, 10, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 			AddItem(targetColumn, 35, 1, false).
 			AddItem(pages, 0, 4, false),
-		0, 4, false).
+			0, 4, false).
 		AddItem(statusFooter, 1, 1, false).
 		AddItem(cmdInput, 3, 1, true)
 
 	updateTabs("logs")
 
+	// --- GLOBAL KEYBINDS ---
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyF1: switchTo("logs")
-		case tcell.KeyF2: switchTo("map")
-		case tcell.KeyF3: switchTo("loot")
-		case tcell.KeyF4: switchTo("traffic")
-		case tcell.KeyF5: switchTo("ai")
-		case tcell.KeyEsc: initiateScorchedEarth()
+		case tcell.KeyF1:
+			switchTo("logs")
+		case tcell.KeyF2:
+			switchTo("map")
+		case tcell.KeyF3:
+			switchTo("loot")
+		case tcell.KeyF4:
+			switchTo("traffic")
+		case tcell.KeyF5:
+			switchTo("ai")
+		case tcell.KeyEsc:
+			confirmExit()
+		}
+		return event
+	})
+
+	// --- INPUT HISTORY & EXECUTION ---
+	cmdInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyUp:
+			if len(cmdHistory) > 0 && historyIndex > 0 {
+				historyIndex--
+				cmdInput.SetText(cmdHistory[historyIndex])
+			} else if len(cmdHistory) > 0 && historyIndex == len(cmdHistory) {
+				historyIndex = len(cmdHistory) - 1
+				cmdInput.SetText(cmdHistory[historyIndex])
+			}
+			return nil
+		case tcell.KeyDown:
+			if len(cmdHistory) > 0 && historyIndex < len(cmdHistory)-1 {
+				historyIndex++
+				cmdInput.SetText(cmdHistory[historyIndex])
+			} else {
+				historyIndex = len(cmdHistory)
+				cmdInput.SetText("")
+			}
+			return nil
 		}
 		return event
 	})
 
 	cmdInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
-			handleCommand(cmdInput.GetText())
-			cmdInput.SetText("")
+			text := cmdInput.GetText()
+			cmdInput.SetText("") // Clear immediately so no feedback appears in input
+
+			if text == "" {
+				return
+			}
+
+			// Special handling for 'exit' to trigger Modal
+			if strings.TrimSpace(text) == "exit" {
+				confirmExit()
+				return
+			}
+
+			// Add to history
+			cmdHistory = append(cmdHistory, text)
+			historyIndex = len(cmdHistory)
+
+			// Switch to Logs Tab so user sees feedback
+			switchTo("logs")
+
+			// Execute
+			engine.ExecuteCommand(text)
 		}
 	})
 
@@ -132,75 +211,26 @@ func InitTacticalDashboard() {
 	}
 }
 
-func handleCommand(cmd string) {
-	if cmd == "" { return }
-	fields := strings.Fields(cmd)
-	verb := strings.ToLower(fields[0])
+// confirmExit displays the TUI modal and ensures focus
+func confirmExit() {
+	modal := tview.NewModal().
+		SetText("Secure Shutdown Protocol?\n(Terminates all listeners)").
+		AddButtons([]string{"Yes", "No"}).
+		SetBackgroundColor(tcell.ColorDarkRed).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			if buttonLabel == "Yes" {
+				pages.RemovePage("modal")
+				engine.ExecuteCommand("__internal_shutdown")
+			} else {
+				pages.RemovePage("modal")
+				// Return focus to input
+				app.SetFocus(cmdInput)
+			}
+		})
 
-	switch verb {
-	case "auth":
-		utils.TacticalLog("[yellow]AUTH:[-] Setting identity tokens.")
-	case "sessions":
-		utils.TacticalLog("[blue]SESSION:[-] Viewing active tokens.")
-	case "map":
-		switchTo("map")
-		utils.TacticalLog("[blue]RECON:[-] Executing Phase 2 Endpoint Mapping.")
-	case "swagger", "scrape", "mine":
-		utils.TacticalLog(fmt.Sprintf("[blue]DISCOVERY:[-] Running %s recon module.", verb))
-	case "proxy", "proxies":
-		utils.TacticalLog("[orange]TRAFFIC:[-] Modifying proxy state.")
-	case "target":
-		targetColumn.SetCell(1, 0, tview.NewTableCell("[yellow]LOCKED"))
-		utils.TacticalLog("[aqua]PIPELINE:[-] Base URL Locked.")
-	case "pipeline":
-		utils.TacticalLog("[aqua]PIPELINE:[-] Categorizing targets.")
-	case "flow":
-		utils.TacticalLog("[red]LOGIC:[-] Managing sequences.")
-	case "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe":
-		utils.TacticalLog(fmt.Sprintf("[red]EXPLOIT:[-] Launching %s logic probe.", verb))
-	case "weaver":
-		utils.TacticalLog("[magenta]AGENT:[-] Deploying Ghost-Weaver.")
-	case "loot":
-		switchTo("loot")
-		utils.TacticalLog("[magenta]VAULT:[-] Listing secrets.")
-	case "test-bola", "test-bopla", "test-bfla", "test-exhaust", "test-ssrf", "test-audit", "test-probe":
-		utils.TacticalLog("[green]VERIFY:[-] Testing verification engine.")
-	case "init_db", "reset_db", "report":
-		utils.TacticalLog("[white]SYS:[-] Persistence operation.")
-	case "clear":
-		brainLog.Clear()
-	case "exit":
-		initiateScorchedEarth()
-	case "help", "usage":
-		printTacticalManual()
-	default:
-		utils.TacticalLog("EXEC> " + cmd)
-	}
-}
-
-func printTacticalManual() {
-	switchTo("logs")
-	manual := `
- [aqua:black:b] TACTICAL COMMAND MANUAL [-:-:-]
- [yellow]auth[-]     | Set identity tokens
- [yellow]map[-]      | Recon Mapping (F2)
- [yellow]target[-]   | Lock base URL
- [yellow]flow[-]     | Sequence management
- [yellow]bola/ssrf[-]| Launch logic probes
- [yellow]loot[-]     | View secrets (F3)
- [yellow]exit[-]     | Secure shutdown
-`
-	fmt.Fprintf(brainLog, "\n%s\n", manual)
-}
-
-func initiateScorchedEarth() {
-	switchTo("logs")
-	brainLog.Clear()
-	go func() {
-		utils.TacticalLog("[red]SHUTDOWN INITIATED...[-]")
-		time.Sleep(400 * time.Millisecond)
-		app.Stop()
-	}()
+	pages.AddPage("modal", modal, false, true)
+	// Explicitly set focus to modal to capture keyboard events immediately
+	app.SetFocus(modal)
 }
 
 func switchTo(page string) {
@@ -230,6 +260,7 @@ func updateTabs(active string) {
 }
 
 func startAsyncEngines() {
+	// 1. Spinner Logic
 	go func() {
 		for {
 			time.Sleep(250 * time.Millisecond)
@@ -239,10 +270,20 @@ func startAsyncEngines() {
 			})
 		}
 	}()
+
+	// 2. Log & Target Update Logic
 	go func() {
 		for msg := range utils.UI_Log_Chan {
 			app.QueueUpdateDraw(func() {
-				fmt.Fprintf(brainLog, "[%s] [green]>[white] %s\n", time.Now().Format("15:04:05"), msg)
+				if strings.Contains(msg, "Target Locked:") {
+					parts := strings.Split(msg, "Target Locked:[-] ")
+					if len(parts) > 1 {
+						url := strings.TrimSpace(parts[1])
+						targetColumn.SetCell(1, 1, tview.NewTableCell("[green]"+url))
+					}
+				}
+				fmt.Fprintf(brainLog, "[%s] %s\n", time.Now().Format("15:04:05"), msg)
+				brainLog.ScrollToEnd()
 			})
 		}
 	}()

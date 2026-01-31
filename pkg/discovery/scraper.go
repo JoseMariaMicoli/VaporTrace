@@ -5,17 +5,16 @@ import (
 	"regexp"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" 
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic" // Standardized to Logic for Phase 9.5
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
-// PHASE 9.1 IMPROVEMENT: Pre-compile regex at the package level.
 var (
 	pathRegex = regexp.MustCompile(`"/(api|v[0-9]|rest)/[a-zA-Z0-9\-\_/]+ "`)
 	urlRegex = regexp.MustCompile(`https?://[a-zA-Z0-9\.\-]+\.[a-z]{2,}/[a-zA-Z0-9\-\_/]+`)
 )
 
 func ExtractJSPaths(url string, proxy string) ([]string, error) {
-	// Use GlobalClient from logic to support Phase 9.4 Proxy Sensing
 	client := logic.GlobalClient
 
 	resp, err := client.Get(url)
@@ -35,35 +34,36 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 
 	var cleaned []string
 	
-	// Process relative API paths
 	for _, m := range matches {
 		path := m[1 : len(m)-1]
 		cleaned = append(cleaned, path)
 
-		// PHASE 9.5: Pipe to Global Store
 		logic.GlobalDiscovery.AddEndpoint(path)
 
-		db.LogQueue <- db.Finding{
-			Phase:   "PHASE II: DISCOVERY",
-			Target:  url,
-			Details: "JS Endpoint Discovery (Relative): " + path,
-			Status:  "INFO",
-		}
+		utils.RecordFinding(db.Finding{
+			Phase:    "PHASE II: DISCOVERY",
+			Target:   url,
+			Details:  "JS Endpoint Discovery (Relative): " + path,
+			Status:   "INFO",
+			OWASP_ID: "API9:2023",
+			MITRE_ID: "T1595",
+			NIST_Tag: "ID.AM",
+		})
 	}
 
-	// Process absolute URLs
 	for _, u := range urlMatches {
 		cleaned = append(cleaned, u)
-		
-		// PHASE 9.5: Pipe to Global Store
 		logic.GlobalDiscovery.AddEndpoint(u)
 
-		db.LogQueue <- db.Finding{
-			Phase:   "PHASE II: DISCOVERY",
-			Target:  url,
-			Details: "JS Endpoint Discovery (Absolute): " + u,
-			Status:  "INFO",
-		}
+		utils.RecordFinding(db.Finding{
+			Phase:    "PHASE II: DISCOVERY",
+			Target:   url,
+			Details:  "JS Endpoint Discovery (Absolute): " + u,
+			Status:   "INFO",
+			OWASP_ID: "API9:2023",
+			MITRE_ID: "T1595",
+			NIST_Tag: "ID.AM",
+		})
 	}
 
 	return cleaned, nil

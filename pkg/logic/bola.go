@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/pterm/pterm"
 )
 
@@ -23,7 +24,6 @@ type BOLAContext struct {
 }
 
 // ExecuteMassBOLA handles the industrialized execution of BOLA across the pipeline.
-// It pulls targets from GlobalDiscovery that have been tagged by the heuristic analyzer.
 func ExecuteMassBOLA(concurrency int) {
 	pterm.DefaultSection.Println("Phase 9.7: Industrialized BOLA Engine")
 	
@@ -44,15 +44,13 @@ func ExecuteMassBOLA(concurrency int) {
 	GlobalDiscovery.mu.RUnlock()
 
 	if len(targets) == 0 {
-		pterm.Info.Println("No BOLA-vulnerable patterns detected in current map.")
+		utils.TacticalLog("No BOLA-vulnerable patterns detected.")
 		return
 	}
 
-	// Default test IDs for mass probing
 	testIDs := []string{"1", "2", "10", "100", "101", "1000", "1337"}
 
 	for _, t := range targets {
-		pterm.Info.Printfln("BOLA Probing Resource: %s", t)
 		ctx := &BOLAContext{
 			BaseURL: CurrentSession.TargetURL + t,
 		}
@@ -60,8 +58,6 @@ func ExecuteMassBOLA(concurrency int) {
 	}
 }
 
-// getResource fetches a resource and returns status and body for comparison.
-// Refactored to handle RESTful placeholders like {petId} or {id}.
 func (b *BOLAContext) getResource(resourceID string, token string) (int, string, error) {
 	u, err := url.Parse(b.BaseURL)
 	if err != nil {
@@ -70,20 +66,16 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 
 	target := u.String()
 	
-	// FIX: Regex to find Swagger/REST variables in braces
 	re := regexp.MustCompile(`\{.*?\}`)
 	if re.MatchString(target) {
-		// Replace the first occurrence of {variable} with the resourceID
 		target = re.ReplaceAllString(target, resourceID)
 	} else {
-		// Fallback: Append the ID to the path if no placeholder exists
 		u.Path = path.Join(u.Path, resourceID)
 		target = u.String()
 	}
 
 	req, _ := http.NewRequest("GET", target, nil)
 	
-	// Set auth if provided, otherwise use the global session token
 	if token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	} else if CurrentSession.AttackerToken != "" {
@@ -92,7 +84,6 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 
 	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.10 Industrialized)")
 
-	// Execute via the networking gatekeeper (SafeDo)
 	resp, err := SafeDo(req, false, "BOLA-ENGINE") 
 	if err != nil {
 		return 0, "", err
@@ -103,39 +94,29 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 	return resp.StatusCode, string(body), nil
 }
 
-// MassProbe implements the Worker Pool for high-speed ID enumeration
 func (b *BOLAContext) MassProbe(idList []string, concurrency int) {
-	pb, _ := pterm.DefaultProgressbar.WithTotal(len(idList)).WithTitle("Scanning IDs").Start()
 	idChan := make(chan string, concurrency)
 	var wg sync.WaitGroup
 
-	// 1. Initialize Worker Pool
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for id := range idChan {
-				instance := *b // Thread-safe local copy of context
+				instance := *b
 				instance.VictimID = id
-				instance.ProbeSilent() 
-				pb.Increment()
+				instance.ProbeSilent()
 			}
 		}()
 	}
 
-	// 2. Feed the workers
 	for _, id := range idList {
 		idChan <- id
 	}
 	close(idChan)
-
-	// 3. Wait for completion
 	wg.Wait()
-	pb.Stop()
-	pterm.Success.Println("BOLA scan sequence completed.")
 }
 
-// ProbeSilent provides optimized execution for mass scanning without UI clutter
 func (b *BOLAContext) ProbeSilent() {
 	activeToken := b.AttackerToken
 	if activeToken == "" {
@@ -147,20 +128,19 @@ func (b *BOLAContext) ProbeSilent() {
 		return 
 	}
 
-	// Heuristic analysis: Ignore false positives (e.g., custom error pages with 200 OK)
 	lowerBody := strings.ToLower(body)
 	if strings.Contains(lowerBody, "not found") || strings.Contains(lowerBody, "error") || len(body) < 2 { 
 		return 
 	}
 
-	pterm.Warning.Prefix = pterm.Prefix{Text: "HIT", Style: pterm.NewStyle(pterm.BgYellow, pterm.FgBlack)}
-	pterm.Warning.Printfln("BOLA Potential: Resource ID %s accessible at %s", b.VictimID, b.BaseURL)
-
-	// Persistence: Log the hit to the database
-	db.LogQueue <- db.Finding{
-		Phase:   "PHASE III: EXPLOITATION",
-		Target:  b.BaseURL,
-		Details: fmt.Sprintf("BOLA ID Swap Success: ID %s returned 200 OK", b.VictimID),
-		Status:  "VULNERABLE",
-	}
+	// PATCHED: Unified Logging with Phase 9.13 Tags
+	utils.RecordFinding(db.Finding{
+		Phase:    "PHASE III: AUTH LOGIC",
+		Target:   b.BaseURL,
+		Details:  fmt.Sprintf("BOLA ID Swap Success: ID %s returned 200 OK", b.VictimID),
+		Status:   "VULNERABLE",
+		OWASP_ID: "API1:2023",
+		MITRE_ID: "T1548", // Abuse Elevation Control Mechanism
+		NIST_Tag: "DE.AE", // Detect Anomalies and Events
+	})
 }

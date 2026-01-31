@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
-	"github.com/pterm/pterm"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils" // Imported to use TacticalLog
 )
 
 // GenerateMissionDebrief compiles findings into a professional tactical report.
 func GenerateMissionDebrief() {
-	pterm.DefaultHeader.WithFullWidth(false).Println("Compiling Strategic Mission Report")
+	utils.TacticalLog("[cyan::b]PHASE 5: REPORT GENERATION STARTED[-:-:-]")
 
 	var startTime string
 	if db.DB != nil {
@@ -20,13 +20,17 @@ func GenerateMissionDebrief() {
 
 	reportDate := time.Now().Format("2006-01-02")
 	fileName := fmt.Sprintf("VAPOR_DEBRIEF_%s.md", reportDate)
-	
+
 	f, err := os.Create(fileName)
 	if err != nil {
-		pterm.Error.Printf("FileSystem Error: %v\n", err)
+		utils.TacticalLog(fmt.Sprintf("[red]FileSystem Error:[-] %v", err))
 		return
 	}
 	defer f.Close()
+
+	// Notify UI of progress without breaking layout
+	utils.TacticalLog("[blue]⠋[-] Aggregating Phase II - IV finding buffers...")
+	time.Sleep(400 * time.Millisecond) // Simulate processing time
 
 	// I. HEADER
 	f.WriteString("# VAPORTRACE TACTICAL DEBRIEF\n")
@@ -35,7 +39,7 @@ func GenerateMissionDebrief() {
 	f.WriteString(fmt.Sprintf("> **START TIME:** %s\n\n", startTime))
 	f.WriteString("---\n\n")
 
-	// II. HARVESTED ARTIFACTS - BYPASS SECCIÓN QUE DA ERROR
+	// II. HARVESTED ARTIFACTS
 	f.WriteString("## I. HARVESTED ARTIFACTS (DISCOVERY VAULT)\n\n")
 	f.WriteString("| TYPE | SOURCE | VALUE (REDACTED) | TIMESTAMP |\n")
 	f.WriteString("| :--- | :--- | :--- | :--- |\n")
@@ -44,13 +48,15 @@ func GenerateMissionDebrief() {
 
 	// III. MISSION PHASES SUMMARY
 	f.WriteString("## II. MISSION PHASES SUMMARY\n\n")
-	
+
 	phases := []string{
 		"PHASE II: DISCOVERY",
 		"PHASE III: AUTH LOGIC",
 		"PHASE IV: INJECTION",
 		"PHASE VIII: EXFILTRATION",
 	}
+
+	utils.TacticalLog("[blue]⠋[-] Structuring Markdown tables...")
 
 	for _, phase := range phases {
 		f.WriteString(fmt.Sprintf("### %s\n", phase))
@@ -68,7 +74,9 @@ func GenerateMissionDebrief() {
 					f.WriteString(fmt.Sprintf("| %s | **%s** | %s |\n", details, status, ts))
 				}
 				rows.Close()
-				if !hasData { f.WriteString("| - | *NO LOGS FOUND* | - |\n") }
+				if !hasData {
+					f.WriteString("| - | *NO LOGS FOUND* | - |\n")
+				}
 			}
 		}
 		f.WriteString("\n")
@@ -86,11 +94,6 @@ func GenerateMissionDebrief() {
 	// Footer
 	f.WriteString("---\n")
 	f.WriteString("**CONFIDENTIAL // HYDRA-WORM INTEGRITY PROTOCOL**\n")
-	
-	pterm.Success.Printf("Tactical report generated: %s\n", fileName)
-}
 
-func redactValue(val string) string {
-	if len(val) <= 8 { return "****" }
-	return val[:4] + "...." + val[len(val)-4:]
+	utils.TacticalLog(fmt.Sprintf("[green]✔[-] Report successfully written: [yellow]%s[-]", fileName))
 }

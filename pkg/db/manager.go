@@ -18,11 +18,15 @@ var (
 )
 
 // Finding represents a tactical discovery to be persisted
+// PATCHED Phase 9.13: Added Framework Tagging Columns
 type Finding struct {
-	Phase   string
-	Target  string
-	Details string
-	Status  string
+	Phase    string
+	Target   string
+	Details  string
+	Status   string
+	OWASP_ID string // e.g., "API1:2023"
+	MITRE_ID string // e.g., "T1548"
+	NIST_Tag string // e.g., "DE.AE"
 }
 
 // InitDB initializes the SQLite persistence layer and mission schema
@@ -34,7 +38,7 @@ func InitDB() {
 		return
 	}
 
-	// Schema aligned with report levels
+	// Schema updated for Framework Compliance Columns
 	schema := `
     CREATE TABLE IF NOT EXISTS findings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +46,9 @@ func InitDB() {
         target TEXT,
         details TEXT,
         status TEXT,
+        owasp_id TEXT,
+        mitre_id TEXT,
+        nist_tag TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS mission_state (
@@ -53,7 +60,7 @@ func InitDB() {
 	if err != nil {
 		pterm.Error.Printf("Failed to initialize schema: %v\n", err)
 	} else {
-		pterm.Success.Println("Persistence Active [DATABASE ID: 1]")
+		// Log to console only if needed, otherwise handled by logger
 		DB.Exec("INSERT OR REPLACE INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
 	}
 
@@ -73,8 +80,10 @@ func StartAsyncWorker() {
 			return
 		}
 
-		_, err := DB.Exec("INSERT INTO findings (phase, target, details, status) VALUES (?, ?, ?, ?)",
-			f.Phase, f.Target, f.Details, f.Status)
+		query := `INSERT INTO findings (phase, target, details, status, owasp_id, mitre_id, nist_tag) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`
+		
+		_, err := DB.Exec(query, f.Phase, f.Target, f.Details, f.Status, f.OWASP_ID, f.MITRE_ID, f.NIST_Tag)
 		if err != nil {
 			pterm.Debug.Printf("Async commit failed: %v\n", err)
 		}

@@ -5,13 +5,13 @@ import (
 	"net/http"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic" // Standardized to Logic
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
 func MineParameters(baseURL string, endpoint string, proxy string) {
 	params := []string{"debug", "admin", "test", "dev", "internal", "config", "role"}
 	
-	// Use the GlobalClient managed by the logic package
 	client := logic.GlobalClient
 
 	for _, p := range params {
@@ -26,14 +26,15 @@ func MineParameters(baseURL string, endpoint string, proxy string) {
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusBadRequest {
-			fmt.Printf("    [!] Potential Hidden Param: %s (Status: %d)\n", p, resp.StatusCode)
-
-			db.LogQueue <- db.Finding{
-				Phase:   "PHASE II: DISCOVERY",
-				Target:  fullURL,
-				Details: fmt.Sprintf("Potential Hidden Parameter: %s", p),
-				Status:  "VULNERABLE",
-			}
+			utils.RecordFinding(db.Finding{
+				Phase:    "PHASE II: DISCOVERY",
+				Target:   fullURL,
+				Details:  fmt.Sprintf("Potential Hidden Parameter: %s", p),
+				Status:   "VULNERABLE",
+				OWASP_ID: "API3:2023",
+				MITRE_ID: "T1596", // Search Open Technical Databases
+				NIST_Tag: "ID.RA",
+			})
 		}
 	}
 }

@@ -5,18 +5,19 @@ import (
 	"github.com/JoseMariaMicoli/VaporTrace/cmd"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/ui"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
 func main() {
-	// 1. EXECUTION MODE DETECTION (Immediate exit for CLI)
+	// 1. EXECUTION MODE DETECTION
 	if len(os.Args) > 1 && os.Args[1] == "shell" {
-		logic.SenseEnvironment() // Only run pterm-heavy sense if using the shell
+		utils.SetLoggerMode("CLI") // Standard pterm output
+		logic.SenseEnvironment()
 		cmd.Execute()
 		return
 	}
 
-	// 2. DEFAULT PATH: DASHBOARD
-	// We run logic checks AFTER or DURING UI initialization to prevent TTY lock.
-	// For now, let's bypass SenseEnvironment for the dashboard test.
+	// 2. DASHBOARD MODE (Default)
+	utils.SetLoggerMode("TUI") // Route logs to Dashboard Aggregator
 	ui.InitTacticalDashboard()
 }
