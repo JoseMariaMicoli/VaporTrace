@@ -28,34 +28,35 @@
 
 ---
 
-### **🛡️ MITRE ATT&CK Mapping (Full Suite)**
+### 🛡️ MITRE ATT&CK & OWASP Tactical Mapping (Full Suite)
 
-VaporTrace operations are mapped across the full attack lifecycle to provide stakeholders with clear visibility into adversary emulation.
+VaporTrace operations are synchronized with the adversary lifecycle to provide clear visibility into offensive security testing and compliance auditing.
 
-| Operational Block | Sprint | Sub-Phase: Technical Implementation | MITRE ATT&CK Tactic | MITRE ID | OWASP API 2023 | Defensive Context |
+| Block | Sprint | Technical Sub-Phase | MITRE Tactic | ID | OWASP '23 | Defensive Context |
 | --- | --- | --- | --- | --- | --- | --- |
-| **I. INFILTRATION** | **1-3** | **Surface Reconnaissance** | **Reconnaissance** |  |  | *Mapping the perimeter* |
-|  |  | 2.1: OpenAPI/Swagger Harvesting & Parsing | Active Scanning | **T1595.002** | API9: Improper Inventory | Exposes forgotten "shadow" APIs |
-|  |  | 2.2: JS Bundle Static Analysis (Route Mining) | Gather Victim Host Info | **T1592** | API9: Improper Inventory | Finds endpoints not in public docs |
-|  |  | 3.1: Param Mining & Version Brute-forcing | Gather Victim Identity | **T1589** | - | Identifies deprecated vulnerable versions |
-| **II. EXPLOITATION** | **4-6** | **Auth Logic & Data Extraction** | **Privilege Escalation** |  |  | *Breaking the trust boundary* |
-|  |  | 4.1: BOLA ID-Swapping Logic (`/uid/102` -> `103`) | Abuse Elevation Control | **T1548** | **API1: BOLA** | Most common cause of data breaches |
-|  |  | 5.1: BFLA Method Tampering (Verb Hijacking) | Bypass UAC | **T1548.002** | **API5: BFLA** | Escalates user to admin actions |
-|  |  | 5.2: Mass Assignment (BOPLA) Payload Injection | Data Manipulation | **T1496** | API6: Unsafe Consumption | Modifies internal state via JSON |
-|  |  | 6.1: JWT Algorithm Downgrade & Forge | Forge Web Credentials | **T1606** | API2: Broken Auth | Identity theft at the protocol level |
-| **III. EXPANSION** | **7-9** | **Infrastructure & Internal Pivot** | **Discovery / Impact** |  |  | *Moving beyond the gateway* |
-|  |  | 7.1: SSRF targeting Meta-data Services (169.254) | Network Service Discovery | **T1046** | **API7: SSRF** | Steals cloud provider IAM roles |
-|  |  | 8.1: Resource Exhaustion (Symmetric DoS) | Endpoint DoS | **T1499** | API4: Unrestricted Resource | Crashes backend with single requests |
-|  |  | 9.1: Framework-Tagged Persistence (Phase 9.13) | Archive Collected Data | **T1560** | - | Creates a tactical audit trail |
-| **IV. OBFUSCATION** | **10-12** | **Defense Evasion & C2** | **Defense Evasion** |  |  | *Bypassing the Blue Team* |
-|  |  | 10.1: Project Mosaic (Unified TUI Dash) | App Layer Protocol | **T1071** | - | Stealthy monitoring of attack flow |
-|  |  | 11.1: Multi-hop Proxy & Burp Integration | Proxy Usage | **T1090** | - | Hides origin IP from target logs |
-|  |  | 11.2: IP Rotation / Proxy Pool Logic | Multi-hop Proxy | **T1090.003** | - | Bypasses IP-based rate limiting |
-|  |  | 12.1: User-Agent & Header Randomization | Disable/Modify Tools | **T1562.001** | - | Evades Signature-based WAFs |
-| **V. COMPLETION** | **13-15** | **Mission Finalization** | **Exfiltration** |  |  | *Generating the "Kill Chain" report* |
-|  |  | 13.1: Automated Tactical Debrief Generation | Automated Exfiltration | **T1020** | - | Packages evidence for handoff |
-|  |  | 14.1: Concurrent Multi-URL Pipelines | - | - | - | Scalable bulk auditing |
-|  |  | 15.1: Legacy `shell.go` Official Deprecation | - | - | - | Finalizing the binary footprint |
+| **I. INFIL** | 1-3 | 2.1: OpenAPI/Swagger Harvesting | Reconnaissance | T1595.002 | API9 | Shadow API Discovery |
+|  |  | 2.2: JS Static Analysis (Mining) | Reconnaissance | T1592 | API9 | Hidden Route Extraction |
+|  |  | 3.1: Param & Version Brute-force | Reconnaissance | T1589 | - | Legacy Version ID |
+| **II. EXPLOIT** | 4-6 | 4.1: BOLA ID-Swapping | Priv Escalation | T1548 | **API1** | Unauthorized Data Access |
+|  |  | 5.1: BFLA Method Tampering | Priv Escalation | T1548.002 | **API5** | Administrative Escalation |
+|  |  | 5.2: Mass Assignment (BOPLA) | Impact | T1496 | API6 | Internal State Injection |
+|  |  | 6.1: JWT Downgrade & Forge | Cred Access | T1606 | API2 | Identity Spoofing |
+| **III. EXPAND** | 7-9 | 7.1: SSRF (Metadata 169.254) | Discovery | T1046 | **API7** | Cloud IAM Role Theft |
+|  |  | 8.1: Resource Exhaustion (DoS) | Impact | T1499 | API4 | Backend Service Crash |
+|  |  | 9.1: Framework-Tagged Persistence | Collection | T1560 | - | Audit Trail Integrity |
+| **IV. OBFUSC** | 10-12 | 10.1: Project Mosaic (Unified TUI) | C2 | T1071 | - | Stealthy Ops Monitoring |
+|  |  | 11.1: Proxy & Burp Integration | Def Evasion | T1090 | - | Origin IP Masking |
+|  |  | 11.2: IP Rotation / Proxy Pools | Def Evasion | T1090.003 | - | Rate-Limit Bypass |
+|  |  | 12.1: Header/UA Randomization | Def Evasion | T1562.001 | - | WAF Signature Evasion |
+| **V. COMPL** | 13-15 | 13.1: Tactical Debrief (MD) | Exfiltration | T1020 | - | Evidence Packaging |
+|  |  | 14.1: Multi-URL Pipelines | - | - | - | Scalable Infrastructure |
+|  |  | 15.1: `shell.go` Deprecation | - | - | - | Binary Hardening |
+
+### 💡 Integration Notes for Developers
+
+* **Horizontal Layout:** The column headers and content have been shortened (e.g., `INFIL` for Infiltration) to prevent horizontal scrolling on GitHub mobile and desktop views.
+* **Operational Alignment:** Each sprint correlates directly to the `pkg/engine/core.go` logic, ensuring the documentation reflects the actual capabilities of the **Project Mosaic** update.
+* **Compliance Ready:** This mapping allows security teams to export VaporTrace findings directly into SIEM/SOAR platforms using industry-standard MITRE and OWASP identifiers.
 
 ---
 
