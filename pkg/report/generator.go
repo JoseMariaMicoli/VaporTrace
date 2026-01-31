@@ -3,64 +3,74 @@ package report
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
-// GenerateMissionDebrief compiles findings into a professional tactical report.
+// GenerateMissionDebrief compiles findings into a corporate tactical audit report.
 func GenerateMissionDebrief() {
 	utils.TacticalLog("[cyan::b]PHASE 5: REPORT GENERATION STARTED[-:-:-]")
+
+	// 1. Setup Corporate Directory and Naming
+	outputDir := "reports"
+	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+		_ = os.Mkdir(outputDir, 0755)
+	}
+
+	// Format: VAPORTRACE_TACTICAL_AUDIT_20260131_1030.md
+	timestamp := time.Now().Format("20060102_1504")
+	reportName := fmt.Sprintf("VAPORTRACE_TACTICAL_AUDIT_%s.md", timestamp)
+	fullPath := filepath.Join(outputDir, reportName)
 
 	var startTime string
 	if db.DB != nil {
 		_ = db.DB.QueryRow("SELECT value FROM mission_state WHERE key = 'start_time'").Scan(&startTime)
 	}
 
-	reportDate := time.Now().Format("2006-01-02")
-	fileName := fmt.Sprintf("VAPOR_DEBRIEF_%s.md", reportDate)
-
-	f, err := os.Create(fileName)
+	f, err := os.Create(fullPath)
 	if err != nil {
 		utils.TacticalLog(fmt.Sprintf("[red]FileSystem Error:[-] %v", err))
 		return
 	}
 	defer f.Close()
 
-	utils.TacticalLog("[blue]⠋[-] Processing VaporTrace Tactical Mapping...")
+	utils.TacticalLog(fmt.Sprintf("[blue]⠋[-] Writing to [white]%s/[-][yellow]%s[-]...", outputDir, reportName))
 
-	// I. HEADER & EXECUTIVE SUMMARY
-	f.WriteString("# VAPORTRACE TACTICAL DEBRIEF\n")
-	f.WriteString(fmt.Sprintf("> **OPERATIONAL STATUS:** COMPLETED\n"))
-	f.WriteString(fmt.Sprintf("> **MISSION START:** %s\n", startTime))
-	f.WriteString(fmt.Sprintf("> **REPORT GENERATED:** %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
-	f.WriteString("## EXECUTIVE SUMMARY\n")
-	f.WriteString("This report details the offensive security testing results synchronized with the adversary lifecycle. ")
-	f.WriteString("Findings are mapped to **MITRE ATT&CK**, **OWASP API Top 10**, and **NIST CSF** for compliance auditing.\n\n")
+	// I. CORPORATE HEADER
+	f.WriteString("# VAPORTRACE TACTICAL AUDIT REPORT\n")
+	f.WriteString("## CONFIDENTIAL - FOR INTERNAL USE ONLY\n\n")
+	f.WriteString("| METADATA | VALUE |\n")
+	f.WriteString("| :--- | :--- |\n")
+	f.WriteString(fmt.Sprintf("| **AUDIT STATUS** | COMPLETED |\n"))
+	f.WriteString(fmt.Sprintf("| **MISSION START** | %s |\n", startTime))
+	f.WriteString(fmt.Sprintf("| **GEN TIME (UTC)** | %s |\n", time.Now().Format("2006-01-02 15:04:05")))
+	f.WriteString(fmt.Sprintf("| **CLASSIFICATION** | PROPRIETARY / ADVERSARY EMULATION |\n\n"))
 	f.WriteString("---\n\n")
 
-	// II. TACTICAL FINDINGS BY VAPORTRACE BLOCK
-	f.WriteString("## I. TACTICAL FINDINGS LOG\n\n")
+	// II. EXECUTIVE SUMMARY
+	f.WriteString("## 1. EXECUTIVE SUMMARY\n")
+	f.WriteString("This document provides a formal tactical debrief of offensive security operations. ")
+	f.WriteString("Results are mapped to the **MITRE ATT&CK** and **OWASP API 2023** frameworks to facilitate risk-based remediation.\n\n")
 
-	// We query the distinct VaporTrace phases present in the database
+	// III. TACTICAL FINDINGS (Grouped by Phase)
+	f.WriteString("## 2. DETAILED TACTICAL FINDINGS\n\n")
+
 	rows, err := db.DB.Query("SELECT DISTINCT phase FROM findings ORDER BY phase ASC")
 	if err != nil {
-		utils.TacticalLog("[red]Database Error:[-] Failed to fetch phases.")
+		utils.TacticalLog("[red]Database Error:[-] Failed to fetch mission data.")
 		return
 	}
 	defer rows.Close()
 
-	var phases []string
 	for rows.Next() {
-		var p string
-		rows.Scan(&p)
-		phases = append(phases, p)
-	}
+		var phase string
+		rows.Scan(&phase)
 
-	for _, phase := range phases {
-		f.WriteString(fmt.Sprintf("### %s\n", phase))
-		f.WriteString("| TARGET | MITRE | OWASP | NIST | STATUS | DETAILS |\n")
+		f.WriteString(fmt.Sprintf("### PHASE: %s\n", phase))
+		f.WriteString("| TARGET | MITRE ID | OWASP ID | NIST TAG | STATUS | OBSERVATION |\n")
 		f.WriteString("| :--- | :--- | :--- | :--- | :--- | :--- |\n")
 
 		fRows, err := db.DB.Query("SELECT target, mitre_id, owasp_id, nist_tag, status, details FROM findings WHERE phase = ?", phase)
@@ -68,12 +78,13 @@ func GenerateMissionDebrief() {
 			for fRows.Next() {
 				var target, mitre, owasp, nist, status, details string
 				fRows.Scan(&target, &mitre, &owasp, &nist, &status, &details)
-				// Clean empty fields
+
+				// Apply formatting for empty fields
 				if owasp == "" {
-					owasp = "-"
+					owasp = "N/A"
 				}
 				if nist == "" {
-					nist = "-"
+					nist = "N/A"
 				}
 
 				f.WriteString(fmt.Sprintf("| `%s` | %s | %s | %s | **%s** | %s |\n", target, mitre, owasp, nist, status, details))
@@ -83,33 +94,25 @@ func GenerateMissionDebrief() {
 		f.WriteString("\n")
 	}
 
-	// III. FRAMEWORK COMPLIANCE SUMMARY
-	f.WriteString("---\n## II. FRAMEWORK MAPPING SUMMARY\n\n")
-
-	// Quick Summary Table for Compliance Officers
-	f.WriteString("### MITRE ATT&CK & OWASP Tactical Mapping\n")
-	f.WriteString("| VAPORTRACE BLOCK | PRIMARY MITRE | PRIMARY OWASP | DEFENSIVE CONTEXT |\n")
+	// IV. COMPLIANCE MAPPING
+	f.WriteString("---\n## 3. FRAMEWORK ALIGNMENT\n\n")
+	f.WriteString("| VAPORTRACE COMPONENT | MITRE TACTIC | OWASP TOP 10 | DEFENSIVE CONTEXT |\n")
 	f.WriteString("| :--- | :--- | :--- | :--- |\n")
-	f.WriteString("| I. INFIL | T1595 / T1592 | API9:2023 | Shadow API Discovery |\n")
-	f.WriteString("| II. EXPLOIT | T1548 / T1606 | API1, API2, API5 | Identity & Access |\n")
-	f.WriteString("| III. EXPAND | T1046 / T1499 | API4, API7 | Infrastructure Risk |\n")
-	f.WriteString("| IV. OBFUSC | T1090 / T1562 | - | Stealth & Evasion |\n")
-	f.WriteString("| V. COMPL | T1020 | - | Evidence Packaging |\n\n")
+	f.WriteString("| I. INFIL | Reconnaissance | API9:2023 | Inventory Management |\n")
+	f.WriteString("| II. EXPLOIT | Priv Escalation | API1 / API2 / API5 | Identity Assurance |\n")
+	f.WriteString("| III. EXPAND | Discovery / Impact | API4 / API7 | Resource Hardening |\n")
+	f.WriteString("| IV. OBFUSC | Defense Evasion | N/A | Stealth Analysis |\n\n")
 
-	// IV. DFIR / REMEDIATION GUIDANCE
-	f.WriteString("---\n## III. DFIR RESPONSE & REMEDIATION\n\n")
-	f.WriteString("### 1. Critical Hardening Actions\n")
-	f.WriteString("- **API Inventory:** Decommission all endpoints identified in `I. INFIL` (Swagger leaks).\n")
-	f.WriteString("- **Auth Logic:** Implement strict JWT signature validation to prevent `II. EXPLOIT` algorithm downgrades.\n")
-	f.WriteString("- **Rate Limiting:** Apply aggressive 429 response codes to targets identified in `III. EXPAND` (DoS probes).\n\n")
-
-	f.WriteString("### 2. Detection Logic\n")
-	f.WriteString("* Monitor for anomalous User-Agent strings and high-frequency IP rotation (VaporTrace IV. OBFUSC).\n")
-	f.WriteString("* Audit cloud IAM logs for calls to the Metadata Service (169.254.169.254).\n\n")
+	// V. REMEDIATION GUIDANCE
+	f.WriteString("---\n## 4. REMEDIATION STRATEGY\n\n")
+	f.WriteString("### Immediate Hardening\n")
+	f.WriteString("1. **Inventory Control:** Remove all exposed Swagger documentation identified in Phase I.\n")
+	f.WriteString("2. **Auth Validation:** Patch JWT algorithm processing to deny 'none' or 'weak' signing keys.\n")
+	f.WriteString("3. **Rate Limiting:** Implement circuit-breaking on high-resource endpoints to mitigate DoS findings.\n\n")
 
 	// Footer
 	f.WriteString("---\n")
-	f.WriteString(fmt.Sprintf("**CONFIDENTIAL // VAPORTRACE GENERATED DEBRIEF // %s**\n", reportDate))
+	f.WriteString("**UNAUTHORIZED DISCLOSURE OF THIS REPORT IS PROHIBITED**\n")
 
-	utils.TacticalLog(fmt.Sprintf("[green]✔[-] Tactical report generated: [yellow]%s[-]", fileName))
+	utils.TacticalLog(fmt.Sprintf("[green]✔[-] Corporate Audit Package written to: [yellow]%s[-]", fullPath))
 }
