@@ -7,7 +7,8 @@ import (
 	"regexp"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic" // Standardized to Logic for Phase 9 implementation
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
 type SwaggerDoc struct {
@@ -16,7 +17,6 @@ type SwaggerDoc struct {
 }
 
 func ParseSwagger(url string, proxy string) ([]string, error) {
-	// PHASE 9.4: Use logic.GlobalClient to ensure Proxy Sensing/Hit-Mirroring is active
 	client := logic.GlobalClient
 
 	resp, err := client.Get(url)
@@ -34,20 +34,20 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 		return nil, fmt.Errorf("failed to decode Swagger JSON: %v", err)
 	}
 
-	db.LogQueue <- db.Finding{
-		Phase:   "PHASE II: DISCOVERY",
-		Target:  url,
-		Details: "Swagger/OpenAPI Documentation Found",
-		Status:  "INFO",
-	}
+	utils.RecordFinding(db.Finding{
+		Phase:    "PHASE II: DISCOVERY",
+		Target:   url,
+		Details:  "Swagger/OpenAPI Documentation Found",
+		Status:   "INFO",
+		OWASP_ID: "API9:2023",
+		MITRE_ID: "T1592",
+		NIST_Tag: "ID.AM",
+	})
 
 	var endpoints []string
 	for path := range doc.Paths {
 		fullPath := doc.BasePath + path
 		endpoints = append(endpoints, fullPath)
-		
-		// PHASE 9.5: The Link
-		// Automatically pipes every discovered swagger path into the global tactical store
 		logic.GlobalDiscovery.AddEndpoint(fullPath)
 	}
 
@@ -78,7 +78,6 @@ func WalkVersions(endpoints []string) []string {
 }
 
 func ProbeEndpoint(baseURL string, path string, proxy string) (int, error) {
-	// Standardized to logic.GlobalClient
 	client := logic.GlobalClient
 
 	fullURL := baseURL + path
@@ -94,12 +93,15 @@ func ProbeEndpoint(baseURL string, path string, proxy string) (int, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
-		db.LogQueue <- db.Finding{
-			Phase:   "PHASE II: DISCOVERY",
-			Target:  fullURL,
-			Details: "Live API Route Discovered",
-			Status:  "SUCCESS",
-		}
+		utils.RecordFinding(db.Finding{
+			Phase:    "PHASE II: DISCOVERY",
+			Target:   fullURL,
+			Details:  "Live API Route Discovered",
+			Status:   "SUCCESS",
+			OWASP_ID: "API9:2023",
+			MITRE_ID: "T1595",
+			NIST_Tag: "ID.AM",
+		})
 	}
 
 	return resp.StatusCode, nil

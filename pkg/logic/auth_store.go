@@ -4,18 +4,15 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
-
-	"github.com/pterm/pterm"
 )
 
 // SessionStore holds the runtime configuration for the attacker.
-// Patched to include legacy fields and thread-safety for Sprint 10.1.
 type SessionStore struct {
 	mu            sync.RWMutex
 	TargetURL     string
-	AttackerToken string // Restored for BOLA/BFLA modules
-	VictimToken   string // Restored for multi-session logic
-	Threads       int    // Restored for engine concurrency control
+	AttackerToken string
+	VictimToken   string
+	Threads       int
 }
 
 // CurrentSession holds the active configuration with tactical defaults.
@@ -24,8 +21,8 @@ var CurrentSession = &SessionStore{
 	Threads:   10,
 }
 
-// SetGlobalTarget validates the URL and synchronizes the framework's focus.
-// This is the core function for Task Force 10.1.
+// SetGlobalTarget validates the URL and locks it in the session.
+// CHANGE: Removed pterm printing. Engine handles feedback now.
 func (s *SessionStore) SetGlobalTarget(rawURL string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -39,7 +36,6 @@ func (s *SessionStore) SetGlobalTarget(rawURL string) error {
 	}
 
 	s.TargetURL = rawURL
-	pterm.Success.Printfln("Global Target Locked: %s", s.TargetURL)
 	return nil
 }
 

