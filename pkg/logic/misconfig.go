@@ -6,7 +6,6 @@ import (
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
-	"github.com/pterm/pterm"
 )
 
 type MisconfigContext struct {
@@ -14,28 +13,28 @@ type MisconfigContext struct {
 }
 
 func (m *MisconfigContext) Audit() {
-	pterm.DefaultHeader.WithFullWidth(false).Println("API8: Security Misconfiguration Audit")
+	utils.TacticalLog(fmt.Sprintf("[blue]API8 Audit: Scanning %s for Security Misconfigurations...[-]", m.TargetURL))
 
 	req, _ := http.NewRequest("GET", m.TargetURL, nil)
 	req.Header.Set("Origin", "https://evil-attacker.com")
-	
+
 	resp, err := GlobalClient.Do(req)
 	if err != nil {
+		utils.TacticalLog(fmt.Sprintf("[red]Audit Error:[-] %v", err))
 		return
 	}
 	defer resp.Body.Close()
 
 	cors := resp.Header.Get("Access-Control-Allow-Origin")
 	if cors == "*" || cors == "https://evil-attacker.com" {
-		// PATCHED: Unified Logging with Phase 9.13 Tags
 		utils.RecordFinding(db.Finding{
 			Phase:    "PHASE II: DISCOVERY",
 			Target:   m.TargetURL,
 			Details:  fmt.Sprintf("Weak CORS Policy: %s", cors),
 			Status:   "VULNERABLE",
 			OWASP_ID: "API8:2023",
-			MITRE_ID: "T1562", // Impair Defenses
-			NIST_Tag: "PR.IP", // Information Protection Processes and Procedures
+			MITRE_ID: "T1562",
+			NIST_Tag: "PR.IP",
 		})
 	}
 
@@ -70,9 +69,9 @@ func (m *MisconfigContext) TriggerVerboseError() {
 			Phase:    "PHASE II: DISCOVERY",
 			Target:   m.TargetURL,
 			Details:  "Verbose Error / Stack Trace",
-			Status:   "INFO LEAK",
+			Status:   "INFO",
 			OWASP_ID: "API8:2023",
-			MITRE_ID: "T1592", // Victim Host Information
+			MITRE_ID: "T1592",
 			NIST_Tag: "DE.CM",
 		})
 	}

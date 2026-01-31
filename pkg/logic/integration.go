@@ -8,16 +8,16 @@ import (
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
-	"github.com/pterm/pterm"
 )
 
 type IntegrationContext struct {
 	TargetURL       string
-	IntegrationType string 
+	IntegrationType string
 }
 
 func (i *IntegrationContext) Probe() {
-	pterm.DefaultHeader.WithFullWidth(false).Println("API10: Unsafe Consumption / Integration Probe")
+	// FIX: Replaced pterm header with safe TacticalLog
+	utils.TacticalLog(fmt.Sprintf("[cyan::b]API10: Integration Probe Started (%s)[-:-:-]", i.IntegrationType))
 
 	payloads := map[string]string{
 		"GitHub-Spoof":      `{"repository": {"url": "http://169.254.169.254/latest/meta-data/"}, "sender": {"login": "vapor-trace"}}`,
@@ -32,27 +32,32 @@ func (i *IntegrationContext) Probe() {
 		req.Header.Set("User-Agent", fmt.Sprintf("VaporTrace-%s-Scanner", i.IntegrationType))
 
 		start := time.Now()
+		// Using SafeDo ensures Evasion and Loot scanning happen automatically
 		resp, err := SafeDo(req, false, "API10-PROBE")
 		duration := time.Since(start)
 
 		if err != nil {
+			utils.TacticalLog(fmt.Sprintf("[red]Probe Error [%s]: %v[-]", name, err))
 			continue
 		}
 		defer resp.Body.Close()
 
-		pterm.Info.Printf("Payload: %-18s | Status: %d | Latency: %v\n", name, resp.StatusCode, duration)
+		// FIX: Replaced pterm.Info.Printf with tactical log for latency feedback
+		utils.TacticalLog(fmt.Sprintf("[gray]Payload: %-15s | Status: %d | Latency: %v[-]", name, resp.StatusCode, duration))
 
 		if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
-			// PATCHED: Unified Logging with Phase 9.13 Tags
 			utils.RecordFinding(db.Finding{
-				Phase:    "PHASE IV: INJECTION",
-				Target:   i.TargetURL,
-				Details:  fmt.Sprintf("Unsafe Integration [%s]: Accepted unsigned %s payload", i.IntegrationType, name),
-				Status:   "VULNERABLE",
-				OWASP_ID: "API10:2023",
-				MITRE_ID: "T1190", // Exploit Public-Facing Application
-				NIST_Tag: "ID.RA", // Risk Assessment
+				Phase:      "PHASE IV: INJECTION",
+				Target:     i.TargetURL,
+				Details:    fmt.Sprintf("Unsafe Integration [%s]: Accepted unsigned %s payload", i.IntegrationType, name),
+				Status:     "VULNERABLE",
+				OWASP_ID:   "API10:2023",
+				MITRE_ID:   "T1190",
+				NIST_Tag:   "ID.RA",
+				CVE_ID:     "CVE-202X-INTEGRATION-SPOOF",
+				CVSS_Score: "8.2", // CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N
 			})
 		}
 	}
+	utils.TacticalLog("[green]✔[-] Integration Probe Complete.")
 }

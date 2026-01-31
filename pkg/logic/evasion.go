@@ -7,8 +7,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/pterm/pterm"
 )
 
 // ProxyPool holds a list of proxy URLs (SOCKS5/Tor/HTTP) for IP rotation
@@ -40,7 +38,7 @@ func LoadProxiesFromFile(filepath string) error {
 	}
 
 	ProxyPool = newPool
-	pterm.Success.Printfln("Phase 6.2: Loaded %d proxies into rotation pool", len(ProxyPool))
+	// Logging is now handled by the Engine calling this function
 	return nil
 }
 

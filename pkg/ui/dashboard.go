@@ -304,6 +304,12 @@ func startAsyncEngines() {
 	go func() {
 		for msg := range utils.UI_Log_Chan {
 			app.QueueUpdateDraw(func() {
+				// Special Signal for Clear Command
+				if msg == "___CLEAR_SCREEN_SIGNAL___" {
+					brainLog.Clear()
+					return
+				}
+
 				// Special handling for Target Updates in sidebar
 				if strings.Contains(msg, "Target Locked") {
 					parts := strings.Split(msg, "Target Locked:[-] ")
@@ -314,8 +320,8 @@ func startAsyncEngines() {
 					}
 				}
 
-				// Print to BrainLog
-				fmt.Fprintf(brainLog, "[%s] %s\n", time.Now().Format("15:04:05"), msg)
+				// Print to BrainLog (Message already formatted by logger.go)
+				fmt.Fprintln(brainLog, msg)
 
 				// Force scroll to end to ensure visibility of latest findings
 				brainLog.ScrollToEnd()

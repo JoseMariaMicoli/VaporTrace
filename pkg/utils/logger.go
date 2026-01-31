@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/pterm/pterm"
@@ -10,85 +11,110 @@ import (
 
 // Global UI State
 var UIMode = "CLI" // "CLI" or "TUI"
-
-// Buffer increased to 1000 to prevent blocking during Mass-BOLA/BOPLA operations
-var UI_Log_Chan = make(chan string, 1000)
+// Increased buffer size to prevent blocking during mass scans
+var UI_Log_Chan = make(chan string, 5000)
 
 // SetLoggerMode defines how outputs are rendered
 func SetLoggerMode(mode string) {
 	UIMode = mode
 }
 
-// EscapeTview sanitizes strings to prevent tview from interpreting brackets as color tags.
-// This fixes the UI freezing issue when logging JSON or Arrays.
+// EscapeTview sanitizes strings to prevent tview from interpreting brackets as tags
 func EscapeTview(text string) string {
+	text = StripANSI(text)
 	return strings.ReplaceAll(text, "[", "[[")
 }
 
-// TacticalLog handles generic system messages
+func timeStamp() string {
+	return time.Now().Format("15:04:05")
+}
+
+// TacticalLog handles generic system messages with enforced formatting
 func TacticalLog(msg string) {
+	// 1. TUI MODE: Send to channel (Thread-Safe)
 	if UIMode == "TUI" {
-		// We do not escape here assuming the caller might want to use colors,
-		// BUT if raw data is passed, the caller should sanitize it.
-		// For safety in mass-ops, we sanitize key variable inputs in the caller,
-		// or we can strictly separate "System Messages" (colored) from "Data" (escaped).
+		cleanMsg := StripANSI(msg)
+
+		if msg == "___CLEAR_SCREEN_SIGNAL___" {
+			select {
+			case UI_Log_Chan <- msg:
+			default:
+			}
+			return
+		}
+
+		// Color coding for generic logs
+		colorTag := "[white]"
+		if strings.Contains(strings.ToLower(cleanMsg), "success") || strings.Contains(msg, "[green]") {
+			colorTag = "[green]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "error") || strings.Contains(strings.ToLower(cleanMsg), "fail") || strings.Contains(msg, "[red]") {
+			colorTag = "[red]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "warn") || strings.Contains(msg, "[yellow]") {
+			colorTag = "[yellow]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "phase") || strings.Contains(msg, "[cyan]") {
+			colorTag = "[cyan]"
+		}
+
+		// Format: [TIME] MESSAGE
+		formatted := fmt.Sprintf("[gray][%s][-] %s%s[-]", timeStamp(), colorTag, cleanMsg)
+
 		select {
-		case UI_Log_Chan <- msg:
+		case UI_Log_Chan <- formatted:
 		default:
-			// Drop log if channel is full to prevent deadlocks, but with 1000 this is rare.
+			// Drop message if buffer full to prevent UI freeze
 		}
 	} else {
+		// 2. CLI MODE: Print directly via Pterm
 		pterm.Info.Println(msg)
 	}
 }
 
-// RecordFinding is the Unified Pipeline (Phase 10.2.2)
-// It handles Persistence (DB) AND Visualization (CLI/TUI) simultaneously.
+// RecordFinding is the Unified Pipeline for vulnerability reports
 func RecordFinding(f db.Finding) {
 	// 1. Persistence Layer
-	// We send a copy to avoid pointer issues if any
 	db.LogQueue <- f
 
 	// 2. Visualization Layer
+	safeDetails := EscapeTview(f.Details)
+	safeTarget := EscapeTview(f.Target)
+	safeOWASP := EscapeTview(f.OWASP_ID)
+	ts := timeStamp()
+
 	if UIMode == "TUI" {
-		// Sanitize Content to prevent TUI corruption
-		safeDetails := EscapeTview(f.Details)
-		safeTarget := EscapeTview(f.Target)
-		safeOWASP := EscapeTview(f.OWASP_ID)
+		var logLine string
 
-		// Format specifically for tview dynamic colors
-		// High-density format: [STATUS] (OWASP) DETAILS | TARGET
-		var colorMsg string
-
+		// Strict Format: [TIME] [STATUS] (OWASP) DETAILS | TARGET
 		switch f.Status {
-		case "CRITICAL", "VULNERABLE", "EXPLOITED":
-			colorMsg = fmt.Sprintf("[red::b]%s[-] [yellow](%s)[-] [white]%s[-] [blue::b]| %s[-]",
-				f.Status, safeOWASP, safeDetails, safeTarget)
+		case "CRITICAL", "EXPLOITED":
+			logLine = fmt.Sprintf("[gray][%s][-] [red::b][%s][-] [yellow](%s)[-] [white]%s[-] [blue]| %s[-]",
+				ts, f.Status, safeOWASP, safeDetails, safeTarget)
+		case "VULNERABLE":
+			logLine = fmt.Sprintf("[gray][%s][-] [red][%s][-] [yellow](%s)[-] [white]%s[-] [blue]| %s[-]",
+				ts, f.Status, safeOWASP, safeDetails, safeTarget)
 		case "WEAK CONFIG", "POTENTIAL CALLBACK":
-			colorMsg = fmt.Sprintf("[yellow]%s[-] [white]%s[-] [blue]| %s[-]",
-				f.Status, safeDetails, safeTarget)
-		case "SUCCESS", "INFO":
-			colorMsg = fmt.Sprintf("[blue]%s[-] [white]%s[-] [blue]| %s[-]",
-				f.Status, safeDetails, safeTarget)
+			logLine = fmt.Sprintf("[gray][%s][-] [yellow][%s][-] [white]%s[-] [blue]| %s[-]",
+				ts, f.Status, safeDetails, safeTarget)
+		case "SUCCESS", "ACTIVE":
+			logLine = fmt.Sprintf("[gray][%s][-] [green][%s][-] [white]%s[-] [blue]| %s[-]",
+				ts, f.Status, safeDetails, safeTarget)
+		case "INFO":
+			logLine = fmt.Sprintf("[gray][%s][-] [blue][%s][-] [white]%s[-] [blue]| %s[-]",
+				ts, "INFO", safeDetails, safeTarget)
 		default:
-			colorMsg = fmt.Sprintf("[white]%s[-] %s [blue]| %s[-]",
-				f.Status, safeDetails, safeTarget)
+			logLine = fmt.Sprintf("[gray][%s][-] [white][%s][-] %s [blue]| %s[-]",
+				ts, f.Status, safeDetails, safeTarget)
 		}
 
 		select {
-		case UI_Log_Chan <- colorMsg:
+		case UI_Log_Chan <- logLine:
 		default:
-			// Non-blocking drop if UI is overwhelmed
 		}
 	} else {
 		// CLI Pterm Output
-		if f.Status == "VULNERABLE" || f.Status == "CRITICAL" || f.Status == "EXPLOITED" {
-			pterm.Warning.Prefix = pterm.Prefix{Text: f.Status, Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
-			pterm.Warning.Printfln("%s (OWASP: %s) -> %s", f.Details, f.OWASP_ID, f.Target)
-		} else if f.Status == "WEAK CONFIG" {
-			pterm.Warning.Printfln("%s -> %s", f.Details, f.Target)
+		if f.Status == "VULNERABLE" || f.Status == "CRITICAL" {
+			pterm.Warning.Printfln("[%s] %s -> %s", f.Status, f.Details, f.Target)
 		} else {
-			pterm.Success.Printfln("%s -> %s", f.Details, f.Target)
+			pterm.Info.Printfln("[%s] %s -> %s", f.Status, f.Details, f.Target)
 		}
 	}
 }

@@ -7,17 +7,17 @@ import (
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
-	"github.com/pterm/pterm"
 )
 
 type SSRFContext struct {
 	TargetURL string
 	ParamName string
-	Callback  string 
+	Callback  string
 }
 
 func (s *SSRFContext) Probe() {
-	pterm.DefaultHeader.WithFullWidth(false).Println("API7: Server-Side Request Forgery Tracker")
+	// FIX: Removed pterm
+	utils.TacticalLog("[cyan]API7: Server-Side Request Forgery Tracker Started[-]")
 
 	client := *GlobalClient
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -31,7 +31,9 @@ func (s *SSRFContext) Probe() {
 	}
 
 	for _, payload := range payloads {
-		if payload == "" { continue }
+		if payload == "" {
+			continue
+		}
 
 		u, _ := url.Parse(s.TargetURL)
 		q := u.Query()
@@ -52,25 +54,28 @@ func (s *SSRFContext) Probe() {
 
 		if resp.StatusCode < 500 {
 			if payload == "http://127.0.0.1:80" || payload == "http://169.254.169.254/latest/meta-data/" {
-				// PATCHED: Unified Logging with Phase 9.13 Tags
 				utils.RecordFinding(db.Finding{
-					Phase:    "PHASE IV: INJECTION",
-					Target:   s.TargetURL,
-					Details:  fmt.Sprintf("SSRF Internal Access: %s", payload),
-					Status:   "CRITICAL VULNERABLE",
-					OWASP_ID: "API7:2023",
-					MITRE_ID: "T1071.001", // Web Protocols (or T1190 Exploit Public-Facing Application)
-					NIST_Tag: "DE.CM",
+					Phase:      "PHASE IV: INJECTION",
+					Target:     s.TargetURL,
+					Details:    fmt.Sprintf("SSRF Internal Access: %s", payload),
+					Status:     "CRITICAL",
+					OWASP_ID:   "API7:2023",
+					MITRE_ID:   "T1071.001",
+					NIST_Tag:   "DE.CM",
+					CVE_ID:     "CVE-202X-SSRF-CLOUD",
+					CVSS_Score: "9.1", // CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
 				})
 			} else {
 				utils.RecordFinding(db.Finding{
-					Phase:    "PHASE IV: INJECTION",
-					Target:   s.TargetURL,
-					Details:  "SSRF Callback Triggered",
-					Status:   "POTENTIAL CALLBACK",
-					OWASP_ID: "API7:2023",
-					MITRE_ID: "T1213", // Data from Information Repositories
-					NIST_Tag: "DE.AE",
+					Phase:      "PHASE IV: INJECTION",
+					Target:     s.TargetURL,
+					Details:    "SSRF Callback Triggered",
+					Status:     "POTENTIAL CALLBACK",
+					OWASP_ID:   "API7:2023",
+					MITRE_ID:   "T1213",
+					NIST_Tag:   "DE.AE",
+					CVE_ID:     "N/A",
+					CVSS_Score: "0.0",
 				})
 			}
 		}
