@@ -406,5 +406,4 @@ Use this unified template to document findings across the VaporTrace tactical ph
 
 **VaporTrace - Reveal the Invisible.**
 
-```
 ---
