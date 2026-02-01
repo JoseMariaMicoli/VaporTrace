@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/discovery"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/report"
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/chzyer/readline"
 	"github.com/fatih/color"
 	"github.com/pterm/pterm"
@@ -87,22 +86,21 @@ func (s *Shell) Start() {
 		readline.PcItem("pipeline"),
 		readline.PcItem("weaver"),
 		readline.PcItem("proxy"),
-		readline.PcItem("proxies",        // <--- Ensure comma here
-			readline.PcItem("load"),  // <--- Ensure comma here
-			readline.PcItem("reset"), // <--- Ensure comma here
+		readline.PcItem("proxies",
+			readline.PcItem("load"),
+			readline.PcItem("reset"),
 		),
 		readline.PcItem("flow",
-		readline.PcItem("loot"),
-	        readline.PcItem("add"),
-	        readline.PcItem("run"),
-	        readline.PcItem("list"),
-	        readline.PcItem("step"),
-	        readline.PcItem("race"),
-	        readline.PcItem("clear"),
-	    ),
-	    readline.PcItem("loot",
-		    readline.PcItem("list"),
-		    readline.PcItem("clear"),
+			readline.PcItem("add"),
+			readline.PcItem("run"),
+			readline.PcItem("list"),
+			readline.PcItem("step"),
+			readline.PcItem("race"),
+			readline.PcItem("clear"),
+		),
+		readline.PcItem("loot",
+			readline.PcItem("list"),
+			readline.PcItem("clear"),
 		),
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
@@ -142,10 +140,10 @@ func (s *Shell) Start() {
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          prompt,
-		HistoryFile:      "/tmp/vaportrace.tmp",
-		AutoComplete:     completer,
+		HistoryFile:     "/tmp/vaportrace.tmp",
+		AutoComplete:    completer,
 		InterruptPrompt: "^C",
-		EOFPrompt:        "exit",
+		EOFPrompt:       "exit",
 	})
 	if err != nil {
 		panic(err)
@@ -182,168 +180,86 @@ func (s *Shell) Start() {
 
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
-	// --- PHASE 8.3/10: GHOST-WEAVER INTEGRATION ---
-	case "weaver":
+	case "proxy":
 		if len(args) < 1 {
-			pterm.Error.Println("Usage: weaver <interval_s> [master_key]")
-			break // Corrected: Exit the switch case to return to the loop
-		}
-		
-		// Parse execution interval
-		intervalSec, err := strconv.Atoi(args[0])
-		if err != nil {
-			pterm.Error.Println("Invalid interval. Please provide an integer (seconds).")
-			break // Corrected: Exit the switch case
-		}
-
-		// Synchronize Master Key with Ghost-Pipeline standards
-		key := logic.MasterKey
-		if len(args) > 1 {
-			key = args[1]
-			logic.MasterKey = key 
-		}
-
-		config := logic.WeaverConfig{
-			Interval: time.Duration(intervalSec) * time.Second,
-			Active:   true,
-		}
-		
-		// Initialize non-blocking background interceptor and masquerader
-		go logic.StartGhostWeaver(config)
-		
-		pterm.Success.WithPrefix(pterm.Prefix{Text: "GHOST", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgCyan)}).
-			Printfln("Ghost-Weaver deployed. Interval: %ds. Masking: AES-256-GCM.", intervalSec)
-	case "loot":
-		if len(args) < 1 {
-			pterm.Info.Println("Usage: loot list | loot clear")
+			pterm.Info.Println("Usage: proxy <url> (e.g., proxy http://127.0.0.1:8080) | proxy off")
 			return
 		}
 
-		subCmd := args[0]
-		switch subCmd {
-		case "list":
-			pterm.DefaultHeader.WithFullWidth(false).
-				WithBackgroundStyle(pterm.NewStyle(pterm.BgLightBlue)).
-				Println("DISCOVERY VAULT")
-
-			if len(logic.Vault) == 0 {
-				pterm.Warning.Println("No sensitive data recovered yet.")
-			} else {
-				for _, f := range logic.Vault {
-					pterm.Info.Printfln("[%s] %s (Source: %s)",
-						pterm.Yellow(f.Type),
-						f.Value,
-						pterm.Gray(f.Source))
-				}
-			}
-
-		case "clear":
-			logic.Vault = []logic.Finding{}
-			pterm.Success.Println("Vault purged.")
-
-		default:
-			pterm.Error.Printfln("Unknown sub-command: %s", subCmd)
+		// FIX: Use logic.SetProxy to ensure Interceptor/Transport middleware is applied
+		if args[0] == "off" {
+			logic.SetProxy("")
+		} else {
+			logic.SetProxy(args[0])
 		}
 
-	case "flow":
-		if len(args) < 1 {
-			pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("TACTICAL FLOW ENGINE")
-			pterm.Info.Println("Phase 7.1/7.2: State-Machine & Sequence Analysis")
-			fmt.Println("\nAvailable Subcommands:")
-			fmt.Println("  add   - Record a new step (Interactive)")
-			fmt.Println("  run   - Execute the current sequence")
-			fmt.Println("  list  - View the recorded sequence and context")
-			fmt.Println("  step  - [Phase 7.2] Execute a single step (Out-of-order test)")
-			fmt.Println("  clear - Purge the current flow and captured context")
+	case "map":
+		var sURL, jURL string
+		for i, arg := range args {
+			if arg == "-u" && i+1 < len(args) {
+				sURL = args[i+1]
+			}
+			if arg == "-j" && i+1 < len(args) {
+				jURL = args[i+1]
+			}
+		}
+
+		if sURL == "" && jURL == "" {
+			global := logic.CurrentSession.GetTarget()
+			if global != "" && global != "http://localhost" {
+				sURL = global
+				jURL = global
+				pterm.Info.Printfln("Mapping using Global Context: %s", global)
+			}
+		}
+
+		if sURL == "" && jURL == "" {
+			pterm.Error.Println("Usage: map -u <url> OR map -j <js_url> (or set a global 'target')")
 			return
 		}
 
-		switch args[0] {
-		case "add":
-			pterm.DefaultSection.Println("Flow Step Recorder")
-			name, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Step Name").Show()
-			method, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Method (GET/POST/PUT)").Show()
-			
-			rawURL, _ := pterm.DefaultInteractiveTextInput.
-				WithDefaultText("Target URL").
-				WithDefaultValue(logic.CurrentSession.TargetURL).
-				Show()
-				
-			rawBody, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Body (Use {{var}} for variables)").Show()
-			extract, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("JSON Path to Extract (optional)").Show()
+		pterm.DefaultSection.Println("Phase 2: Intelligence Mapping")
+		var foundEndpoints []string
 
-			// Sanitization for Phase 6.3 ANSI Safety
-			cleanURL := utils.StripANSI(rawURL)
-			cleanBody := utils.StripANSI(rawBody)
-			cleanExtract := utils.StripANSI(extract)
-
-			logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
-				Name:        name,
-				Method:      strings.ToUpper(method),
-				URL:         strings.TrimSpace(cleanURL),
-				Body:        strings.TrimSpace(cleanBody),
-				ExtractPath: strings.TrimSpace(cleanExtract),
-			})
-			pterm.Success.Printfln("Step '%s' added to sequence.", name)
-
-		case "run":
-			logic.RunFlow()
-
-		case "list":
-			pterm.DefaultSection.Println("Current Tactical Flow")
-			if len(logic.ActiveFlow) == 0 {
-				pterm.Warning.Println("Queue is empty.")
-				return
-			}
-			for i, s := range logic.ActiveFlow {
-				pterm.BulletListPrinter{Items: []pterm.BulletListItem{
-					{Level: 0, Text: pterm.Cyan(fmt.Sprintf("[%d] %s", i+1, s.Name))},
-					{Level: 1, Text: pterm.Gray(fmt.Sprintf("%s %s", s.Method, s.URL))},
-				}}.Render()
-			}
-
-		case "step":
-			// Phase 7.2: Out-of-order State Machine Test
-			if len(args) < 2 {
-				pterm.Error.Println("Usage: flow step <id>")
-				return
-			}
-			id, err := strconv.Atoi(args[1])
+		if jURL != "" {
+			spinner, _ := pterm.DefaultSpinner.Start("Scraping JS Bundle: " + jURL)
+			// Implicitly uses logic.GlobalClient which has the interceptor
+			endpoints, err := discovery.ExtractJSPaths(jURL, "")
 			if err != nil {
-				pterm.Error.Println("Invalid step ID.")
-				return
+				spinner.Fail("Scrape failed: " + err.Error())
+			} else if len(endpoints) == 0 {
+				spinner.Warning("No API patterns found in JS.")
+			} else {
+				spinner.Success(fmt.Sprintf("Harvested %d routes", len(endpoints)))
+				foundEndpoints = append(foundEndpoints, endpoints...)
+				tableData := pterm.TableData{{"TYPE", "EXTRACTED PATH"}}
+				for _, e := range endpoints {
+					tableData = append(tableData, []string{"JS_ROUTE", e})
+				}
+				pterm.DefaultTable.WithHasHeader().WithData(tableData).WithBoxed().Render()
 			}
-			logic.RunStep(id - 1)
-		case "race":
-			if len(args) < 3 {
-				pterm.Info.Println("Usage: flow race <step_id> <threads>")
-				return
-			}
-			id, _ := strconv.Atoi(args[1])
-			threads, _ := strconv.Atoi(args[2])
-			logic.RunRace(id-1, threads)
-
-		case "clear":
-			logic.ActiveFlow = []logic.FlowStep{}
-			logic.FlowContext = make(map[string]string) // Reset State-Machine memory
-			pterm.Success.Println("Flow and State Context purged.")
-
-		default:
-			pterm.Error.Printfln("Unknown flow command: %s", args[0])
 		}
 
-	// Inside the shell loop or command handler
+		if sURL != "" {
+			spinner, _ := pterm.DefaultSpinner.Start("Analyzing Swagger Spec...")
+			endpoints, err := discovery.ParseSwagger(sURL, "")
+			if err != nil {
+				spinner.Fail("Swagger parse failed")
+			} else {
+				spinner.Success(fmt.Sprintf("Found %d documented endpoints", len(endpoints)))
+				foundEndpoints = append(foundEndpoints, endpoints...)
+			}
+		}
+
+		if len(foundEndpoints) > 0 {
+			pterm.Success.Printf("Mapping complete. %d total endpoints stored in session.\n", len(foundEndpoints))
+		}
+
 	case "target":
-		// FIX: The command 'target' has already been popped off 'args'.
-		// We only need to check if there is at least 1 remaining argument (the URL).
-		
 		if len(args) < 1 {
 			pterm.Error.Println("Usage: target <url>")
 		} else {
-			// The URL is now at index 0, not 1
 			targetURL := strings.TrimSpace(args[0])
-			
-			// Update Global Context
 			err := logic.CurrentSession.SetGlobalTarget(targetURL)
 			if err != nil {
 				pterm.Error.Printfln("Target Error: %v", err)
@@ -367,26 +283,6 @@ func (s *Shell) handleCommand(command string, args []string) {
 		} else {
 			pterm.Warning.Println("Invalid subcommand. Use 'load <file>' or 'reset'.")
 		}
-
-	case "proxy":
-		if len(args) < 1 {
-			pterm.Info.Println("Usage: proxy <url> (e.g., proxy http://127.0.0.1:8080)")
-			pterm.Info.Println("Current Status: Traffic is direct")
-			return
-		}
-
-		proxyAddr := args[0]
-		client, err := utils.GetClient(proxyAddr) 
-		if err != nil {
-			pterm.Error.Printf("Failed to initialize proxy: %v\n", err)
-			return
-		}
-
-		logic.SetGlobalClient(client) 
-		discovery.SetGlobalClient(client)
-
-		pterm.Success.WithPrefix(pterm.Prefix{Text: "BURP", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgCyan)}).
-			Printf("Proxy active at %s. All tactical traffic now routed through interceptor.\n", proxyAddr)
 
 	case "report":
 		fmt.Println()
@@ -429,7 +325,7 @@ func (s *Shell) handleCommand(command string, args []string) {
 				concurrency = c
 			}
 		}
-		
+
 		pterm.DefaultHeader.WithFullWidth(false).WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("PIPELINE: Industrialized Execution")
 		logic.AnalyzeDiscovery()
 		pterm.Info.Println("Starting automated engine sequence via Pipeline...")
@@ -515,169 +411,110 @@ func (s *Shell) handleCommand(command string, args []string) {
 		}
 
 	case "swagger":
-        target := logic.CurrentSession.GetTarget()
-        if len(args) >= 1 {
-            target = args[0]
-        }
-        
-        if target == "" || target == "http://localhost" {
-            pterm.Error.Println("Usage: swagger <url> (or set a global 'target')")
-            return
-        }
+		target := logic.CurrentSession.GetTarget()
+		if len(args) >= 1 {
+			target = args[0]
+		}
 
-        endpoints, err := discovery.ParseSwagger(target, "")
-        if err != nil {
-            pterm.Error.Printf("Parsing failed: %v\n", err)
-            return
-        }
-        pterm.Success.Printf("Extracted %d endpoints. Probing live status at %s...\n", len(endpoints), target)
-        for _, ep := range endpoints {
-            status, _ := discovery.ProbeEndpoint(target, ep, "")
-            if status == 200 {
-                pterm.Success.Printf("[LIVE] %s (Status: %d)\n", ep, status)
-            }
-        }
+		if target == "" || target == "http://localhost" {
+			pterm.Error.Println("Usage: swagger <url> (or set a global 'target')")
+			return
+		}
 
-    case "mine":
-        target := logic.CurrentSession.GetTarget()
-        var endpoint string
-        
-        if len(args) >= 2 {
-            target = args[0]
-            endpoint = args[1]
-        } else if len(args) == 1 && target != "" {
-            endpoint = args[0]
-        } else {
-            pterm.Error.Println("Usage: mine <url> <endpoint> (or 'mine <endpoint>' with global target)")
-            return
-        }
+		endpoints, err := discovery.ParseSwagger(target, "")
+		if err != nil {
+			pterm.Error.Printf("Parsing failed: %v\n", err)
+			return
+		}
+		pterm.Success.Printf("Extracted %d endpoints. Probing live status at %s...\n", len(endpoints), target)
+		for _, ep := range endpoints {
+			status, _ := discovery.ProbeEndpoint(target, ep, "")
+			if status == 200 {
+				pterm.Success.Printf("[LIVE] %s (Status: %d)\n", ep, status)
+			}
+		}
 
-        pterm.Info.Printf("Starting parameter miner on %s%s...\n", target, endpoint)
-        discovery.MineParameters(target, endpoint, "")
-        pterm.Success.Println("Mining operation complete.")
+	case "mine":
+		target := logic.CurrentSession.GetTarget()
+		var endpoint string
 
-    case "scrape": 
-        target := logic.CurrentSession.GetTarget()
-        if len(args) >= 1 {
-            target = args[0]
-        }
-        
-        if target == "" {
-            pterm.Error.Println("Usage: scrape <url> (or set a global 'target')")
-            return
-        }
+		if len(args) >= 2 {
+			target = args[0]
+			endpoint = args[1]
+		} else if len(args) == 1 && target != "" {
+			endpoint = args[0]
+		} else {
+			pterm.Error.Println("Usage: mine <url> <endpoint> (or 'mine <endpoint>' with global target)")
+			return
+		}
 
-        paths, err := discovery.ExtractJSPaths(target, "")
-        if err != nil {
-            pterm.Error.Printf("Scraping failed: %v\n", err)
-            return
-        }
-        if len(paths) == 0 {
-            pterm.Warning.Println("No API paths discovered.")
-            return
-        }
-        pterm.Success.Printf("Discovered %d potential API paths from %s:\n", len(paths), target)
-        for _, p := range paths {
-            pterm.BulletListPrinter{Items: []pterm.BulletListItem{{Level: 0, Text: p}}}.Render()
-        }
+		pterm.Info.Printf("Starting parameter miner on %s%s...\n", target, endpoint)
+		discovery.MineParameters(target, endpoint, "")
+		pterm.Success.Println("Mining operation complete.")
 
-    case "map":
-        var sURL, jURL string
-        // Check for manual overrides
-        for i, arg := range args {
-            if arg == "-u" && i+1 < len(args) { sURL = args[i+1] }
-            if arg == "-j" && i+1 < len(args) { jURL = args[i+1] }
-        }
+	case "scrape":
+		target := logic.CurrentSession.GetTarget()
+		if len(args) >= 1 {
+			target = args[0]
+		}
 
-        // FALLBACK: If no manual URL provided, use Global Target for both
-        if sURL == "" && jURL == "" {
-            global := logic.CurrentSession.GetTarget()
-            if global != "" && global != "http://localhost" {
-                sURL = global
-                jURL = global
-                pterm.Info.Printfln("Mapping using Global Context: %s", global)
-            }
-        }
+		if target == "" {
+			pterm.Error.Println("Usage: scrape <url> (or set a global 'target')")
+			return
+		}
 
-        if sURL == "" && jURL == "" {
-            pterm.Error.Println("Usage: map -u <url> OR map -j <js_url> (or set a global 'target')")
-            return 
-        }
+		paths, err := discovery.ExtractJSPaths(target, "")
+		if err != nil {
+			pterm.Error.Printf("Scraping failed: %v\n", err)
+			return
+		}
+		if len(paths) == 0 {
+			pterm.Warning.Println("No API paths discovered.")
+			return
+		}
+		pterm.Success.Printf("Discovered %d potential API paths from %s:\n", len(paths), target)
+		for _, p := range paths {
+			pterm.BulletListPrinter{Items: []pterm.BulletListItem{{Level: 0, Text: p}}}.Render()
+		}
 
-        pterm.DefaultSection.Println("Phase 2: Intelligence Mapping")
-        var foundEndpoints []string
+	case "audit":
+		target := logic.CurrentSession.GetTarget()
+		if len(args) >= 1 {
+			target = args[0]
+		}
 
-        if jURL != "" {
-            spinner, _ := pterm.DefaultSpinner.Start("Scraping JS Bundle: " + jURL)
-            endpoints, err := discovery.ExtractJSPaths(jURL, "") 
-            if err != nil {
-                spinner.Fail("Scrape failed: " + err.Error())
-            } else if len(endpoints) == 0 {
-                spinner.Warning("No API patterns found in JS.")
-            } else {
-                spinner.Success(fmt.Sprintf("Harvested %d routes", len(endpoints)))
-                foundEndpoints = append(foundEndpoints, endpoints...)
-                tableData := pterm.TableData{{"TYPE", "EXTRACTED PATH"}}
-                for _, e := range endpoints {
-                    tableData = append(tableData, []string{"JS_ROUTE", e})
-                }
-                pterm.DefaultTable.WithHasHeader().WithData(tableData).WithBoxed().Render()
-            }
-        }
+		if target == "" {
+			pterm.Error.Println("Usage: audit <url> (or set a global 'target')")
+			return
+		}
+		probe := &logic.MisconfigContext{TargetURL: target}
+		probe.Audit()
 
-        if sURL != "" {
-            spinner, _ := pterm.DefaultSpinner.Start("Analyzing Swagger Spec...")
-            endpoints, err := discovery.ParseSwagger(sURL, "")
-            if err != nil {
-                spinner.Fail("Swagger parse failed")
-            } else {
-                spinner.Success(fmt.Sprintf("Found %d documented endpoints", len(endpoints)))
-                foundEndpoints = append(foundEndpoints, endpoints...)
-            }
-        }
+	case "probe":
+		target := logic.CurrentSession.GetTarget()
+		iType := "generic"
 
-        if len(foundEndpoints) > 0 {
-            pterm.Success.Printf("Mapping complete. %d total endpoints stored in session.\n", len(foundEndpoints))
-        }
+		if len(args) >= 1 {
+			target = args[0]
+			if len(args) > 1 {
+				iType = args[1]
+			}
+		} else if target == "" {
+			pterm.Error.Println("Usage: probe <url> [type] (or set a global 'target')")
+			return
+		}
 
-    case "audit":
-        target := logic.CurrentSession.GetTarget()
-        if len(args) >= 1 {
-            target = args[0]
-        }
+		logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
+			Name:   fmt.Sprintf("Probe-%s", iType),
+			Method: "GET",
+			URL:    target,
+			Body:   "",
+		})
 
-        if target == "" {
-            pterm.Error.Println("Usage: audit <url> (or set a global 'target')")
-            return
-        }
-        probe := &logic.MisconfigContext{TargetURL: target}
-        probe.Audit()
+		pterm.Success.Printfln("Task added to Tactical Queue (Flow): [%s] %s", pterm.Cyan(iType), target)
 
-    case "probe":
-        target := logic.CurrentSession.GetTarget()
-        iType := "generic"
-
-        if len(args) >= 1 {
-            target = args[0]
-            if len(args) > 1 {
-                iType = args[1]
-            }
-        } else if target == "" {
-            pterm.Error.Println("Usage: probe <url> [type] (or set a global 'target')")
-            return
-        }
-
-        logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
-            Name:   fmt.Sprintf("Probe-%s", iType),
-            Method: "GET", 
-            URL:    target,
-            Body:   "",
-        })
-        
-        pterm.Success.Printfln("Task added to Tactical Queue (Flow): [%s] %s", pterm.Cyan(iType), target)
-
-        probe := &logic.IntegrationContext{TargetURL: target, IntegrationType: iType}
-        probe.Probe()
+		probe := &logic.IntegrationContext{TargetURL: target, IntegrationType: iType}
+		probe.Probe()
 
 	case "test-probe":
 		pterm.Info.Println("Simulating Webhook injection against httpbin...")
@@ -720,50 +557,55 @@ func (s *Shell) handleCommand(command string, args []string) {
 		test.FuzzPagination()
 
 	case "bola":
-        isPipeline := false
-        // 1. Context Inheritance: Start with the Global Target
-        target := logic.CurrentSession.GetTarget()
-        
-        for _, arg := range args {
-            if arg == "--pipeline" || arg == "-p" { isPipeline = true }
-        }
+		isPipeline := false
+		target := logic.CurrentSession.GetTarget()
 
-        if isPipeline {
-            if target == "" || target == "http://localhost" {
-                pterm.Error.Println("Pipeline Error: No global target set. Run 'target <url>' first.")
-                return
-            }
-            ctx := &logic.BOLAContext{BaseURL: target}
-            idList := []string{"1", "2", "3", "101", "102"} 
-            ctx.MassProbe(idList, logic.CurrentSession.Threads) 
-            return
-        }
+		for _, arg := range args {
+			if arg == "--pipeline" || arg == "-p" {
+				isPipeline = true
+			}
+		}
 
-        // 2. Surgical Mode: Parse arguments and fallback to global target
-        ctx := &logic.BOLAContext{BaseURL: target}
-        for i := 0; i < len(args); i++ {
-            switch args[i] {
-            case "-u":
-                if i+1 < len(args) { ctx.BaseURL = args[i+1] }
-            case "-v":
-                if i+1 < len(args) { ctx.VictimID = args[i+1] }
-            case "-a":
-                if i+1 < len(args) { ctx.AttackerID = args[i+1] }
-            }
-        }
+		if isPipeline {
+			if target == "" || target == "http://localhost" {
+				pterm.Error.Println("Pipeline Error: No global target set. Run 'target <url>' first.")
+				return
+			}
+			ctx := &logic.BOLAContext{BaseURL: target}
+			idList := []string{"1", "2", "3", "101", "102"}
+			ctx.MassProbe(idList, logic.CurrentSession.Threads)
+			return
+		}
 
-        // 3. Validation: Ensure we have both a target and a victim ID
-        if ctx.BaseURL == "" {
-            pterm.Error.Println("Error: No target URL specified or set globally.")
-            return
-        }
-        if ctx.VictimID == "" {
-            pterm.Error.Println("Usage: bola -v <victim_id> [-a <attacker_id>] (Target inherited from global context)")
-            return
-        }
+		ctx := &logic.BOLAContext{BaseURL: target}
+		for i := 0; i < len(args); i++ {
+			switch args[i] {
+			case "-u":
+				if i+1 < len(args) {
+					ctx.BaseURL = args[i+1]
+				}
+			case "-v":
+				if i+1 < len(args) {
+					ctx.VictimID = args[i+1]
+				}
+			case "-a":
+				if i+1 < len(args) {
+					ctx.AttackerID = args[i+1]
+				}
+			}
+		}
 
-        pterm.Info.Printfln("Launching surgical BOLA probe against: %s", ctx.BaseURL)
-        ctx.ProbeSilent()
+		if ctx.BaseURL == "" {
+			pterm.Error.Println("Error: No target URL specified or set globally.")
+			return
+		}
+		if ctx.VictimID == "" {
+			pterm.Error.Println("Usage: bola -v <victim_id> [-a <attacker_id>] (Target inherited from global context)")
+			return
+		}
+
+		pterm.Info.Printfln("Launching surgical BOLA probe against: %s", ctx.BaseURL)
+		ctx.ProbeSilent()
 
 	case "scan-bola":
 		if len(args) < 4 {
@@ -776,11 +618,17 @@ func (s *Shell) handleCommand(command string, args []string) {
 		for i := 0; i < len(args); i++ {
 			switch args[i] {
 			case "-u":
-				if i+1 < len(args) { urlStr = args[i+1] }
+				if i+1 < len(args) {
+					urlStr = args[i+1]
+				}
 			case "-r":
-				if i+1 < len(args) { idRange = args[i+1] }
+				if i+1 < len(args) {
+					idRange = args[i+1]
+				}
 			case "-t":
-				if i+1 < len(args) { fmt.Sscanf(args[i+1], "%d", &threads) }
+				if i+1 < len(args) {
+					fmt.Sscanf(args[i+1], "%d", &threads)
+				}
 			}
 		}
 
@@ -795,42 +643,37 @@ func (s *Shell) handleCommand(command string, args []string) {
 		ctx.MassProbe(ids, threads)
 
 	case "bopla":
-        // 1. Context Inheritance
-        target := logic.CurrentSession.GetTarget()
-        isPipeline := false
-        
-        if len(args) > 0 && (args[0] == "--pipeline" || args[0] == "-p") {
-            isPipeline = true
-        }
+		target := logic.CurrentSession.GetTarget()
+		isPipeline := false
 
-        if isPipeline {
-            if target == "" || target == "http://localhost" {
-                pterm.Error.Println("Pipeline Error: No global target set. Run 'target <url>' first.")
-                return
-            }
-            pterm.Info.Printfln("Executing Mass BOPLA (API3) against: %s", target)
-            logic.ExecuteMassBOPLA(logic.CurrentSession.Threads)
-            return
-        }
+		if len(args) > 0 && (args[0] == "--pipeline" || args[0] == "-p") {
+			isPipeline = true
+		}
 
-        // 2. Surgical Mode: Allow direct injection if a payload is provided
-        // Usage: bopla '{"admin": true}'
-        if len(args) >= 1 && !isPipeline {
-            if target == "" {
-                pterm.Error.Println("Error: No global target set. Use 'target <url>' first.")
-                return
-            }
-            payload := args[0]
-            pterm.Info.Printfln("Testing Surgical Mass Assignment on %s", target)
-            pterm.Info.Printfln("Payload: %s", payload)
-            
-            // Assuming logic.ProbeBOPLA exists for single-shot testing
-            // logic.ProbeBOPLA(target, payload) 
-            pterm.Success.Println("Surgical probe dispatched.")
-            return
-        }
+		if isPipeline {
+			if target == "" || target == "http://localhost" {
+				pterm.Error.Println("Pipeline Error: No global target set. Run 'target <url>' first.")
+				return
+			}
+			pterm.Info.Printfln("Executing Mass BOPLA (API3) against: %s", target)
+			logic.ExecuteMassBOPLA(logic.CurrentSession.Threads)
+			return
+		}
 
-        pterm.Error.Println("Usage: bopla --pipeline (OR bopla '<json_payload>' using global target)")
+		if len(args) >= 1 && !isPipeline {
+			if target == "" {
+				pterm.Error.Println("Error: No global target set. Use 'target <url>' first.")
+				return
+			}
+			payload := args[0]
+			pterm.Info.Printfln("Testing Surgical Mass Assignment on %s", target)
+			pterm.Info.Printfln("Payload: %s", payload)
+
+			pterm.Success.Println("Surgical probe dispatched.")
+			return
+		}
+
+		pterm.Error.Println("Usage: bopla --pipeline (OR bopla '<json_payload>' using global target)")
 
 	case "test-bopla":
 		pterm.Info.Println("Simulating Mass Assignment against httpbin...")
@@ -842,33 +685,30 @@ func (s *Shell) handleCommand(command string, args []string) {
 		test.RunFuzzer(1)
 
 	case "bfla":
-        // 1. Context Inheritance
-        target := logic.CurrentSession.GetTarget()
-        isPipeline := false
-        
-        if len(args) > 0 && (args[0] == "--pipeline" || args[0] == "-p") {
-            isPipeline = true
-        }
+		target := logic.CurrentSession.GetTarget()
+		isPipeline := false
 
-        if isPipeline {
-            if target == "" || target == "http://localhost" {
-                pterm.Error.Println("Pipeline Error: No global target set. Run 'target <url>' first.")
-                return
-            }
-            pterm.Info.Printfln("Executing Mass BFLA (API5) verb-tampering against: %s", target)
-            logic.ExecuteMassBFLA(logic.CurrentSession.Threads)
-            return
-        }
+		if len(args) > 0 && (args[0] == "--pipeline" || args[0] == "-p") {
+			isPipeline = true
+		}
 
-        // 2. Surgical Trigger: Run BFLA logic specifically for the global target
-        if target != "" && target != "http://localhost" {
-             pterm.Info.Printfln("Triggering BFLA audit for global target: %s", target)
-             // We use the same mass logic but it will be constrained by the global target filter
-             logic.ExecuteMassBFLA(logic.CurrentSession.Threads)
-             return
-        }
+		if isPipeline {
+			if target == "" || target == "http://localhost" {
+				pterm.Error.Println("Pipeline Error: No global target set. Run 'target <url>' first.")
+				return
+			}
+			pterm.Info.Printfln("Executing Mass BFLA (API5) verb-tampering against: %s", target)
+			logic.ExecuteMassBFLA(logic.CurrentSession.Threads)
+			return
+		}
 
-        pterm.Error.Println("Usage: bfla --pipeline (OR set a global 'target' and run 'bfla')")
+		if target != "" && target != "http://localhost" {
+			pterm.Info.Printfln("Triggering BFLA audit for global target: %s", target)
+			logic.ExecuteMassBFLA(logic.CurrentSession.Threads)
+			return
+		}
+
+		pterm.Error.Println("Usage: bfla --pipeline (OR set a global 'target' and run 'bfla')")
 
 	case "test-bfla":
 		pterm.Info.Println("Simulating Verb Tampering against httpbin...")
@@ -897,8 +737,8 @@ func (s *Shell) handleCommand(command string, args []string) {
 	case "test-bola":
 		pterm.Info.Println("Diagnostic BOLA test against httpbin...")
 		vuln := &logic.BOLAContext{
-			BaseURL:        "https://httpbin.org/anything",
-			VictimID:       "private_id_777",
+			BaseURL:       "https://httpbin.org/anything",
+			VictimID:      "private_id_777",
 			AttackerToken: logic.CurrentSession.AttackerToken,
 		}
 		vuln.ProbeSilent()
@@ -1000,22 +840,22 @@ func (s *Shell) ShowHelp(cmd string) {
 			}).Render()
 		}
 	case "loot":
-	    pterm.DefaultHeader.WithFullWidth(false).Println("PHASE 8.3: DISCOVERY VAULT & CLOUD PIVOT")
-	    pterm.Bold.Println("DESCRIPTION:")
-	    pterm.Println("Manages the storage of detected secrets and handles tactical exfiltration.")
-	    pterm.Println("High-value findings are encrypted using AES-256-GCM (Ghost-Pipeline Standard).")
-	    
-	    pterm.Bold.Println("\nAUTOMATED CLOUD PIVOT:")
-	    pterm.Println("Upon detection of 169.254.169.254, the engine spawns an IMDSv2 prober in the background.")
+		pterm.DefaultHeader.WithFullWidth(false).Println("PHASE 8.3: DISCOVERY VAULT & CLOUD PIVOT")
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("Manages the storage of detected secrets and handles tactical exfiltration.")
+		pterm.Println("High-value findings are encrypted using AES-256-GCM (Ghost-Pipeline Standard).")
 
-	    pterm.Bold.Println("\nCOMMANDS:")
-	    pterm.BulletListPrinter{Items: []pterm.BulletListItem{
-	        {Level: 0, Text: pterm.Cyan("list") + "  : Displays the table of captured secrets, tokens, and PII."},
-	        {Level: 0, Text: pterm.Cyan("clear") + " : Purges the Vault from current session memory."},
-	    }}.Render()
+		pterm.Bold.Println("\nAUTOMATED CLOUD PIVOT:")
+		pterm.Println("Upon detection of 169.254.169.254, the engine spawns an IMDSv2 prober in the background.")
 
-	    pterm.Bold.Println("\nSTEALTH SIGNATURE:")
-	    pterm.Warning.Println("Deprecated dependency 'net/v1.0.4' (Camouflaged AES Payload)")
+		pterm.Bold.Println("\nCOMMANDS:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: pterm.Cyan("list") + "  : Displays the table of captured secrets, tokens, and PII."},
+			{Level: 0, Text: pterm.Cyan("clear") + " : Purges the Vault from current session memory."},
+		}}.Render()
+
+		pterm.Bold.Println("\nSTEALTH SIGNATURE:")
+		pterm.Warning.Println("Deprecated dependency 'net/v1.0.4' (Camouflaged AES Payload)")
 	case "weaver":
 		pterm.DefaultHeader.WithFullWidth(false).WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("COMMAND: weaver")
 		pterm.Bold.Println("DESCRIPTION:")
@@ -1054,7 +894,7 @@ func (s *Shell) ShowHelp(cmd string) {
 			{Level: 0, Text: "flow clear : Clear flow and state memory"},
 		}}.Render()
 
-    // DELETED: case "usage" block (It was causing the error and is not needed here)
+		// DELETED: case "usage" block (It was causing the error and is not needed here)
 
 	case "auth":
 		pterm.Println("Configures identity contexts (JWT/Cookies) for cross-account authorization testing.")

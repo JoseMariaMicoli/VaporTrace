@@ -12,8 +12,23 @@ import (
 
 // Global UI State
 var UIMode = "CLI" // "CLI" or "TUI"
-// Increased buffer size to prevent blocking during mass scans
+
+// UI_Log_Chan handles generic logs (F1 Tab)
 var UI_Log_Chan = make(chan string, 5000)
+
+// ContextLogChan handles Aggregator/Intelligence logs (F5 Tab)
+var ContextLogChan = make(chan string, 1000)
+
+// TrafficPacket handles HTTP Req/Res dumps (F4 Tab)
+type TrafficPacket struct {
+	ReqHeader string
+	ReqBody   string
+	ResHeader string
+	ResBody   string
+	Timestamp time.Time
+}
+
+var TrafficChan = make(chan TrafficPacket, 100)
 
 // SetLoggerMode defines how outputs are rendered
 func SetLoggerMode(mode string) {
@@ -30,9 +45,37 @@ func timeStamp() string {
 	return time.Now().Format("15:04:05")
 }
 
-// TacticalLog handles generic system messages with enforced formatting
+// LogTraffic sends HTTP data to the F4 Traffic Tab
+func LogTraffic(reqH, reqB, resH, resB string) {
+	if UIMode == "TUI" {
+		select {
+		case TrafficChan <- TrafficPacket{
+			ReqHeader: reqH,
+			ReqBody:   reqB,
+			ResHeader: resH,
+			ResBody:   resB,
+			Timestamp: time.Now(),
+		}:
+		default:
+			// Drop packet if buffer full to prevent blocking
+		}
+	}
+}
+
+// LogContext sends specific intelligence data to the F5 Context Tab
+func LogContext(msg string) {
+	if UIMode == "TUI" {
+		cleanMsg := StripANSI(msg)
+		formatted := fmt.Sprintf("[gray][%s][-] %s", timeStamp(), cleanMsg)
+		select {
+		case ContextLogChan <- formatted:
+		default:
+		}
+	}
+}
+
+// TacticalLog handles generic system messages
 func TacticalLog(msg string) {
-	// 1. TUI MODE: Send to channel (Thread-Safe)
 	if UIMode == "TUI" {
 		cleanMsg := StripANSI(msg)
 
@@ -44,11 +87,10 @@ func TacticalLog(msg string) {
 			return
 		}
 
-		// Color coding for generic logs
 		colorTag := "[white]"
 		if strings.Contains(strings.ToLower(cleanMsg), "success") || strings.Contains(msg, "[green]") {
 			colorTag = "[green]"
-		} else if strings.Contains(strings.ToLower(cleanMsg), "error") || strings.Contains(strings.ToLower(cleanMsg), "fail") || strings.Contains(msg, "[red]") {
+		} else if strings.Contains(strings.ToLower(cleanMsg), "error") || strings.Contains(msg, "[red]") {
 			colorTag = "[red]"
 		} else if strings.Contains(strings.ToLower(cleanMsg), "warn") || strings.Contains(msg, "[yellow]") {
 			colorTag = "[yellow]"
@@ -56,31 +98,22 @@ func TacticalLog(msg string) {
 			colorTag = "[cyan]"
 		}
 
-		// Format: [TIME] MESSAGE
 		formatted := fmt.Sprintf("[gray][%s][-] %s%s[-]", timeStamp(), colorTag, cleanMsg)
 
 		select {
 		case UI_Log_Chan <- formatted:
 		default:
-			// Drop message if buffer full to prevent UI freeze
 		}
 	} else {
-		// 2. CLI MODE: Print directly via Pterm
 		pterm.Info.Println(msg)
 	}
 }
 
-// RecordFinding is the Unified Pipeline for vulnerability reports
+// RecordFinding persists findings and logs them
 func RecordFinding(f db.Finding) {
-	// 0. ZERO-TOUCH AUTO-TAGGING SERVICE
-	// Determine enrichment key from Command if explicit tags are missing
-	// or simply allow the enricher to overlay strict compliance data.
 	enrichment.EnrichFinding(&f)
-
-	// 1. Persistence Layer
 	db.LogQueue <- f
 
-	// 2. Visualization Layer
 	safeDetails := EscapeTview(f.Details)
 	safeTarget := EscapeTview(f.Target)
 	safeOWASP := EscapeTview(f.OWASP_ID)
@@ -88,8 +121,6 @@ func RecordFinding(f db.Finding) {
 
 	if UIMode == "TUI" {
 		var logLine string
-
-		// Strict Format: [TIME] [STATUS] (OWASP) DETAILS | TARGET
 		switch f.Status {
 		case "CRITICAL", "EXPLOITED":
 			logLine = fmt.Sprintf("[gray][%s][-] [red::b][%s][-] [yellow](%s)[-] [white]%s[-] [blue]| %s[-]",
@@ -97,15 +128,6 @@ func RecordFinding(f db.Finding) {
 		case "VULNERABLE":
 			logLine = fmt.Sprintf("[gray][%s][-] [red][%s][-] [yellow](%s)[-] [white]%s[-] [blue]| %s[-]",
 				ts, f.Status, safeOWASP, safeDetails, safeTarget)
-		case "WEAK CONFIG", "POTENTIAL CALLBACK":
-			logLine = fmt.Sprintf("[gray][%s][-] [yellow][%s][-] [white]%s[-] [blue]| %s[-]",
-				ts, f.Status, safeDetails, safeTarget)
-		case "SUCCESS", "ACTIVE":
-			logLine = fmt.Sprintf("[gray][%s][-] [green][%s][-] [white]%s[-] [blue]| %s[-]",
-				ts, f.Status, safeDetails, safeTarget)
-		case "INFO":
-			logLine = fmt.Sprintf("[gray][%s][-] [blue][%s][-] [white]%s[-] [blue]| %s[-]",
-				ts, "INFO", safeDetails, safeTarget)
 		default:
 			logLine = fmt.Sprintf("[gray][%s][-] [white][%s][-] %s [blue]| %s[-]",
 				ts, f.Status, safeDetails, safeTarget)
@@ -116,7 +138,6 @@ func RecordFinding(f db.Finding) {
 		default:
 		}
 	} else {
-		// CLI Pterm Output
 		if f.Status == "VULNERABLE" || f.Status == "CRITICAL" {
 			pterm.Warning.Printfln("[%s] %s -> %s", f.Status, f.Details, f.Target)
 		} else {

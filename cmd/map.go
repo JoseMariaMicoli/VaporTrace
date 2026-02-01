@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/discovery"
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/pterm/pterm" // Added for tactical UI
 	"github.com/spf13/cobra"
 )
@@ -27,15 +27,16 @@ var mapCmd = &cobra.Command{
 
 		pterm.DefaultHeader.WithFullWidth().Println("VaporTrace Mapper: Intelligence Gathering")
 
-		// 1. Networking Setup
+		// 1. Networking Setup - Use Logic Package to ensure Interceptor support
 		proxyAddr, _ := cmd.Flags().GetString("proxy")
-		utils.UpdateGlobalClient(proxyAddr)
-		
+		logic.SetProxy(proxyAddr)
+
 		var allEndpoints []string
 
 		// 2. Swagger Probing (Section 1)
 		if targetURL != "" {
 			spinner, _ := pterm.DefaultSpinner.Start("Parsing Swagger/OpenAPI Spec...")
+			// discovery calls internally use logic.GlobalClient, which SetProxy has configured.
 			endpoints, err := discovery.ParseSwagger(targetURL, proxyAddr)
 			if err != nil {
 				spinner.Fail(fmt.Sprintf("Swagger Analysis Failed: %v", err))
@@ -55,7 +56,7 @@ var mapCmd = &cobra.Command{
 				spinner.Warning("No API patterns matched in the JavaScript bundle")
 			} else {
 				spinner.Success(fmt.Sprintf("Harvested %d routes from client-side code", len(jsEndpoints)))
-				
+
 				// Render a tactical table of findings
 				tableData := pterm.TableData{{"EXTRACTED PATH", "SOURCE"}}
 				for _, je := range jsEndpoints {
@@ -69,11 +70,11 @@ var mapCmd = &cobra.Command{
 		// 4. Parameter Mining (Section 3)
 		if mineFlag && len(allEndpoints) > 0 {
 			pterm.DefaultSection.Println("Phase 2.4: Tactical Parameter Mining")
-			
+
 			parts := strings.Split(targetURL, "/")
 			if len(parts) >= 3 {
 				baseURL := parts[0] + "//" + parts[2]
-				
+
 				// Progress bar for mining
 				pb, _ := pterm.DefaultProgressbar.WithTotal(len(allEndpoints)).WithTitle("Mining Params").Start()
 				for _, endpoint := range allEndpoints {

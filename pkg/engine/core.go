@@ -367,10 +367,11 @@ func ExecuteCommand(rawCmd string) {
 
 	case "proxy":
 		if len(args) > 0 {
+			// FIX: Replaced utils.UpdateGlobalClient with logic.SetProxy
 			if args[0] == "off" {
-				utils.UpdateGlobalClient("")
+				logic.SetProxy("")
 			} else {
-				utils.UpdateGlobalClient(args[0])
+				logic.SetProxy(args[0])
 			}
 		} else {
 			utils.TacticalLog("[red]Usage:[-] proxy <url> | proxy off")
