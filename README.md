@@ -161,6 +161,15 @@ The **9.13 Reporting Engine** automates the transition from exploitation to docu
 
 ---
 
+**Report Examples:**
+Inside the /reports directory, you will find two demonstration files:
+
+    Automated Seed Report: Generated using the seed_db command to showcase the engine's formatting and dummy data capabilities.
+
+    Hybrid Engagement Report: A specialized report combining synthetic data with real-world findings from a dedicated Pen-Test API, demonstrating how the tool handles live reconnaissance.
+
+---
+
 ## 🎭 Evasion Techniques & AI Heuristic Brain
 
 ### **Sprint 11/12: Deep Evasion Suite**
