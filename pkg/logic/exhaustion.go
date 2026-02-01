@@ -50,15 +50,11 @@ func (e *ExhaustionContext) FuzzPagination() {
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			if duration > 2*time.Second {
 				utils.RecordFinding(db.Finding{
-					Phase:      "PHASE 9.9: EXHAUSTION",
-					Target:     e.TargetURL,
-					Details:    fmt.Sprintf("Resource Exhaustion via %s=%s (Latency: %v)", e.ParamName, val, duration),
-					Status:     "VULNERABLE",
-					OWASP_ID:   "API4:2023",
-					MITRE_ID:   "T1499",
-					NIST_Tag:   "RS.AN",
-					CVE_ID:     "CVE-202X-GENERIC-DOS", // Generic Classification
-					CVSS_Score: "5.3",                  // CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+					Phase:   "PHASE 9.9: EXHAUSTION",
+					Command: "exhaust", // Zero-Touch Trigger
+					Target:  e.TargetURL,
+					Details: fmt.Sprintf("Resource Exhaustion via %s=%s (Latency: %v)", e.ParamName, val, duration),
+					Status:  "VULNERABLE",
 				})
 			}
 		}

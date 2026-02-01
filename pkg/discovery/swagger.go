@@ -35,13 +35,11 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 	}
 
 	utils.RecordFinding(db.Finding{
-		Phase:    "PHASE II: DISCOVERY",
-		Target:   url,
-		Details:  "Swagger/OpenAPI Documentation Found",
-		Status:   "INFO",
-		OWASP_ID: "API9:2023",
-		MITRE_ID: "T1592",
-		NIST_Tag: "ID.AM",
+		Phase:   "PHASE II: DISCOVERY",
+		Command: "map", // Zero-Touch Trigger
+		Target:  url,
+		Details: "Swagger/OpenAPI Documentation Found",
+		Status:  "INFO",
 	})
 
 	var endpoints []string
@@ -94,13 +92,11 @@ func ProbeEndpoint(baseURL string, path string, proxy string) (int, error) {
 
 	if resp.StatusCode == http.StatusOK {
 		utils.RecordFinding(db.Finding{
-			Phase:    "PHASE II: DISCOVERY",
-			Target:   fullURL,
-			Details:  "Live API Route Discovered",
-			Status:   "SUCCESS",
-			OWASP_ID: "API9:2023",
-			MITRE_ID: "T1595",
-			NIST_Tag: "ID.AM",
+			Phase:   "PHASE II: DISCOVERY",
+			Command: "map", // Zero-Touch Trigger
+			Target:  fullURL,
+			Details: "Live API Route Discovered",
+			Status:  "SUCCESS",
 		})
 	}
 

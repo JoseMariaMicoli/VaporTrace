@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/enrichment"
 	"github.com/pterm/pterm"
 )
 
@@ -71,6 +72,11 @@ func TacticalLog(msg string) {
 
 // RecordFinding is the Unified Pipeline for vulnerability reports
 func RecordFinding(f db.Finding) {
+	// 0. ZERO-TOUCH AUTO-TAGGING SERVICE
+	// Determine enrichment key from Command if explicit tags are missing
+	// or simply allow the enricher to overlay strict compliance data.
+	enrichment.EnrichFinding(&f)
+
 	// 1. Persistence Layer
 	db.LogQueue <- f
 

@@ -28,13 +28,11 @@ func (m *MisconfigContext) Audit() {
 	cors := resp.Header.Get("Access-Control-Allow-Origin")
 	if cors == "*" || cors == "https://evil-attacker.com" {
 		utils.RecordFinding(db.Finding{
-			Phase:    "PHASE II: DISCOVERY",
-			Target:   m.TargetURL,
-			Details:  fmt.Sprintf("Weak CORS Policy: %s", cors),
-			Status:   "VULNERABLE",
-			OWASP_ID: "API8:2023",
-			MITRE_ID: "T1562",
-			NIST_Tag: "PR.IP",
+			Phase:   "PHASE II: DISCOVERY",
+			Command: "audit", // Zero-Touch Trigger
+			Target:  m.TargetURL,
+			Details: fmt.Sprintf("Weak CORS Policy: %s", cors),
+			Status:  "VULNERABLE",
 		})
 	}
 
@@ -42,13 +40,11 @@ func (m *MisconfigContext) Audit() {
 	for _, h := range headers {
 		if resp.Header.Get(h) == "" {
 			utils.RecordFinding(db.Finding{
-				Phase:    "PHASE II: DISCOVERY",
-				Target:   m.TargetURL,
-				Details:  fmt.Sprintf("Missing Header: %s", h),
-				Status:   "WEAK CONFIG",
-				OWASP_ID: "API8:2023",
-				MITRE_ID: "T1592",
-				NIST_Tag: "PR.IP",
+				Phase:   "PHASE II: DISCOVERY",
+				Command: "audit", // Zero-Touch Trigger
+				Target:  m.TargetURL,
+				Details: fmt.Sprintf("Missing Header: %s", h),
+				Status:  "WEAK CONFIG",
 			})
 		}
 	}
@@ -66,13 +62,11 @@ func (m *MisconfigContext) TriggerVerboseError() {
 
 	if resp.StatusCode >= 500 {
 		utils.RecordFinding(db.Finding{
-			Phase:    "PHASE II: DISCOVERY",
-			Target:   m.TargetURL,
-			Details:  "Verbose Error / Stack Trace",
-			Status:   "INFO",
-			OWASP_ID: "API8:2023",
-			MITRE_ID: "T1592",
-			NIST_Tag: "DE.CM",
+			Phase:   "PHASE II: DISCOVERY",
+			Command: "audit", // Zero-Touch Trigger
+			Target:  m.TargetURL,
+			Details: "Verbose Error / Stack Trace",
+			Status:  "INFO",
 		})
 	}
 }

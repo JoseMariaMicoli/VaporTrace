@@ -76,15 +76,11 @@ func (b *BFLAContext) TamperAndProbeSilent(method string) {
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		utils.RecordFinding(db.Finding{
-			Phase:      "PHASE III: EXPLOITATION",
-			Target:     b.TargetURL,
-			Details:    fmt.Sprintf("BFLA Method Matrix Success: %s returned %d", method, resp.StatusCode),
-			Status:     "VULNERABLE",
-			OWASP_ID:   "API5:2023",
-			MITRE_ID:   "T1548.002",
-			NIST_Tag:   "DE.CM",
-			CVE_ID:     "CVE-202X-BFLA-VERB",
-			CVSS_Score: "8.8", // CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+			Phase:   "PHASE III: EXPLOITATION",
+			Command: "bfla", // Zero-Touch Trigger
+			Target:  b.TargetURL,
+			Details: fmt.Sprintf("BFLA Method Matrix Success: %s returned %d", method, resp.StatusCode),
+			Status:  "VULNERABLE",
 		})
 	}
 }
