@@ -281,45 +281,61 @@ VaporTrace is currently integrating an AI-driven analysis layer to automate logi
 
 ---
 
-## 🛠️ Installation & Usage
+### 🔧 III. Installation & Setup
 
-### 1. Build from Source
+Follow these steps to configure the development environment, initialize the AI engine, and compile the **VaporTrace** binary.
+
+#### **1. Clone the Repository**
 
 ```bash
+git clone git@github.com:JoseMariaMicoli/VaporTrace.git
+cd VaporTrace
+
+```
+
+#### **2. Install & Start Ollama (AI Engine)**
+
+VaporTrace leverages **Ollama** running the **Mistral** model for localized, private heuristic analysis.
+
+* **Installation:**
+* **Linux/macOS:** `curl -fsSL https://ollama.com/install.sh | sh`
+* **Windows:** Download the official installer at [ollama.com](https://ollama.com).
+
+
+* **Start the Service:**
+The Ollama server must be active before running VaporTrace:
+```bash
+ollama serve
+
+```
+
+*(Keep this terminal open or ensure the service is running as a background daemon).*
+* **Pull the Model:**
+In a separate terminal, download the Mistral model:
+```bash
+ollama pull mistral
+
+```
+
+#### **3. Build from Source**
+
+Requires **Go 1.21+**. The build process automatically resolves dependencies for the **Hydra TUI** and the networking stack.
+
+```bash
+# Synchronize and verify dependencies
 go mod tidy
-go build -o VaporTrace
 
+# Compile the tactical binary
+go build -o VaporTrace main.go
 
 ```
 
-### 2. Tactical Workflow Example (BOPLA / API3)
+#### **4. Execution**
 
-Identify a sensitive property and attempt to escalate privilege using Mass Assignment:
+Initialize the tactical suite:
 
 ```bash
-# 1. Launch the Hydra TUI
 ./VaporTrace
-
-# 2. Initialize Persistence
-:init_db
-:seed_db
-
-# 3. Set Scope
-:target https://api.target.corp
-
-# 4. Execute Mass Assignment Probe
-:bopla https://api.target.corp/v1/user/me '{"name":"vapor"}'
-
-
-```
-
-### 3. Generate Tactical Report
-
-Once the mission is complete, generate the 9.13 Framework-Aligned report:
-
-```bash
-:report
-
 
 ```
 
