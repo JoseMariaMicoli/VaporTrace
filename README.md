@@ -7,6 +7,7 @@
                |_|      [ Surgical API Exploitation Suite ]
 
 
+
 ```
 
 **VaporTrace** is a high-performance Red Team framework engineered in Go for surgical reconnaissance, logic-first exploitation, and automated compliance mapping of API architectures. It specializes in uncovering "Shadow APIs," analyzing complex authorization logic (BOLA/BFLA), and providing a unified command-and-control environment through the **Hydra TUI**. With the integration of the **9.13 Reporting Engine** and the **AI Heuristic Brain**, VaporTrace transforms raw technical findings into executive-level risk intelligence.
@@ -77,6 +78,7 @@ The legacy interactive shell has been deprecated in favor of the **Hydra TUI**. 
 | **F4** | **TRAFFIC** | **Deep Packet Inspection.** Split-view (Request/Response) of all middleware traffic. |
 | **F5** | **CONTEXT** | **The Aggregator.** Displays auto-injected credentials and AI correlations. |
 | **F6** | **INTERCEPTOR** | Toggles Global Interception Mode (Red footer indicates **INT-ON**). |
+| **F7** | **NEURAL** | Toggles Display AI Nerual interface. |
 
 ### **The Tactical Interceptor (Modal Commands)**
 
@@ -90,29 +92,117 @@ When Interception is enabled (**F6**), the `TacticalTransport` middleware pauses
 
 ---
 
-## 🛠️ Tactical Command Reference
+### **The Tactical Interceptor (Modal Commands)**
 
-The Hydra TUI centralizes all commands through a unified command bar. Below is the full technical catalog of available modules.
+When Interception is enabled (typically via **F6**), the `TacticalTransport` middleware pauses outgoing traffic. Use these shortcuts within the Red Modal to manipulate or synchronize data.
+
+| Key | Action | Description |
+| --- | --- | --- |
+| **CTRL + F** | **FORWARD** | Injects the modified packet back into the pipeline.
+
+ |
+| **CTRL + D** | **DROP** | Drops the packet immediately; the request never leaves the local machine.
+
+ |
+| **CTRL + A + S** | **SYNC TO VAULT** | <br>**Global Action:** Mirrors the current buffer (Tab 4) to **Tab 7 (Vault)**.
+
+ |
+| **CTRL + N** | **NEURO INV** | <br>**Neural Inversion:** Toggles AI-assisted payload mutation for logic bypass.
+
+ |
+| **CTRL + B** | **NEURO BRUTE** | <br>**Neural Brute:** Triggers a high-speed, entropy-aware fuzzer on the selected field.
+
+ |
+| **TAB** | **NAVIGATE** | Switches focus between Path, Headers, and Body input fields.
+
+ |
+
+---
+
+### **🛠️ Tactical Command Reference**
+
+The Hydra TUI centralizes all commands through a unified command bar. Below is the complete, untruncated technical catalog.
 
 | Command | Action | Technical Context | Framework Focus |
 | --- | --- | --- | --- |
-| `target <url>` | **Scope Definition** | Sets the global context for all modules. | General |
-| `map -u <url>` | **Inventory** | Spidering, OpenAPI/JS mining, and route extraction. | OWASP API9 |
-| `swagger <url>` | **Spec Parsing** | Ingests Swagger/OpenAPI definitions into the DB. | OWASP API9 |
-| `scrape <url>` | **JS Mining** | Extracts hidden API paths from JavaScript bundles. | OWASP API9 |
-| `mine <url>` | **Param Fuzz** | Brute-forces hidden parameters (debug, admin, test). | OWASP API9 |
-| `bola <url>` | **ID Swap** | Broken Object Level Authorization testing. | OWASP API1 |
-| `weaver <url>` | **Auth Forge** | JWT tampering, KID injection, and algorithm confusion. | OWASP API2 |
-| `bopla <url>` | **Mass Assign** | Broken Object Property Level Authorization (Property injection). | OWASP API3 |
+| `target <url>` | **Scope Definition** | Sets the global context for all modules.
+
+ | General |
+| `map -u <url>` | **Inventory** | Spidering, OpenAPI mining, and route extraction.
+
+ | OWASP API9 |
+| `swagger <url>` | **Spec Parsing** | Ingests Swagger/OpenAPI definitions into the DB.
+
+ | OWASP API9 |
+| `scrape <url>` | **JS Mining** | Extracts hidden API paths from JavaScript bundles.
+
+ | OWASP API9 |
+| `mine <url>` | **Param Fuzz** | Brute-forces hidden parameters (debug, admin, test).
+
+ | OWASP API9 |
+| `bola <url>` | **ID Swap** | Broken Object Level Authorization testing.
+
+ | OWASP API1 |
+| **`weaver`** | **Auth Forge** | Intercepts OIDC tokens and masks data exfiltration.
+
+ | OWASP API2 |
+| `bopla <url>` | **Mass Assign** | Broken Object Property Level Authorization (Property injection).
+
+ | OWASP API3 |
 | `exhaust <url>` | **DoS Probe** | Testing resource limits (Payload size, pagination limits). | OWASP API4 |
-| `bfla <url>` | **PrivEsc** | Broken Function Level Authorization (Method tampering). | OWASP API5 |
-| `ssrf <url>` | **Infra Pivot** | Server-Side Request Forgery against Cloud Metadata (169.254). | OWASP API7 |
+| `bfla <url>` | **PrivEsc** | Broken Function Level Authorization (Method tampering).
+
+ | OWASP API5 |
+| `ssrf <url>` | **Infra Pivot** | SSRF against Cloud Metadata (169.254.169.254). | OWASP API7 |
 | `audit <url>` | **Config Check** | Header analysis, SSL/TLS checks, and CORS auditing. | OWASP API8 |
 | `probe <url>` | **Integration** | Tests for unsafe consumption in webhooks/3rd party APIs. | OWASP API10 |
+| **`proxy`** | **Routing** | Enables/disables traffic routing (Default: Burp @ 127.0.0.1:8080).
+
+ | Infrastructure |
+| **`proxies load`** | **Rotation** | Loads a list of proxies for rotation to bypass rate limiting.
+
+ | Evasion |
+| **`proxies reset`** | **Clear** | Clears the current proxy rotation list.
+
+ | Infrastructure |
+| **`sessions`** | **Context** | Manages active authentication sessions and stored cookies. | Authentication |
+| **`neuro on`** | **Enable Engine** | Activates the Neural Mutation layer for all traffic.
+
+ | Logic Bypass |
+| **`neuro off`** | **Disable Engine** | Reverts to standard manual or static payloads.
+
+ | General |
+| **`neuro config`** | **LLM Settings** | Opens the configuration modal for LLM provider endpoints.
+
+ | Infrastructure |
+| **`neuro ollama <m>`** | **Model Selection** | Sets the local provider (e.g., `neuro ollama mistral`). | Neural Config |
+| **`test-neuro`** | **Engine Diag** | Runs connectivity and latency tests to the AI provider.
+
+ | Infrastructure |
+| **`test-bola`** | **Logic Diag** | Tests BOLA using a dummy ID (e.g., "999") against httpbin.
+
+ | Logic Testing |
+| **`test-bopla`** | **Logic Diag** | Runs a mass assignment test against a patch endpoint.
+
+ | Logic Testing |
+| **`test-bfla`** | **Logic Diag** | Tests BFLA by attempting admin verbs with low-priv sessions.
+
+ | Logic Testing |
 | `report` | **Generate** | Triggers the 9.13 Reporting Engine (Markdown/PDF). | Compliance |
 | `init_db` | **Persistence** | Initializes the SQLite3 Framework-Tagged backend. | Infrastructure |
 | `seed_db` | **Intelligence** | Populates the Aggregator with test/known credentials. | Infrastructure |
-| `reset_db` | **Wipe** | Purges all mission data from the local database. | Infrastructure |
+| `reset_db` | **Wipe** | Purges all mission data from the local database.
+
+ | Infrastructure |
+
+### **Framework Compliance Context**
+
+* 
+**MITRE ATT&CK:** Every synchronization via `CTRL + A + S` automatically tags findings for **T1552** (Credential Access) or **T1562.001** (Defense Evasion).
+
+
+* 
+**OWASP API Security:** The `neuro` engine is optimized for testing logic vulnerabilities like **API1:2023** (BOLA) and **API2:2023** (Broken Authentication) that require intelligent payload generation.
 
 ---
 
@@ -212,26 +302,31 @@ VaporTrace is currently integrating an AI-driven analysis layer to automate logi
 |  | 10.2.2 | Legacy Shell Fallback (CLI Flag Logic) | ✅ DONE |
 |  | 10.3 | Contextual Aggregator & Information Gathering | ✅ DONE |
 |  | 10.4 | Tactical Interceptor (F2 Modal Manipulation) | ✅ DONE |
-|  | 10.5 | AI Base Integration (Heuristic Brain) | ❌ ACTIVE |
-|  | 10.6 | AI Payload Generation & Autonomous Fuzzing | ❌ [PLANNED] |
+|  | 10.5 | AI Base Integration (Heuristic Brain) | ✅ DONE |
+|  | 10.6 | AI Payload Generation & Autonomous Fuzzing | ✅ DONE |
 
 ### **Part III: The Future Evolution [NEW]**
 
 | Phase | Sub-Phase | Focus / Technical Deliverable | Status |
 | --- | --- | --- | --- |
-| **Sprint 11: Autonomy** | 11.1 | Dynamic Dependency Injection (DDI) | ❌ [NEW] |
+| **Sprint 11: Autonomy** 
+|  |**11.1** | **Dynamic Dependency Injection (DDI)** | ❌ **ACTIVE** |
 |  | 11.2 | State-Machine driven payload selection | ❌ [NEW] |
 |  | 11.3 | Autonomous lateral movement within API subnets | ❌ [NEW] |
-| **Sprint 12: Evasion V2** | 12.1 | Deep Traffic Shaping: Mimicking legitimate API traffic | ❌ [NEW] |
+| **Sprint 12: Evasion V2** 
+|  | 12.1 | Deep Traffic Shaping: Mimicking legitimate API traffic | ❌ [NEW] |
 |  | 12.2 | Encrypted OOB: Secure exfiltration via custom protocols | ❌ [NEW] |
 |  | 12.3 | Behavioral Jitter: Randomized inter-packet timing | ❌ [NEW] |
-| **Sprint 13: The Hive** | 13.1 | Hybrid C2 Architecture: gRPC Control Plane | ❌ [NEW] |
+| **Sprint 13: The Hive** 
+|  | 13.1 | Hybrid C2 Architecture: gRPC Control Plane | ❌ [NEW] |
 |  | 13.2 | RESTful Management API for the Hive Master | ❌ [NEW] |
 |  | 13.3 | VaporTrace Console: Web-based Mission Dashboard | ❌ [NEW] |
-| **Sprint 14: Pivot** | 14.1 | Cross-Tenant Leakage: Exploiting shared infrastructure | ❌ [NEW] |
+| **Sprint 14: Pivot** 
+|  | 14.1 | Cross-Tenant Leakage: Exploiting shared infrastructure | ❌ [NEW] |
 |  | 14.2 | K8s Escape: API-to-Cluster orchestration pivoting | ❌ [NEW] |
 |  | 14.3 | Serverless Poisoning: Attacking Lambda/Cloud-Function logic | ❌ [NEW] |
-| **Sprint 15: Mastery** | 15.1 | Post-Quantum Cryptography for NHPP | ❌ [NEW] |
+| **Sprint 15: Mastery** 
+|  | 15.1 | Post-Quantum Cryptography for NHPP | ❌ [NEW] |
 |  | 15.2 | Multi-Agent Swarm Logic (Coordinated BOLA) | ❌ [NEW] |
 
 ---
@@ -243,6 +338,7 @@ VaporTrace is currently integrating an AI-driven analysis layer to automate logi
 ```bash
 go mod tidy
 go build -o VaporTrace
+
 
 ```
 
@@ -264,6 +360,7 @@ Identify a sensitive property and attempt to escalate privilege using Mass Assig
 # 4. Execute Mass Assignment Probe
 :bopla https://api.target.corp/v1/user/me '{"name":"vapor"}'
 
+
 ```
 
 ### 3. Generate Tactical Report
@@ -272,6 +369,7 @@ Once the mission is complete, generate the 9.13 Framework-Aligned report:
 
 ```bash
 :report
+
 
 ```
 
@@ -306,8 +404,15 @@ Use this unified template to document findings across the VaporTrace tactical ph
 > ```
 > 
 > 
-> **IMPACT:** {{Data_Exfiltration / Service_Instability / Privilege_Escalation}}
-> **REMEDIATION:** {{Engineering_Action_Plan}}
+
+> ```
+> 
+> **IMPACT:** {{Data\_Exfiltration / Service\_Instability / Privilege\_Escalation}}
+> **REMEDIATION:** {{Engineering\_Action\_Plan}}
+> 
+> ```
+> 
+> 
 
 ---
 
@@ -331,7 +436,7 @@ Use this unified template to document findings across the VaporTrace tactical ph
 * **UI Engine:** `rivo/tview` / `gdamore/tcell` (Hydra TUI).
 * **Database:** SQLite3 with Framework-Tagging (MITRE/OWASP/NIST).
 * **Networking:** Middleware-Driven `http.RoundTripper` with native Proxy support.
-* **Reporting:** NIST-aligned Markdown/PDF generator (Sprint 9.13).
+* **Reporting:** NIST-aligned Markdown generator (Sprint 9.13).
 
 **VaporTrace - Reveal the Invisible.**
 

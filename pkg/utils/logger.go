@@ -19,6 +19,9 @@ var UI_Log_Chan = make(chan string, 5000)
 // ContextLogChan handles Aggregator/Intelligence logs (F5 Tab)
 var ContextLogChan = make(chan string, 1000)
 
+// NeuroLogChan handles AI/LLM analysis streams (F7 Tab)
+var NeuroLogChan = make(chan string, 1000)
+
 // TrafficPacket handles HTTP Req/Res dumps (F4 Tab)
 type TrafficPacket struct {
 	ReqHeader string
@@ -57,7 +60,7 @@ func LogTraffic(reqH, reqB, resH, resB string) {
 			Timestamp: time.Now(),
 		}:
 		default:
-			// Drop packet if buffer full to prevent blocking
+			// Drop packet if buffer full
 		}
 	}
 }
@@ -71,6 +74,20 @@ func LogContext(msg string) {
 		case ContextLogChan <- formatted:
 		default:
 		}
+	}
+}
+
+// LogNeural sends AI analysis to the F7 Neural Tab
+func LogNeural(msg string) {
+	if UIMode == "TUI" {
+		cleanMsg := StripANSI(msg)
+		// No timestamp prefix for AI text to keep formatting clean
+		select {
+		case NeuroLogChan <- cleanMsg:
+		default:
+		}
+	} else {
+		pterm.Info.Println("[NEURO] " + msg)
 	}
 }
 
