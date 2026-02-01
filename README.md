@@ -82,124 +82,65 @@ The legacy interactive shell has been deprecated in favor of the **Hydra TUI**. 
 
 ### **The Tactical Interceptor (Modal Commands)**
 
-When Interception is enabled (**F6**), the `TacticalTransport` middleware pauses traffic and opens the Red Modal.
+When Interception is enabled, the `TacticalTransport` middleware pauses outgoing traffic. Use these shortcuts within the Red Modal to manipulate or synchronize data.
 
 | Key | Action | Description |
 | --- | --- | --- |
-| **CTRL + F** | **FORWARD** | Injects the modified packet back into the pipeline and sends it to the target. |
-| **CTRL + D** | **DROP** | Drops the packet immediately. The request never leaves the local machine. |
-| **TAB** | **NAVIGATE** | Switch focus between Path, Headers, and Body input fields. |
-
----
-
-### **The Tactical Interceptor (Modal Commands)**
-
-When Interception is enabled (typically via **F6**), the `TacticalTransport` middleware pauses outgoing traffic. Use these shortcuts within the Red Modal to manipulate or synchronize data.
-
-| Key | Action | Description |
-| --- | --- | --- |
-| **CTRL + F** | **FORWARD** | Injects the modified packet back into the pipeline.
-
- |
-| **CTRL + D** | **DROP** | Drops the packet immediately; the request never leaves the local machine.
-
- |
-| **CTRL + A + S** | **SYNC TO VAULT** | <br>**Global Action:** Mirrors the current buffer (Tab 4) to **Tab 7 (Vault)**.
-
- |
-| **CTRL + N** | **NEURO INV** | <br>**Neural Inversion:** Toggles AI-assisted payload mutation for logic bypass.
-
- |
-| **CTRL + B** | **NEURO BRUTE** | <br>**Neural Brute:** Triggers a high-speed, entropy-aware fuzzer on the selected field.
-
- |
-| **TAB** | **NAVIGATE** | Switches focus between Path, Headers, and Body input fields.
-
- |
+| **CTRL + F** | **FORWARD** | Injects the modified packet back into the pipeline. |
+| **CTRL + D** | **DROP** | Drops the packet immediately; the request never leaves the local machine. |
+| **CTRL + A + S** | **SYNC TO VAULT** | **Global Action:** Mirrors the current buffer (Tab 4) to **Tab 7 (Vault)**. |
+| **CTRL + N** | **NEURO INV** | **Neural Inversion:** Toggles AI-assisted payload mutation for logic bypass. |
+| **CTRL + B** | **NEURO BRUTE** | **Neural Brute:** Triggers a high-speed, entropy-aware fuzzer on the selected field. |
+| **TAB** | **NAVIGATE** | Switches focus between Path, Headers, and Body input fields. |
 
 ---
 
 ### **🛠️ Tactical Command Reference**
 
-The Hydra TUI centralizes all commands through a unified command bar. Below is the complete, untruncated technical catalog.
+The Hydra TUI centralizes all commands through a unified command bar. Below is the complete, untruncated technical catalog of available modules.
 
 | Command | Action | Technical Context | Framework Focus |
 | --- | --- | --- | --- |
-| `target <url>` | **Scope Definition** | Sets the global context for all modules.
-
- | General |
-| `map -u <url>` | **Inventory** | Spidering, OpenAPI mining, and route extraction.
-
- | OWASP API9 |
-| `swagger <url>` | **Spec Parsing** | Ingests Swagger/OpenAPI definitions into the DB.
-
- | OWASP API9 |
-| `scrape <url>` | **JS Mining** | Extracts hidden API paths from JavaScript bundles.
-
- | OWASP API9 |
-| `mine <url>` | **Param Fuzz** | Brute-forces hidden parameters (debug, admin, test).
-
- | OWASP API9 |
-| `bola <url>` | **ID Swap** | Broken Object Level Authorization testing.
-
- | OWASP API1 |
-| **`weaver`** | **Auth Forge** | Intercepts OIDC tokens and masks data exfiltration.
-
- | OWASP API2 |
-| `bopla <url>` | **Mass Assign** | Broken Object Property Level Authorization (Property injection).
-
- | OWASP API3 |
+| `target <url>` | **Scope Definition** | Sets the global context for all modules. | General |
+| `map -u <url>` | **Inventory** | Spidering, OpenAPI mining, and route extraction. | OWASP API9 |
+| `swagger <url>` | **Spec Parsing** | Ingests Swagger/OpenAPI definitions into the DB. | OWASP API9 |
+| `scrape <url>` | **JS Mining** | Extracts hidden API paths from JavaScript bundles. | OWASP API9 |
+| `mine <url>` | **Param Fuzz** | Brute-forces hidden parameters (debug, admin, test). | OWASP API9 |
+| `bola <url>` | **ID Swap** | Broken Object Level Authorization testing. | OWASP API1 |
+| **`weaver`** | **Auth Forge** | Intercepts OIDC tokens and masks data exfiltration. | OWASP API2 |
+| `bopla <url>` | **Mass Assign** | Broken Object Property Level Authorization (Property injection). | OWASP API3 |
 | `exhaust <url>` | **DoS Probe** | Testing resource limits (Payload size, pagination limits). | OWASP API4 |
-| `bfla <url>` | **PrivEsc** | Broken Function Level Authorization (Method tampering).
-
- | OWASP API5 |
+| `bfla <url>` | **PrivEsc** | Broken Function Level Authorization (Method tampering). | OWASP API5 |
 | `ssrf <url>` | **Infra Pivot** | SSRF against Cloud Metadata (169.254.169.254). | OWASP API7 |
 | `audit <url>` | **Config Check** | Header analysis, SSL/TLS checks, and CORS auditing. | OWASP API8 |
 | `probe <url>` | **Integration** | Tests for unsafe consumption in webhooks/3rd party APIs. | OWASP API10 |
-| **`proxy`** | **Routing** | Enables/disables traffic routing (Default: Burp @ 127.0.0.1:8080).
-
- | Infrastructure |
-| **`proxies load`** | **Rotation** | Loads a list of proxies for rotation to bypass rate limiting.
-
- | Evasion |
-| **`proxies reset`** | **Clear** | Clears the current proxy rotation list.
-
- | Infrastructure |
+| **`proxy`** | **Routing** | Enables/disables traffic routing (Default: Burp @ 127.0.0.1:8080). | Infrastructure |
+| **`proxies load`** | **Rotation** | Loads a list of proxies for rotation to bypass rate limiting. | Evasion |
+| **`proxies reset`** | **Clear** | Clears the current proxy rotation list. | Infrastructure |
 | **`sessions`** | **Context** | Manages active authentication sessions and stored cookies. | Authentication |
-| **`neuro on`** | **Enable Engine** | Activates the Neural Mutation layer for all traffic.
-
- | Logic Bypass |
-| **`neuro off`** | **Disable Engine** | Reverts to standard manual or static payloads.
-
- | General |
-| **`neuro config`** | **LLM Settings** | Opens the configuration modal for LLM provider endpoints.
-
- | Infrastructure |
+| **`neuro on`** | **Enable Engine** | Activates the Neural Mutation layer for all traffic. | Logic Bypass |
+| **`neuro off`** | **Disable Engine** | Reverts to standard manual or static payloads. | General |
+| **`neuro config`** | **LLM Settings** | Opens the configuration modal for LLM provider endpoints. | Infrastructure |
 | **`neuro ollama <m>`** | **Model Selection** | Sets the local provider (e.g., `neuro ollama mistral`). | Neural Config |
-| **`test-neuro`** | **Engine Diag** | Runs connectivity and latency tests to the AI provider.
-
- | Infrastructure |
-| **`test-bola`** | **Logic Diag** | Tests BOLA using a dummy ID (e.g., "999") against httpbin.
-
- | Logic Testing |
-| **`test-bopla`** | **Logic Diag** | Runs a mass assignment test against a patch endpoint.
-
- | Logic Testing |
-| **`test-bfla`** | **Logic Diag** | Tests BFLA by attempting admin verbs with low-priv sessions.
-
- | Logic Testing |
+| **`test-neuro`** | **Engine Diag** | Runs connectivity and latency tests to the AI provider. | Infrastructure |
+| **`test-bola`** | **Logic Diag** | Tests BOLA using a dummy ID (e.g., "999") against httpbin. | Logic Testing |
+| **`test-bopla`** | **Logic Diag** | Runs a mass assignment test against a patch endpoint. | Logic Testing |
+| **`test-bfla`** | **Logic Diag** | Tests BFLA by attempting admin verbs with low-priv sessions. | Logic Testing |
+| **`test-neuro`** | **Latency Test** | Tests response speed of the mistral/ollama local engine. | Neural Config |
 | `report` | **Generate** | Triggers the 9.13 Reporting Engine (Markdown/PDF). | Compliance |
 | `init_db` | **Persistence** | Initializes the SQLite3 Framework-Tagged backend. | Infrastructure |
 | `seed_db` | **Intelligence** | Populates the Aggregator with test/known credentials. | Infrastructure |
-| `reset_db` | **Wipe** | Purges all mission data from the local database.
+| `reset_db` | **Wipe** | Purges all mission data from the local database. | Infrastructure |
 
- | Infrastructure |
+### **Framework Compliance Context**
+
+* **MITRE ATT&CK:** Every synchronization via `CTRL + A + S` automatically tags findings for **T1552** (Credential Access) or **T1562.001** (Defense Evasion) within the persistence layer.
+* **OWASP API Security:** The `neuro` engine is specifically optimized for testing logic-heavy vulnerabilities like **API1:2023** (BOLA) and **API2:2023** (Broken Authentication) that require context-aware mutations beyond simple brute force.
 
 ### **Framework Compliance Context**
 
 * 
 **MITRE ATT&CK:** Every synchronization via `CTRL + A + S` automatically tags findings for **T1552** (Credential Access) or **T1562.001** (Defense Evasion).
-
 
 * 
 **OWASP API Security:** The `neuro` engine is optimized for testing logic vulnerabilities like **API1:2023** (BOLA) and **API2:2023** (Broken Authentication) that require intelligent payload generation.
