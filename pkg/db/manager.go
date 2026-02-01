@@ -17,7 +17,6 @@ var (
 )
 
 // Finding represents a tactical discovery to be persisted.
-// This struct matches the expanded Schema for the C-Level Report.
 type Finding struct {
 	// --- Base Fields ---
 	Phase     string
@@ -40,6 +39,17 @@ type Finding struct {
 	CVSS_Numeric float64 // Float for sorting/stats
 }
 
+// ContextRow represents a correlated intelligence item (Sprint 10.3)
+type ContextRow struct {
+	ID        int64
+	Scope     string // Endpoint or Host this applies to
+	DataType  string // "Credential", "Header", "Parameter"
+	Key       string // "Authorization", "user_id"
+	Value     string // The captured value
+	Source    string // "Loot-Vault", "Swagger"
+	Timestamp time.Time
+}
+
 // InitDB initializes the SQLite connection and enforces Schema compliance.
 func InitDB() {
 	var err error
@@ -50,7 +60,6 @@ func InitDB() {
 	}
 
 	// 1. Create Base Schema (Idempotent)
-	// We define the FULL schema here for fresh installs.
 	schema := `
     CREATE TABLE IF NOT EXISTS findings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,6 +81,16 @@ func InitDB() {
     CREATE TABLE IF NOT EXISTS mission_state (
         key TEXT PRIMARY KEY,
         value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS context_store (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope TEXT,
+        data_type TEXT,
+        key TEXT,
+        value TEXT,
+        source TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(scope, key, value)
     );`
 
 	_, err = DB.Exec(schema)
@@ -80,7 +99,6 @@ func InitDB() {
 	}
 
 	// 2. FORCE MIGRATION (For existing databases)
-	// These will fail silently if columns exist, which is acceptable for SQLite.
 	migrations := []string{
 		"ALTER TABLE findings ADD COLUMN cve_id TEXT DEFAULT '-';",
 		"ALTER TABLE findings ADD COLUMN cvss_score TEXT DEFAULT '0.0';",
@@ -111,7 +129,6 @@ func StartAsyncWorker() {
 			return
 		}
 
-		// Defaults for safety
 		if f.CVSS_Score == "" {
 			f.CVSS_Score = "0.0"
 		}
@@ -137,26 +154,58 @@ func StartAsyncWorker() {
 		)
 
 		if err != nil {
-			// fmt.Printf("DB Write Error: %v\n", err) // Optional debug
+			// fmt.Printf("DB Write Error: %v\n", err)
 		}
 	}
 }
 
-// ResetDB completely purges the database (Functionality Check: PASSED).
+// StoreContext persists aggregated intelligence.
+func StoreContext(row ContextRow) error {
+	if DB == nil {
+		return fmt.Errorf("DB not initialized")
+	}
+	query := `INSERT OR IGNORE INTO context_store (scope, data_type, key, value, source, timestamp) VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := DB.Exec(query, row.Scope, row.DataType, row.Key, row.Value, row.Source, time.Now())
+	return err
+}
+
+// GetContext retrieves intelligence relevant to a specific scope (URL/Host).
+func GetContext(scope string) ([]ContextRow, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("DB not initialized")
+	}
+	// Simple containment match for context relevance
+	query := `SELECT id, scope, data_type, key, value, source, timestamp FROM context_store WHERE ? LIKE '%' || scope || '%'`
+	rows, err := DB.Query(query, scope)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []ContextRow
+	for rows.Next() {
+		var r ContextRow
+		rows.Scan(&r.ID, &r.Scope, &r.DataType, &r.Key, &r.Value, &r.Source, &r.Timestamp)
+		results = append(results, r)
+	}
+	return results, nil
+}
+
+// ResetDB completely purges the database.
 func ResetDB() {
 	if DB == nil {
 		return
 	}
-	// Atomic Wipe
 	tx, _ := DB.Begin()
 	tx.Exec("DELETE FROM findings")
-	tx.Exec("DELETE FROM sqlite_sequence WHERE name='findings'") // Reset Auto-Increment
+	tx.Exec("DELETE FROM sqlite_sequence WHERE name='findings'")
+	tx.Exec("DELETE FROM context_store")
+	tx.Exec("DELETE FROM sqlite_sequence WHERE name='context_store'")
 	tx.Exec("DELETE FROM mission_state")
 	tx.Exec("INSERT INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
 	tx.Commit()
 }
 
-// CloseDB gracefully shuts down the connection.
 func CloseDB() {
 	mu.Lock()
 	if isClosed {

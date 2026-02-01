@@ -5,7 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/engine" // New Unified Engine
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/engine"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -25,7 +26,6 @@ var (
 	statusFooter *tview.TextView
 	cmdInput     *tview.InputField
 
-	// Command History
 	cmdHistory   []string
 	historyIndex int
 
@@ -40,8 +40,41 @@ var (
 	spinnerFrames = []string{"▰▱▱▱▱", "▰▰▱▱▱", "▰▰▰▱▱", "▰▰▰▰▱", "▰▰▰▰▰"}
 )
 
+func LoadHistory() {
+	file, err := os.Open(historyFile)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			cmdHistory = append(cmdHistory, line)
+		}
+	}
+	historyIndex = len(cmdHistory)
+}
+
+func SaveHistory(cmd string) {
+	f, err := os.OpenFile(historyFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(cmd + "\n")
+}
+
 func InitTacticalDashboard() {
 	utils.SetLoggerMode("TUI")
+	LoadHistory()
+
+	// Initialize default network stack (Direct)
+	logic.InitializeRotaryClient()
+
+	// Start Context Aggregator
+	logic.StartContextAggregator()
 
 	app = tview.NewApplication()
 	pages = tview.NewPages()
@@ -49,7 +82,6 @@ func InitTacticalDashboard() {
 	header = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
 	statusFooter = tview.NewTextView().SetDynamicColors(true)
 
-	// --- INPUT FIELD SETUP ---
 	cmdInput = tview.NewInputField().
 		SetLabel("[aqua]VAPOR/INT> [white]").
 		SetFieldBackgroundColor(tcell.ColorBlack).
@@ -68,7 +100,6 @@ func InitTacticalDashboard() {
 		return
 	})
 
-	// --- PIPELINE QUADRANT ---
 	targetColumn = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorBlue)
 	targetColumn.SetTitle(" [blue]PIPELINE [white]").SetBorder(true)
 	targetColumn.SetCell(0, 0, tview.NewTableCell("[black:blue] PROPERTY "))
@@ -76,15 +107,11 @@ func InitTacticalDashboard() {
 	targetColumn.SetCell(1, 0, tview.NewTableCell("TARGET"))
 	targetColumn.SetCell(1, 1, tview.NewTableCell("[red]NOT SET"))
 
-	// --- PAGES SETUP ---
 	brainLog = tview.NewTextView().
 		SetDynamicColors(true).
-		SetRegions(true).  // Added: Enables internal region tagging for complex logs
-		SetWordWrap(true). // Prevents truncation of long attack payloads
-		SetChangedFunc(func() {
-			brainLog.ScrollToEnd() // Ensures the latest tactical data is always visible
-			app.Draw()
-		})
+		SetRegions(true).
+		SetWordWrap(true).
+		SetScrollable(true)
 	brainLog.SetTitle(" [green]VAPOR_LOGS (TACTICAL FEED) [white]").SetBorder(true)
 	brainLog.SetScrollable(true)
 
@@ -101,20 +128,23 @@ func InitTacticalDashboard() {
 		SetSelectable(true, false) // Added: Allows navigating through captured secrets
 	lootTable.SetTitle(" [magenta]LOOT_VAULT [white]").SetBorder(true)
 
-	reqView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true)
-	reqView.SetTitle(" [yellow]TRAFFIC_REQ [white]").SetBorder(true)
+	// Traffic Tab (F4) Setup
+	reqView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
+	reqView.SetTitle(" [yellow]REQUEST (UPPER) [white]").SetBorder(true)
 
-	resView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true)
-	resView.SetTitle(" [green]TRAFFIC_RES [white]").SetBorder(true)
+	resView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
+	resView.SetTitle(" [green]RESPONSE (LOWER) [white]").SetBorder(true)
 
 	trafficSplit := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(reqView, 0, 1, false).
 		AddItem(resView, 0, 1, false)
 
+	// F5 Context View (Aggregator Log)
 	aiView = tview.NewTextView().
 		SetDynamicColors(true).
-		SetWordWrap(true) // Prevents AI analysis text from cutting off
-	aiView.SetTitle(" [white:blue] LOGIC_ANALYZER [white] ").SetBorder(true)
+		SetWordWrap(true).
+		SetScrollable(true)
+	aiView.SetTitle(" [white:blue] CONTEXT_AGGREGATOR (F5) [white] ").SetBorder(true)
 
 	pages.AddPage("logs", brainLog, true, true)
 	pages.AddPage("map", mapView, true, false)
@@ -122,7 +152,6 @@ func InitTacticalDashboard() {
 	pages.AddPage("traffic", trafficSplit, true, false)
 	pages.AddPage("ai", aiView, true, false)
 
-	// --- LAYOUT ---
 	mainFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(header, 10, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -134,8 +163,8 @@ func InitTacticalDashboard() {
 
 	updateTabs("logs")
 
-	// --- GLOBAL KEYBINDS ---
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Global Keybindings
 		switch event.Key() {
 		case tcell.KeyF1:
 			switchTo("logs")
@@ -147,13 +176,30 @@ func InitTacticalDashboard() {
 			switchTo("traffic")
 		case tcell.KeyF5:
 			switchTo("ai")
+		case tcell.KeyF6:
+			// Toggle Interceptor Logic
+			logic.InterceptorActive = !logic.InterceptorActive
+			state := "OFF"
+			color := "[red]"
+			if logic.InterceptorActive {
+				state = "ON"
+				color = "[green]"
+			}
+			utils.TacticalLog(fmt.Sprintf("%sINTERCEPTOR TOGGLED: %s[-]", color, state))
+		case tcell.KeyPgUp:
+			row, col := brainLog.GetScrollOffset()
+			if row > 0 {
+				brainLog.ScrollTo(row-1, col)
+			}
+		case tcell.KeyPgDn:
+			row, col := brainLog.GetScrollOffset()
+			brainLog.ScrollTo(row+1, col)
 		case tcell.KeyEsc:
 			confirmExit()
 		}
 		return event
 	})
 
-	// --- INPUT HISTORY & EXECUTION ---
 	cmdInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyUp:
@@ -193,15 +239,12 @@ func InitTacticalDashboard() {
 				return
 			}
 
-			// Add to history
 			cmdHistory = append(cmdHistory, text)
 			historyIndex = len(cmdHistory)
 
 			// Switch to Logs Tab so user sees feedback
 			switchTo("logs")
-
-			// Execute
-			engine.ExecuteCommand(text)
+			go engine.ExecuteCommand(text)
 		}
 	})
 
@@ -239,7 +282,7 @@ func switchTo(page string) {
 }
 
 func updateTabs(active string) {
-	tabs := []string{"LOGS", "MAP", "LOOT", "TRAFFIC", "ANALYSIS"}
+	tabs := []string{"LOGS", "MAP", "LOOT", "TRAFFIC", "CONTEXT"}
 	ids := []string{"logs", "map", "loot", "traffic", "ai"}
 	var formatted []string
 	for i, t := range tabs {
@@ -260,13 +303,18 @@ func updateTabs(active string) {
 }
 
 func startAsyncEngines() {
-	// 1. Spinner Logic
+	// Status Bar Spinner & Hotkey Guide
 	go func() {
 		for {
 			time.Sleep(250 * time.Millisecond)
 			app.QueueUpdateDraw(func() {
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
-				statusFooter.SetText(fmt.Sprintf(" [blue]SYNC %s [white]| %s", spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
+				intStatus := "[F6: INT-OFF]"
+				if logic.InterceptorActive {
+					// Update Footer to show Context-Aware Hotkeys when Interceptor is active
+					intStatus = "[black:red] F6: INTERCEPTING (Ctrl+F: FWD, Ctrl+D: DROP) [-:-]"
+				}
+				statusFooter.SetText(fmt.Sprintf(" %s [blue]SYNC %s [white]| %s", intStatus, spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
 			})
 		}
 	}()
@@ -275,26 +323,49 @@ func startAsyncEngines() {
 	go func() {
 		for msg := range utils.UI_Log_Chan {
 			app.QueueUpdateDraw(func() {
-				// Special Signal for Clear Command
 				if msg == "___CLEAR_SCREEN_SIGNAL___" {
 					brainLog.Clear()
 					return
 				}
-
-				// Special handling for Target Updates in sidebar
 				if strings.Contains(msg, "Target Locked") {
 					parts := strings.Split(msg, "Target Locked:[-] ")
 					if len(parts) > 1 {
-						url := strings.TrimSpace(parts[1])
+						url := strings.ReplaceAll(strings.TrimSpace(parts[1]), "[[", "[")
 						targetColumn.SetCell(1, 1, tview.NewTableCell("[green]"+url))
 					}
 				}
-
-				// Print to BrainLog (Message already formatted by logger.go)
 				fmt.Fprintln(brainLog, msg)
-
-				// Force scroll to end to ensure visibility of latest findings
 				brainLog.ScrollToEnd()
+			})
+		}
+	}()
+
+	// Context Log Consumer (F5 Tab)
+	go func() {
+		for msg := range utils.ContextLogChan {
+			app.QueueUpdateDraw(func() {
+				fmt.Fprintln(aiView, msg)
+				aiView.ScrollToEnd()
+			})
+		}
+	}()
+
+	// Traffic Tab Listener (F4)
+	go func() {
+		for pkt := range utils.TrafficChan {
+			app.QueueUpdateDraw(func() {
+				// Update Traffic Views (UPPER / LOWER split)
+				reqView.SetText(fmt.Sprintf("[yellow]%s[-]\n\n[white]%s[-]", pkt.ReqHeader, pkt.ReqBody))
+				resView.SetText(fmt.Sprintf("[green]%s[-]\n\n[white]%s[-]", pkt.ResHeader, pkt.ResBody))
+			})
+		}
+	}()
+
+	// Interceptor Modal Listener
+	go func() {
+		for payload := range logic.InterceptorChan {
+			app.QueueUpdateDraw(func() {
+				ShowInterceptorModal(app, pages, payload)
 			})
 		}
 	}()
