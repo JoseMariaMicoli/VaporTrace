@@ -131,15 +131,14 @@ func (b *BOLAContext) ProbeSilent() {
 		return
 	}
 
+	// ZERO-TOUCH TAGGING INTEGRATION:
+	// We only provide the "Command" ("bola").
+	// The Auto-Tag Service (EnrichFinding) populates OWASP, MITRE, NIST, CVE, CVSS.
 	utils.RecordFinding(db.Finding{
-		Phase:      "PHASE III: AUTH LOGIC",
-		Target:     b.BaseURL,
-		Details:    fmt.Sprintf("BOLA ID Swap Success: ID %s returned 200 OK", b.VictimID),
-		Status:     "VULNERABLE",
-		OWASP_ID:   "API1:2023",
-		MITRE_ID:   "T1548",
-		NIST_Tag:   "DE.AE",
-		CVE_ID:     "CVE-202X-BOLA-AUTH",
-		CVSS_Score: "7.5", // CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
+		Phase:   "PHASE III: AUTH LOGIC",
+		Command: "bola", // Trigger Key
+		Target:  b.BaseURL,
+		Details: fmt.Sprintf("BOLA ID Swap Success: ID %s returned 200 OK", b.VictimID),
+		Status:  "VULNERABLE",
 	})
 }

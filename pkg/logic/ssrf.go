@@ -55,27 +55,19 @@ func (s *SSRFContext) Probe() {
 		if resp.StatusCode < 500 {
 			if payload == "http://127.0.0.1:80" || payload == "http://169.254.169.254/latest/meta-data/" {
 				utils.RecordFinding(db.Finding{
-					Phase:      "PHASE IV: INJECTION",
-					Target:     s.TargetURL,
-					Details:    fmt.Sprintf("SSRF Internal Access: %s", payload),
-					Status:     "CRITICAL",
-					OWASP_ID:   "API7:2023",
-					MITRE_ID:   "T1071.001",
-					NIST_Tag:   "DE.CM",
-					CVE_ID:     "CVE-202X-SSRF-CLOUD",
-					CVSS_Score: "9.1", // CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+					Phase:   "PHASE IV: INJECTION",
+					Command: "ssrf", // Zero-Touch Trigger
+					Target:  s.TargetURL,
+					Details: fmt.Sprintf("SSRF Internal Access: %s", payload),
+					Status:  "CRITICAL",
 				})
 			} else {
 				utils.RecordFinding(db.Finding{
-					Phase:      "PHASE IV: INJECTION",
-					Target:     s.TargetURL,
-					Details:    "SSRF Callback Triggered",
-					Status:     "POTENTIAL CALLBACK",
-					OWASP_ID:   "API7:2023",
-					MITRE_ID:   "T1213",
-					NIST_Tag:   "DE.AE",
-					CVE_ID:     "N/A",
-					CVSS_Score: "0.0",
+					Phase:   "PHASE IV: INJECTION",
+					Command: "ssrf", // Zero-Touch Trigger
+					Target:  s.TargetURL,
+					Details: "SSRF Callback Triggered",
+					Status:  "POTENTIAL CALLBACK",
 				})
 			}
 		}

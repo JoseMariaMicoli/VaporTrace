@@ -111,15 +111,11 @@ func (b *BOPLAContext) ProbeProperty(key string) {
 
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusCreated {
 		utils.RecordFinding(db.Finding{
-			Phase:      "PHASE IV: INJECTION",
-			Target:     b.TargetURL,
-			Details:    fmt.Sprintf("BOPLA Property Injection Success: '%s' accepted", key),
-			Status:     "VULNERABLE",
-			OWASP_ID:   "API3:2023",
-			MITRE_ID:   "T1538",
-			NIST_Tag:   "PR.AC",
-			CVE_ID:     "CVE-202X-MASS-ASSIGN",
-			CVSS_Score: "6.5", // CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N
+			Phase:   "PHASE IV: INJECTION",
+			Command: "bopla", // Zero-Touch Trigger
+			Target:  b.TargetURL,
+			Details: fmt.Sprintf("BOPLA Property Injection Success: '%s' accepted", key),
+			Status:  "VULNERABLE",
 		})
 	}
 }

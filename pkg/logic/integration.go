@@ -47,15 +47,11 @@ func (i *IntegrationContext) Probe() {
 
 		if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
 			utils.RecordFinding(db.Finding{
-				Phase:      "PHASE IV: INJECTION",
-				Target:     i.TargetURL,
-				Details:    fmt.Sprintf("Unsafe Integration [%s]: Accepted unsigned %s payload", i.IntegrationType, name),
-				Status:     "VULNERABLE",
-				OWASP_ID:   "API10:2023",
-				MITRE_ID:   "T1190",
-				NIST_Tag:   "ID.RA",
-				CVE_ID:     "CVE-202X-INTEGRATION-SPOOF",
-				CVSS_Score: "8.2", // CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N
+				Phase:   "PHASE IV: INJECTION",
+				Command: "probe", // Zero-Touch Trigger
+				Target:  i.TargetURL,
+				Details: fmt.Sprintf("Unsafe Integration [%s]: Accepted unsigned %s payload", i.IntegrationType, name),
+				Status:  "VULNERABLE",
 			})
 		}
 	}
