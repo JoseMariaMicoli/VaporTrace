@@ -15,6 +15,15 @@ import (
 
 var detectedProxy *url.URL
 
+// GetConfiguredProxy returns the current string representation of the single upstream proxy
+// Used by the UI Pipeline Quadrant to display status.
+func GetConfiguredProxy() string {
+	if detectedProxy != nil {
+		return detectedProxy.String()
+	}
+	return ""
+}
+
 // --- INTERCEPTOR STATE ---
 var InterceptorActive bool = false
 var InterceptorChan = make(chan *InterceptorPayload)
@@ -123,13 +132,18 @@ func InitializeRotaryClient() {
 	baseTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		Proxy: func(req *http.Request) (*url.URL, error) {
+			// Phase 6.2 Priority:
+			// 1. Proxy Pool (Rotation)
 			poolProxy := GetRandomProxy()
 			if poolProxy != "" {
-				return url.Parse(poolProxy)
+				u, _ := url.Parse(poolProxy)
+				return u, nil
 			}
+			// 2. Static Proxy (Burp/ZAP)
 			if detectedProxy != nil {
 				return detectedProxy, nil
 			}
+			// 3. Direct
 			return nil, nil
 		},
 		MaxIdleConns:    100,

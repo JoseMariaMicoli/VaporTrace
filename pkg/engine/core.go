@@ -38,6 +38,55 @@ func ExecuteCommand(rawCmd string) {
 	utils.TacticalLog(fmt.Sprintf("[yellow]EXEC:[-] %s", rawCmd))
 
 	switch verb {
+	// --- NEURAL ENGINE (Sprint 10.6) ---
+	case "neuro":
+		if len(args) == 0 {
+			utils.TacticalLog("Usage: neuro config | neuro on | neuro off")
+			return
+		}
+		if args[0] == "config" {
+			// Usage: neuro config <provider> <model> [api_key] [endpoint]
+			if len(args) < 3 {
+				utils.TacticalLog("[red]Usage:[-] neuro config <provider> <model> [api_key] [endpoint]")
+				return
+			}
+			provider := args[1]
+			model := args[2]
+			apiKey := ""
+			endpoint := ""
+
+			if len(args) > 3 {
+				apiKey = args[3]
+			}
+			if len(args) > 4 {
+				endpoint = args[4]
+			}
+
+			logic.GlobalNeuro.Configure(provider, apiKey, model, endpoint)
+		} else if args[0] == "on" {
+			logic.GlobalNeuro.Active = true
+			utils.TacticalLog("[green]Neural Engine Activated.[-]")
+		} else if args[0] == "off" {
+			logic.GlobalNeuro.Active = false
+			utils.TacticalLog("[yellow]Neural Engine Deactivated.[-]")
+		} else {
+			utils.TacticalLog("Invalid neuro command.")
+		}
+
+	case "test-neuro":
+		utils.TacticalLog("[blue]Testing Neural Engine Connectivity...[-]")
+		logic.GlobalNeuro.TestConnectivity()
+
+	case "neuro-gen":
+		// Usage: neuro-gen <context> <count>
+		// Example: neuro-gen "SQL Injection in login form" 5
+		if len(args) < 2 {
+			utils.TacticalLog("[yellow]Usage: neuro-gen <context_string> <count>")
+			return
+		}
+		count, _ := strconv.Atoi(args[1])
+		logic.GlobalNeuro.GenerateAttackVectors(args[0], count)
+
 	// --- IDENTITY & SESSION ---
 	case "auth":
 		if len(args) < 2 {
@@ -592,6 +641,9 @@ func printUsage() {
 		"[yellow]weaver[-]       | Deploy OIDC Interceptor",
 		"[yellow]pipeline[-]     | Auto-Analysis & Attack",
 		"[yellow]report[-]       | Generate Markdown Debrief",
+		"[yellow]neuro[-]        | Configure & Control AI Engine",
+		"[yellow]test-neuro[-]   | Verify AI Connectivity",
+		"[yellow]neuro-gen[-]    | Generate AI Attack Vectors",
 		"[yellow]exit[-]         | Secure Shutdown",
 	}
 	for _, c := range cmds {
@@ -602,6 +654,11 @@ func printUsage() {
 func printHelp(cmd string) {
 	utils.TacticalLog(fmt.Sprintf("[aqua]MANUAL: %s[-]", cmd))
 	switch cmd {
+	case "neuro":
+		utils.TacticalLog("Configures the Neural Engine.")
+		utils.TacticalLog("Usage: neuro config <provider> <model> [api_key] [endpoint]")
+		utils.TacticalLog("Example: neuro config ollama mistral")
+		utils.TacticalLog("Example: neuro config openai gpt-4 sk-123...")
 	case "seed_db":
 		utils.TacticalLog("Injects 20 fake vulnerabilities into the database. Useful for verifying the 'report' command without running live attacks.")
 	case "bola":

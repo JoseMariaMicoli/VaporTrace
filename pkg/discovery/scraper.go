@@ -40,6 +40,9 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 
 		logic.GlobalDiscovery.AddEndpoint(path)
 
+		// ROUTING: Send to F2 Map Tab
+		utils.LogMap(path, "JS-Scrape", "200")
+
 		utils.RecordFinding(db.Finding{
 			Phase:   "PHASE II: DISCOVERY",
 			Command: "map", // Zero-Touch Trigger
@@ -52,6 +55,9 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 	for _, u := range urlMatches {
 		cleaned = append(cleaned, u)
 		logic.GlobalDiscovery.AddEndpoint(u)
+
+		// ROUTING: Send to F2 Map Tab
+		utils.LogMap(u, "JS-Scrape", "200")
 
 		utils.RecordFinding(db.Finding{
 			Phase:   "PHASE II: DISCOVERY",

