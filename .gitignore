@@ -18,3 +18,5 @@ local_build.logs
 
 # Go-specific
 go.sum (optional, usually kept)
+
+.vapor_history

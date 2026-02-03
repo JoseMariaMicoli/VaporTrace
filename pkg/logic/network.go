@@ -24,10 +24,14 @@ func GetConfiguredProxy() string {
 	return ""
 }
 
-// --- INTERCEPTOR STATE ---
+// --- INTERCEPTOR STATE (HYDRA PROTOCOL) ---
+// InterceptorActive is the global toggle for the Blocking Interceptor logic.
 var InterceptorActive bool = false
+
+// InterceptorChan acts as the synchronous bridge between the Logic Thread and the UI Thread.
 var InterceptorChan = make(chan *InterceptorPayload)
 
+// InterceptorPayload contains the request to be edited and the channel to return the decision.
 type InterceptorPayload struct {
 	Request      *http.Request
 	ResponseChan chan *http.Request
@@ -41,36 +45,41 @@ type TacticalTransport struct {
 // RoundTrip executes the interceptor pipeline for EVERY request (Map, Scan, Exploit)
 func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// 1. Content Aggregator: Contextual Enrichment (Phase 10.3)
-	// We do this at the transport level to catch Discovery traffic too
+	// We do this BEFORE interception so the operator sees the tokens injected by the engine.
 	EnrichCommandRequest(req)
 	TriggerCloudPivot(req.URL.String())
 
-	// 2. Tactical Interceptor Hook (Phase 10.4)
+	// 2. Tactical Interceptor Hook (Phase 10.4 - Hydra Audit Fix)
 	if InterceptorActive {
+		// Create a strictly blocking response channel for this specific transaction
 		respChan := make(chan *http.Request)
 
 		// Notify UI and Block
-		utils.TacticalLog(fmt.Sprintf("[red]INTERCEPT:[-] Pausing request to %s for F2 Modal...", req.URL.Path))
+		// Note: The UI Dashboard loop must read this channel to unblock logic.
+		utils.TacticalLog(fmt.Sprintf("[red]INTERCEPT:[-] Pausing %s request to %s for Editor...", req.Method, req.URL.Path))
 
 		InterceptorChan <- &InterceptorPayload{
 			Request:      req,
 			ResponseChan: respChan,
 		}
 
-		// Wait for Operator Action
+		// SYNCHRONOUS WAIT for Operator Action (Forward/Drop)
 		modifiedReq := <-respChan
+
 		if modifiedReq == nil {
 			utils.TacticalLog("[red]DROP:[-] Request dropped by operator.")
 			return nil, fmt.Errorf("request dropped by operator")
 		}
+
+		// Resume execution with the mutated request
 		req = modifiedReq
-		utils.TacticalLog("[green]RESUME:[-] Request modified and forwarded.")
+		utils.TacticalLog("[green]RESUME:[-] Request modified and forwarded to wire.")
 	}
 
 	// 3. Capture Request Dump (For F4 Upper View)
 	reqDump, _ := httputil.DumpRequestOut(req, true)
 
-	// 4. Execute via Base Transport
+	// 4. Execute via Base Transport (The Wire)
 	resp, err := t.Base.RoundTrip(req)
 	if err != nil {
 		return nil, err
@@ -83,7 +92,7 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	resp.Body.Close() // Close original stream
 
-	// Reconstruct body for downstream use
+	// Reconstruct body for downstream use (Loot Scanner / UI)
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	resDump, _ := httputil.DumpResponse(resp, true)
 
@@ -96,19 +105,19 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 
 	utils.LogTraffic(reqParts[0], reqParts[1], resParts[0], resParts[1])
 
-	// 7. Loot Scanning (Phase 8)
+	// 7. Loot Scanning (Phase 8) - Async to not block response processing
 	if len(bodyBytes) > 0 {
 		go ScanForLoot(string(bodyBytes), req.URL.String())
 	}
 
-	// Reset body for caller
+	// Reset body for caller logic
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	return resp, nil
 }
 
 // SafeDo executes the request with Context Enrichment, Evasion, Interception, and Traffic Logging.
-// RESTORED: Required by bfla.go, bola.go, etc.
+// Required by bfla.go, bola.go, etc.
 func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error) {
 	// 1. Evasion & Headers (Specific to Attack Modules)
 	ApplyEvasion(req)
@@ -123,6 +132,7 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 	return GlobalClient.Do(req)
 }
 
+// InitializeRotaryClient sets up the HTTP client with the Tactical Middleware
 func InitializeRotaryClient() {
 	if GlobalClient == nil {
 		GlobalClient = &http.Client{Timeout: 30 * time.Second}
@@ -150,7 +160,7 @@ func InitializeRotaryClient() {
 		IdleConnTimeout: 90 * time.Second,
 	}
 
-	// Wrap in Tactical Middleware
+	// Wrap in Tactical Middleware to ensure Interception works for ALL flows
 	tacticalTransport := &TacticalTransport{Base: baseTransport}
 	GlobalClient.Transport = tacticalTransport
 
@@ -158,6 +168,7 @@ func InitializeRotaryClient() {
 	utils.GlobalClient = GlobalClient
 }
 
+// DetectAndSetProxy attempts to auto-discover local proxies
 func DetectAndSetProxy() {
 	proxies := []string{"http://127.0.0.1:8080", "http://127.0.0.1:8081"}
 
@@ -196,6 +207,7 @@ func SetProxy(proxyAddr string) {
 	InitializeRotaryClient()
 }
 
+// splitDump separates headers and body for logging
 func splitDump(dump string) []string {
 	parts := bytes.SplitN([]byte(dump), []byte("\r\n\r\n"), 2)
 	if len(parts) < 2 {

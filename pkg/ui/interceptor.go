@@ -14,72 +14,133 @@ import (
 )
 
 // ShowInterceptorModal builds and displays the F2 Interceptor UI
+// Optimized for strict blocking/resuming of the Logic Thread with visible styling.
 func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *logic.InterceptorPayload) {
 	req := payload.Request
 
-	// Read and reset body
+	// 1. Safe Body Reading
+	// We read the stream, cache it, and immediately restore it to the request so logic flows aren't broken.
 	var bodyBytes []byte
+	var err error
 	if req.Body != nil {
-		bodyBytes, _ = io.ReadAll(req.Body)
-		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		bodyBytes, err = io.ReadAll(req.Body)
+		if err == nil {
+			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
 	}
 	bodyStr := string(bodyBytes)
 
-	// Format Headers
+	// 2. Normalization
+	// Go http.Request.Method can be empty for GET. We must be explicit for the UI.
+	methodStr := req.Method
+	if methodStr == "" {
+		methodStr = "GET"
+	}
+
+	urlStr := req.URL.String()
+
+	// 3. Format Headers
 	var headerBuilder strings.Builder
 	for k, v := range req.Header {
 		headerBuilder.WriteString(fmt.Sprintf("%s: %s\n", k, strings.Join(v, ",")))
 	}
 	headerStr := headerBuilder.String()
 
-	// UI Components
-	form := tview.NewForm()
-	form.SetBorder(true).
-		SetTitle(" [red]TACTICAL INTERCEPTOR (ACTIVE) [white]").
+	// --- UI COMPOSITION ---
+
+	// Container Frame
+	formFrame := tview.NewFlex().SetDirection(tview.FlexRow)
+	formFrame.SetBorder(true).
+		SetTitle(" [red::b]TACTICAL INTERCEPTOR (ACTIVE) [white]").
 		SetTitleAlign(tview.AlignCenter).
 		SetBackgroundColor(tcell.ColorBlack)
 
-	// Editable Fields
-	methodField := tview.NewInputField().SetLabel("Method").SetText(req.Method).SetFieldWidth(10)
-	urlField := tview.NewInputField().SetLabel("URL").SetText(req.URL.String()).SetFieldWidth(60)
+	// --- Input Fields (Styled) ---
 
-	headersArea := tview.NewTextArea().SetLabel("Headers (Key: Value)").SetText(headerStr, false)
-	headersArea.SetBorder(true)
+	methodField := tview.NewInputField().
+		SetLabel("Method: ").
+		SetLabelColor(tcell.ColorAqua).
+		SetText(methodStr).
+		SetFieldWidth(10).
+		SetFieldBackgroundColor(tcell.ColorDarkSlateGray).
+		SetFieldTextColor(tcell.ColorWhite)
 
-	bodyArea := tview.NewTextArea().SetLabel("Body").SetText(bodyStr, false)
-	bodyArea.SetBorder(true)
+	urlField := tview.NewInputField().
+		SetLabel("URL: ").
+		SetLabelColor(tcell.ColorAqua).
+		SetText(urlStr).
+		SetFieldBackgroundColor(tcell.ColorDarkSlateGray).
+		SetFieldTextColor(tcell.ColorYellow)
 
-	// Logic Closures
+	headersArea := tview.NewTextArea().
+		SetLabel("Headers (Key: Value)").
+		SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorGreen)).
+		SetPlaceholder("User-Agent: VaporTrace...")
+	headersArea.SetText(headerStr, false)
+	headersArea.SetBorder(true).SetTitleColor(tcell.ColorAqua)
+	headersArea.SetBackgroundColor(tcell.ColorBlack)
+
+	bodyArea := tview.NewTextArea().
+		SetLabel("Body (Payload)").
+		SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite))
+	bodyArea.SetText(bodyStr, false)
+	bodyArea.SetBorder(true).SetTitleColor(tcell.ColorAqua)
+	bodyArea.SetBackgroundColor(tcell.ColorBlack)
+
+	// --- LOGIC CLOSURES ---
+
+	closeUI := func() {
+		pages.RemovePage("interceptor")
+		// Safely attempt to refocus the command input if accessible
+		// Note: cmdInput is global in dashboard.go; ensuring focus returns there is UX critical.
+		if cmdInput != nil {
+			app.SetFocus(cmdInput)
+		}
+	}
+
 	forwardFunc := func() {
 		// Reconstruct Request
-		newReq, err := http.NewRequest(methodField.GetText(), urlField.GetText(), strings.NewReader(bodyArea.GetText()))
+		newMethod := methodField.GetText()
+		newURL := urlField.GetText()
+		newBody := bodyArea.GetText()
+
+		// Attempt to build new request
+		newReq, err := http.NewRequest(newMethod, newURL, strings.NewReader(newBody))
+
 		if err != nil {
-			utils.TacticalLog(fmt.Sprintf("[red]Interceptor Rebuild Error: %v", err))
-			payload.ResponseChan <- req // Fallback to original
+			utils.TacticalLog(fmt.Sprintf("[red]Interceptor Rebuild Error: %v. Forwarding original.", err))
+			// Recover: Send original req back to unblock thread
+			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Ensure body is reset again
+			payload.ResponseChan <- req
 		} else {
-			// Parse Headers from text area
+			// Parse Headers from Text Area
 			lines := strings.Split(headersArea.GetText(), "\n")
 			for _, line := range lines {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
 				parts := strings.SplitN(line, ":", 2)
 				if len(parts) == 2 {
-					newReq.Header.Add(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+					key := strings.TrimSpace(parts[0])
+					val := strings.TrimSpace(parts[1])
+					newReq.Header.Add(key, val)
 				}
 			}
+			// Unblock Logic Thread
 			payload.ResponseChan <- newReq
 		}
-		pages.RemovePage("interceptor")
-		app.SetFocus(cmdInput) // defined in dashboard.go
+		closeUI()
 	}
 
 	dropFunc := func() {
 		utils.TacticalLog("[red]INTERCEPTOR:[-] Packet Dropped by Operator")
-		payload.ResponseChan <- nil // Signal drop
-		pages.RemovePage("interceptor")
-		app.SetFocus(cmdInput)
+		payload.ResponseChan <- nil // Signal drop to logic layer
+		closeUI()
 	}
 
-	// Button: Inject Session
-	injectBtn := tview.NewButton("Inject Active Session").SetSelectedFunc(func() {
+	// --- BUTTONS (Fixed: Unchained calls to avoid interface panic) ---
+
+	injectBtn := tview.NewButton("Inject Active Session (Auth)").SetSelectedFunc(func() {
 		token := logic.CurrentSession.AttackerToken
 		if token != "" {
 			current := headersArea.GetText()
@@ -90,26 +151,39 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 			headersArea.SetText(newHeaders, false)
 		}
 	})
+	injectBtn.SetBackgroundColor(tcell.ColorDarkBlue)
+	injectBtn.SetLabelColor(tcell.ColorWhite)
 
 	forwardBtn := tview.NewButton("FORWARD (Ctrl+F)").SetSelectedFunc(forwardFunc)
-	dropBtn := tview.NewButton("DROP (Ctrl+D)").SetSelectedFunc(dropFunc)
+	forwardBtn.SetBackgroundColor(tcell.ColorGreen)
+	forwardBtn.SetLabelColor(tcell.ColorBlack)
 
-	// Layout Construction
-	flex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-			AddItem(methodField, 14, 1, false).
-			AddItem(urlField, 0, 4, false), 3, 1, true).
+	dropBtn := tview.NewButton("DROP (Ctrl+D)").SetSelectedFunc(dropFunc)
+	dropBtn.SetBackgroundColor(tcell.ColorDarkRed)
+	dropBtn.SetLabelColor(tcell.ColorWhite)
+
+	// Layout for Buttons
+	btnRow := tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(forwardBtn, 0, 1, false).
+		AddItem(tview.NewBox(), 1, 0, false). // Spacer
+		AddItem(dropBtn, 0, 1, false)
+
+	// --- MAIN LAYOUT ---
+
+	// Row 1: Method (Fixed 12) + URL (Flex)
+	topRow := tview.NewFlex().
+		AddItem(methodField, 12, 0, false).
+		AddItem(urlField, 0, 1, false)
+
+	formFrame.AddItem(topRow, 3, 1, true).
 		AddItem(headersArea, 0, 3, false).
 		AddItem(bodyArea, 0, 4, false).
-		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-			AddItem(injectBtn, 24, 1, false).
-			AddItem(nil, 0, 1, false), 3, 1, false).
-		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-			AddItem(forwardBtn, 0, 1, false).
-			AddItem(dropBtn, 0, 1, false), 3, 1, false)
+		AddItem(injectBtn, 1, 0, false).
+		AddItem(tview.NewBox(), 1, 0, false). // Vertical Spacer
+		AddItem(btnRow, 1, 0, false)
 
-	// Set Input Capture for Hotkeys
-	flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	// --- KEY BINDINGS ---
+	formFrame.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyCtrlF:
 			forwardFunc()
@@ -121,7 +195,7 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 		return event
 	})
 
-	// Display
-	pages.AddPage("interceptor", flex, true, true)
-	app.SetFocus(flex)
+	// Mount and Force Focus
+	pages.AddPage("interceptor", formFrame, true, true)
+	app.SetFocus(formFrame)
 }

@@ -168,6 +168,9 @@ func InitTacticalDashboard() {
 	aiView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	aiView.SetTitle(" [white:blue] CONTEXT_AGGREGATOR (F5) [white] ").SetBorder(true)
 
+	// Add initial content to F5 (Context) as requested
+	aiView.SetText("[gray]Initializing Context Aggregator...\n\n[blue]●[-] Intelligence Harvest: [green]ACTIVE[-]\n[blue]●[-] Watching For: [white]JWTs, AWS Keys, Bearer Tokens[-]\n[blue]●[-] Correlation Engine: [white]Cross-referencing Findings[-]\n\n")
+
 	neuroView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE (F7) [white] ").SetBorder(true)
 
@@ -508,6 +511,7 @@ func startAsyncEngines() {
 	go func() {
 		for payload := range logic.InterceptorChan {
 			app.QueueUpdateDraw(func() {
+				utils.TacticalLog("[yellow]INTERCEPTOR:[-] Incoming Request Paused...")
 				ShowInterceptorModal(app, pages, payload)
 			})
 		}

@@ -1,40 +1,71 @@
 package logic
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/ai"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
-// NeuroEngine manages AI interactions
+// NeuroEngine manages AI interactions for Analysis, Exploit Gen, and Auto-Fuzzing
 type NeuroEngine struct {
 	Provider ai.LLMProvider
 	Active   bool
 	mu       sync.Mutex
 }
 
+// Global singleton instance
 var GlobalNeuro = &NeuroEngine{
 	Active: false,
 }
 
-// Configure sets up the AI provider
+// Configure sets up the AI provider with Hydra Optimization (Prioritize Cloud)
 func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
+	// Defaults if not provided
+	if providerType == "" {
+		providerType = "openai"
+	}
+
 	switch strings.ToLower(providerType) {
 	case "ollama":
+		if model == "" {
+			model = "mistral"
+		}
 		n.Provider = &ai.OllamaClient{}
+		utils.TacticalLog("[yellow]NEURO:[-] Warning - Local Inference uses significant RAM. Ensure 8GB+ avail.")
+
 	case "openai":
+		if model == "" {
+			model = "gpt-4o"
+		}
 		n.Provider = &ai.OpenAIClient{}
+		utils.TacticalLog("[green]NEURO:[-] OpenAI Cloud Selected.")
+
+	case "google", "gemini":
+		if model == "" {
+			// Update to valid v1beta model alias
+			model = "gemini-1.5-flash-latest"
+		}
+		n.Provider = &ai.GeminiClient{}
+		utils.TacticalLog(fmt.Sprintf("[cyan]NEURO:[-] Google Gemini Selected (%s).", model))
+
 	default:
-		n.Provider = &ai.OllamaClient{} // Default to local
+		// Default fallback
+		if model == "" {
+			model = "gpt-4o"
+		}
+		n.Provider = &ai.OpenAIClient{}
 	}
 
 	n.Provider.Configure(apiKey, model, endpoint)
@@ -42,143 +73,363 @@ func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 	utils.TacticalLog(fmt.Sprintf("[magenta]NEURO:[-] Engine configured with %s (%s)", providerType, model))
 }
 
-// AnalyzeTrafficSnapshot takes raw HTTP dumps and queries the AI
+// AnalyzeTrafficSnapshot is the Core Trigger (Ctrl+A).
+// It safely executes the analysis in a background thread to keep the UI responsive.
 func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 	if !n.Active || n.Provider == nil {
 		utils.TacticalLog("[yellow]NEURO:[-] AI Engine not active. Run 'neuro config'.")
 		return
 	}
 
-	utils.TacticalLog("[magenta]NEURO:[-] Sending snapshot to Neural Engine...")
-	utils.LogNeural(fmt.Sprintf("[yellow]>>> ANALYSIS REQUEST STARTED [%s][-]", time.Now().Format("15:04:05")))
+	utils.TacticalLog("[magenta]NEURO:[-] Intercepted Snapshot. Initiating Full-Spectrum Analysis...")
+	utils.LogNeural(fmt.Sprintf("[yellow]>>> AUTONOMOUS SEQUENCE STARTED [%s][-]", time.Now().Format("15:04:05")))
 
-	// Run Async
+	// Safely truncate dumps to avoid token limit hangs
+	safeReq := truncateContext(reqDump, 2000)
+	safeRes := truncateContext(resDump, 2000)
+
+	// Async Execution
 	go func() {
-		prompt := fmt.Sprintf(ai.TrafficAnalysisPrompt, reqDump, resDump)
+		// 1. Construct the Offensive Prompt
+		prompt := fmt.Sprintf(`ACT AS AN OFFENSIVE SECURITY AI.
+REQUEST:
+%s
 
-		analysis, err := n.Provider.Analyze(prompt)
+RESPONSE:
+%s
+
+TASK:
+1. IDENTIFY: Determine the specific vulnerability (BOLA, SQLi, SSRF, XSS, RCE, IDOR).
+2. EXPLOIT: Generate 3 specific, high-probability exploit payloads. Include at least one Time-Based Blind SQLi payload (e.g. sleep, waitfor). Format as one per line under the header "---PAYLOADS---".
+3. PATCH: Provide the code fix under "---PATCH---".
+
+Output Format:
+ANALYSIS: <Short Summary>
+---PAYLOADS---
+<Payload1>
+<Payload2>
+...
+---PATCH---
+<Remediation Code>
+`, safeReq, safeRes)
+
+		// 2. Query LLM
+		response, err := n.Provider.Analyze(prompt)
 		if err != nil {
 			utils.TacticalLog(fmt.Sprintf("[red]NEURO ERROR:[-] %v", err))
 			utils.LogNeural(fmt.Sprintf("[red]ERROR: %v[-]", err))
 			return
 		}
 
-		// Format output for TUI
-		formatted := fmt.Sprintf("\n[cyan]--- AI ANALYSIS REPORT ---\n[white]%s\n[cyan]------------------------[-]\n", analysis)
+		// 3. Parse Sections
+		analysis, payloads, patch := n.parseAIOutput(response)
 
-		// Send to F7 Tab
-		utils.LogNeural(formatted)
+		// 4. Report to UI (F7 Neural Tab)
+		report := fmt.Sprintf("\n[cyan]=== TACTICAL ANALYSIS ===[-]\n[white]%s[-]\n\n", analysis)
+		if patch != "" {
+			report += fmt.Sprintf("[green]=== GENERATED PATCH ===[-]\n[gray]%s[-]\n", patch)
+		}
+		utils.LogNeural(report)
 
-		// Notification in Main Log
-		utils.TacticalLog("[green]NEURO:[-] Analysis complete. Check F7 Tab.")
+		// 5. AUTO-FUZZING: Execute Generated Exploits
+		if len(payloads) > 0 {
+			targetURL, method := n.extractTargetInfo(reqDump)
+			utils.TacticalLog(fmt.Sprintf("[magenta]NEURO-AUTO:[-] Extracted %d exploits. Engaging Target %s...", len(payloads), targetURL))
+
+			// Engage "Smart Fuzzer" logic
+			n.executeSmartAttack(targetURL, method, payloads)
+		} else {
+			utils.TacticalLog("[yellow]NEURO:[-] No viable exploits generated by AI.")
+		}
 	}()
 }
 
-// GenerateAttackVectors asks the AI for specific payloads (Dry-run)
+// executeSmartAttack handles the "Live-Fire" execution of AI payloads
+func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []string) {
+	client := GlobalClient
+	if client == nil {
+		client = &http.Client{Timeout: 15 * time.Second}
+	}
+
+	// 1. ESTABLISH BASELINE LATENCY (Calibration)
+	utils.LogNeural("[blue]NEURO-AUTO:[-] Calibrating baseline network latency...")
+	baseReq, _ := http.NewRequest(method, targetURL, nil)
+
+	if CurrentSession.AttackerToken != "" {
+		baseReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", CurrentSession.AttackerToken))
+	}
+
+	startBase := time.Now()
+	baseResp, errBase := client.Do(baseReq)
+	baselineLatency := time.Since(startBase)
+
+	if errBase == nil {
+		baseResp.Body.Close()
+	} else {
+		baselineLatency = 200 * time.Millisecond // Fallback
+	}
+	utils.LogNeural(fmt.Sprintf("[blue]NEURO-AUTO:[-] Baseline established: %v", baselineLatency))
+
+	// 2. FIRE PAYLOADS
+	for i, payload := range payloads {
+		if payload == "" {
+			continue
+		}
+
+		utils.LogNeural(fmt.Sprintf("[yellow]>>> FIRING VECTOR %d/%d: %s[-]", i+1, len(payloads), shortPayload(payload)))
+
+		var req *http.Request
+		var err error
+
+		// Intelligent Injection Strategy
+		if method == "POST" || method == "PUT" || method == "PATCH" {
+			req, err = http.NewRequest(method, targetURL, bytes.NewBufferString(payload))
+			req.Header.Set("Content-Type", "application/json")
+		} else {
+			// Query Parameter Injection
+			u := targetURL
+			if strings.Contains(u, "?") {
+				u += "&fuzz=" + url.QueryEscape(payload)
+			} else {
+				u += "?fuzz=" + url.QueryEscape(payload)
+			}
+			req, err = http.NewRequest(method, u, nil)
+		}
+
+		if err != nil {
+			utils.TacticalLog(fmt.Sprintf("[red]Attack Build Failed: %v", err))
+			continue
+		}
+
+		if CurrentSession.AttackerToken != "" {
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", CurrentSession.AttackerToken))
+		}
+
+		req.Header.Set("X-Neuro-Engine", "Automated-Exploit")
+		req.Header.Set("User-Agent", "VaporTrace-Neuro/1.0")
+
+		// FIRE & TIME
+		startAttack := time.Now()
+
+		resp, err := client.Do(req)
+
+		attackDuration := time.Since(startAttack)
+
+		if err != nil {
+			// Timeout usually implies SQLi SLEEP success
+			if strings.Contains(err.Error(), "Timeout") || attackDuration > 10*time.Second {
+				utils.TacticalLog(fmt.Sprintf("[red]CRITICAL: Request Timed Out (%v). Possible Heavy SQLi.[/]", attackDuration))
+				n.recordTimeBasedSQLi(targetURL, payload, attackDuration, baselineLatency)
+			}
+			continue
+		}
+
+		// EVALUATE RESPONSE
+		n.evaluateResponse(resp, payload, targetURL, attackDuration, baselineLatency)
+		resp.Body.Close()
+
+		// Evasion Jitter
+		time.Sleep(300 * time.Millisecond)
+	}
+	utils.TacticalLog("[green]NEURO-AUTO:[-] Sequence Complete. Verified results in Logs.")
+}
+
+func (n *NeuroEngine) evaluateResponse(resp *http.Response, payload, target string, latency time.Duration, baseline time.Duration) {
+	// LOGIC 1: DIFFERENTIAL TIMING (Time-Based SQLi)
+	if latency > 4*time.Second && latency > (baseline*3) {
+		n.recordTimeBasedSQLi(target, payload, latency, baseline)
+		return
+	}
+
+	// LOGIC 2: ERROR/CRASH
+	if resp.StatusCode >= 500 {
+		utils.TacticalLog(fmt.Sprintf("[red]CRITICAL HIT (%d): %s (Lat: %v)[-]", resp.StatusCode, shortPayload(payload), latency))
+
+		if db.DB != nil {
+			utils.RecordFinding(db.Finding{
+				Phase:        "PHASE 10.6: NEURO-EXPLOIT",
+				Command:      "neuro",
+				Target:       target,
+				Details:      fmt.Sprintf("Server Error (%d) triggered by payload. Possible Injection/RCE.", resp.StatusCode),
+				Status:       "EXPLOITED",
+				OWASP_ID:     "API10:2023",
+				MITRE_ID:     "T1190",
+				CVSS_Numeric: 9.0,
+			})
+		}
+		return
+	}
+
+	// LOGIC 3: BYPASS
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		utils.TacticalLog(fmt.Sprintf("[green]POTENTIAL BYPASS (%d): %s[-]", resp.StatusCode, shortPayload(payload)))
+		if db.DB != nil {
+			utils.RecordFinding(db.Finding{
+				Phase:        "PHASE 10.6: NEURO-EXPLOIT",
+				Command:      "neuro",
+				Target:       target,
+				Details:      fmt.Sprintf("Logic Bypass (%d). Payload accepted.", resp.StatusCode),
+				Status:       "VULNERABLE",
+				OWASP_ID:     "API1:2023",
+				MITRE_ID:     "T1595",
+				CVSS_Numeric: 7.5,
+			})
+		}
+	} else {
+		utils.TacticalLog(fmt.Sprintf("[gray]Miss (%d) | Lat: %v | %s[-]", resp.StatusCode, latency, shortPayload(payload)))
+	}
+}
+
+func (n *NeuroEngine) recordTimeBasedSQLi(target, payload string, latency, baseline time.Duration) {
+	msg := fmt.Sprintf("[red]!!! TIME-BASED SQLI CONFIRMED !!! Latency: %v (Base: %v) | Vector: %s[-]", latency, baseline, payload)
+	utils.LogNeural(msg)
+	utils.TacticalLog(msg)
+
+	if db.DB != nil {
+		utils.RecordFinding(db.Finding{
+			Phase:        "PHASE 10.6: NEURO-EXPLOIT",
+			Command:      "neuro",
+			Target:       target,
+			Details:      fmt.Sprintf("High-Confidence Time-Based Blind SQLi. Response delayed by %v (Baseline: %v).", latency, baseline),
+			Status:       "CRITICAL",
+			OWASP_ID:     "API8:2023 Injection",
+			MITRE_ID:     "T1190",
+			MitreTactic:  "Initial Access",
+			CVSS_Numeric: 9.8,
+		})
+	}
+}
+
+func (n *NeuroEngine) parseAIOutput(raw string) (analysis string, payloads []string, patch string) {
+	lines := strings.Split(raw, "\n")
+	section := "ANALYSIS"
+
+	for _, line := range lines {
+		cleanLine := strings.TrimSpace(line)
+
+		if cleanLine == "---PAYLOADS---" {
+			section = "PAYLOADS"
+			continue
+		} else if cleanLine == "---PATCH---" {
+			section = "PATCH"
+			continue
+		} else if strings.HasPrefix(cleanLine, "ANALYSIS:") {
+			section = "ANALYSIS"
+			cleanLine = strings.TrimPrefix(cleanLine, "ANALYSIS:")
+		}
+
+		switch section {
+		case "ANALYSIS":
+			analysis += cleanLine + "\n"
+		case "PAYLOADS":
+			if cleanLine != "" && !strings.HasPrefix(cleanLine, "`") && !strings.HasPrefix(cleanLine, "Analysis") {
+				cleanLine = strings.TrimPrefix(cleanLine, "- ")
+				cleanLine = strings.TrimPrefix(cleanLine, "* ")
+				cleanLine = strings.TrimPrefix(cleanLine, "1. ")
+				cleanLine = strings.Trim(cleanLine, "\"")
+				cleanLine = strings.Trim(cleanLine, "'")
+				if len(cleanLine) > 2 {
+					payloads = append(payloads, cleanLine)
+				}
+			}
+		case "PATCH":
+			patch += line + "\n"
+		}
+	}
+	return
+}
+
+func (n *NeuroEngine) extractTargetInfo(reqDump string) (string, string) {
+	if reqDump == "" {
+		return "", "GET"
+	}
+	reader := bufio.NewReader(strings.NewReader(reqDump))
+	requestLine, _ := reader.ReadString('\n')
+	parts := strings.Fields(requestLine)
+	if len(parts) >= 2 {
+		method := parts[0]
+		path := parts[1]
+		host := ""
+		scanner := bufio.NewScanner(strings.NewReader(reqDump))
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "Host:") {
+				host = strings.TrimSpace(strings.TrimPrefix(line, "Host:"))
+				break
+			}
+		}
+		scheme := "http"
+		if strings.Contains(reqDump, "443") {
+			scheme = "https"
+		}
+		return fmt.Sprintf("%s://%s%s", scheme, host, path), method
+	}
+	return "", "GET"
+}
+
+func truncateContext(s string, limit int) string {
+	if len(s) > limit {
+		return s[:limit] + "...[TRUNCATED]"
+	}
+	return s
+}
+
+func shortPayload(p string) string {
+	if len(p) > 50 {
+		return p[:47] + "..."
+	}
+	return p
+}
+
+// Legacy wrappers to satisfy interface if needed, or legacy calls
 func (n *NeuroEngine) GenerateAttackVectors(context string, count int) {
 	if !n.Active || n.Provider == nil {
 		utils.TacticalLog("[yellow]NEURO:[-] AI Engine not active.")
 		return
 	}
-
 	go func() {
-		utils.TacticalLog(fmt.Sprintf("[magenta]NEURO:[-] Generating %d payloads for '%s'...", count, context))
-		payloads, err := n.Provider.GeneratePayloads(context, count)
-		if err != nil {
-			utils.TacticalLog(fmt.Sprintf("[red]NEURO GEN FAIL:[-] %v", err))
-			return
-		}
-
+		payloads, _ := n.Provider.GeneratePayloads(context, count)
 		output := fmt.Sprintf("\n[cyan]--- NEURO PAYLOADS (%s) ---\n[white]", context)
 		for _, p := range payloads {
 			output += fmt.Sprintf("- %s\n", p)
 		}
-		output += "[cyan]----------------------------[-]\n"
 		utils.LogNeural(output)
-		utils.TacticalLog("[green]NEURO:[-] Payloads generated. Check F7 Tab.")
 	}()
 }
 
-// AutonomousFuzz asks AI for payloads and executes them against the target (Live-Fire)
 func (n *NeuroEngine) AutonomousFuzz(targetURL, method, context string, count int) {
-	if !n.Active || n.Provider == nil {
-		utils.TacticalLog("[yellow]NEURO:[-] AI Engine not active.")
+	if !n.Active {
 		return
 	}
-
 	go func() {
-		utils.TacticalLog(fmt.Sprintf("[magenta]NEURO-FUZZ:[-] Priming %d autonomous vectors for [%s]...", count, context))
-
-		// 1. Generate
-		payloads, err := n.Provider.GeneratePayloads(context, count)
-		if err != nil {
-			utils.TacticalLog(fmt.Sprintf("[red]NEURO GEN FAIL:[-] %v", err))
-			return
+		payloads, _ := n.Provider.GeneratePayloads(context, count)
+		// Clean manually since we don't use parseAIOutput here
+		var clean []string
+		for _, p := range payloads {
+			clean = append(clean, strings.TrimSpace(p))
 		}
-
-		utils.TacticalLog(fmt.Sprintf("[magenta]NEURO-FUZZ:[-] Engaging target %s...", targetURL))
-
-		// 2. Execute
-		for _, payload := range payloads {
-			if strings.TrimSpace(payload) == "" {
-				continue
-			}
-
-			// We send the payload as the request body. (Adjustable based on logic)
-			req, _ := http.NewRequest(method, targetURL, bytes.NewBufferString(payload))
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("X-VaporTrace-AI", "Autonomous-Fuzzer")
-
-			// Inject Identity if available
-			if CurrentSession.AttackerToken != "" {
-				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", CurrentSession.AttackerToken))
-			}
-
-			// This triggers the TacticalTransport -> Evasion -> Logger (F4) -> Interceptor
-			resp, err := SafeDo(req, false, "NEURO-FUZZ")
-			if err != nil {
-				utils.TacticalLog(fmt.Sprintf("[red]Fuzz Error:[-] %v", err))
-				continue
-			}
-
-			// 3. Heuristic Check
-			statusColor := "[green]"
-			if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-				statusColor = "[yellow]"
-			} else if resp.StatusCode >= 500 {
-				statusColor = "[red]"
-			}
-
-			utils.TacticalLog(fmt.Sprintf("%sFUZZ [%d][-] | Payload: %s", statusColor, resp.StatusCode, payload))
-			resp.Body.Close()
-			time.Sleep(200 * time.Millisecond) // Built-in jitter
-		}
-
-		utils.TacticalLog("[green]NEURO-FUZZ:[-] Autonomous campaign complete. Check F4 for full traffic logs.")
+		n.executeSmartAttack(targetURL, method, clean)
 	}()
 }
 
-// TestConnectivity runs a dummy prompt
 func (n *NeuroEngine) TestConnectivity() {
 	if !n.Active {
 		utils.TacticalLog("[yellow]NEURO:[-] Engine is toggled OFF. Run 'neuro on'.")
 		return
 	}
-
 	if n.Provider == nil {
 		utils.TacticalLog("[red]NEURO CRITICAL:[-] Provider not configured. Run 'neuro config <provider> <model>' first.")
-		n.Active = false // Safety toggle to prevent further calls
+		n.Active = false
 		return
 	}
-
 	go func() {
 		utils.TacticalLog("[blue]NEURO:[-] Sending heartbeat packet to LLM...")
-		resp, err := n.Provider.Analyze("Explain 'BOLA' vulnerability in one sentence.")
+		resp, err := n.Provider.Analyze("Ping")
 		if err != nil {
 			utils.TacticalLog(fmt.Sprintf("[red]NEURO FAIL:[-] %v", err))
 		} else {
-			utils.TacticalLog("[green]NEURO ONLINE:[-] " + resp)
-			utils.LogNeural("[green]CONNECTIVITY CHECK PASSED:[-] " + resp)
+			utils.LogNeural("[green]CONNECTIVITY CHECK:[-] " + resp)
+			utils.TacticalLog("[green]NEURO ONLINE:[-] Check Neural Tab.")
 		}
 	}()
 }
