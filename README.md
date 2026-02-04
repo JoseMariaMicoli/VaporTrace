@@ -110,31 +110,19 @@ New capabilities introduced in **v3.1-Hydra** map to the following techniques:
 
 The legacy interactive shell has been deprecated in favor of the **Hydra TUI**. Built on `rivo/tview`, it provides a high-speed environment for parallel operations and deep packet manipulation.
 
-### **Interface Navigation (Global Hotkeys)**
+---
 
-| Key | Context | Function |
-| --- | --- | --- |
-| **F1** | **LOGS** | Real-time system events, attack module feedback, and error streams. |
-| **F2** | **TARGETS** | Active target management, scope definition, and global config. |
-| **F3** | **TASKS** | Background process monitor for long-running scans and worker pools. |
-| **F4** | **TRAFFIC** | **Deep Packet Inspection.** Split-view (Request/Response) of all middleware traffic. |
-| **F5** | **CONTEXT** | **The Aggregator.** Displays auto-injected credentials and AI correlations. |
-| **F6** | **NEURAL** | **Neural Engine View.** Displays AI mutation logic and fuzzy results. |
+### 🔢 Summary of Hotkeys (v3.1-Hydra)
 
-
-### **The Tactical Interceptor (Modal Commands)**
-
-When Interception is enabled (`Ctrl+I`), the `TacticalTransport` middleware pauses outgoing traffic. Use these shortcuts within the Red Modal to manipulate or synchronize data.
-
-| Key | Action | Description |
-| --- | --- | --- |
-| **CTRL+I** | **INTERCEPTOR** | **Global Toggle.** Activates/Deactivates the Tactical Interceptor Modal. |
-| **CTRL + F** | **FORWARD** | Injects the modified packet back into the pipeline. |
-| **CTRL + D** | **DROP** | Drops the packet immediately; the request never leaves the local machine. |
-| **CTRL + A** | **SYNC TO NEURAL** | **Global Action:** Mirrors the current buffer (Tab 4) to **Tab 7 (NEURAL AI)**. |
-| **CTRL + N** | **NEURO INV** | **Neural Inverter:** Toggles AI-assisted payload mutation for logic bypass. |
-| **CTRL + B** | **NEURO BRUTE** | **Neural Brute:** Triggers a high-speed, entropy-aware fuzzer on the selected field. |
-| **TAB** | **NAVIGATE** | Switches focus between Path, Headers, and Body input fields. |
+| Key Combination | Scope | Function |
+| :--- | :--- | :--- |
+| **`Ctrl + I`** | Global | **Toggle Interceptor** (On/Off) |
+| **`Ctrl + F`** | Modal | **Forward** packet to network |
+| **`Ctrl + D`** | Modal | **Drop** packet |
+| **`Ctrl + B`** | Modal | **Neuro Brute:** Gen payloads for current field |
+| **`Ctrl + S`** | Modal | **Sync:** Save to Loot DB |
+| **`Ctrl + A`** | F4 Tab | **Analyze:** Send snapshot to AI Brain |
+| **`F1 - F6`** | Global | Switch Tabs (Logs, Map, Loot, Traffic, Context, **Neural**) |
 
 ---
 
