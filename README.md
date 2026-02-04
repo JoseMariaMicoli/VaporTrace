@@ -120,7 +120,7 @@ The legacy interactive shell has been deprecated in favor of the **Hydra TUI**. 
 | **F4** | **TRAFFIC** | **Deep Packet Inspection.** Split-view (Request/Response) of all middleware traffic. |
 | **F5** | **CONTEXT** | **The Aggregator.** Displays auto-injected credentials and AI correlations. |
 | **F6** | **NEURAL** | **Neural Engine View.** Displays AI mutation logic and fuzzy results. |
-| **CTRL+I** | **INTERCEPTOR** | **Global Toggle.** Activates/Deactivates the Tactical Interceptor Modal. |
+
 
 ### **The Tactical Interceptor (Modal Commands)**
 
@@ -128,6 +128,7 @@ When Interception is enabled (`Ctrl+I`), the `TacticalTransport` middleware paus
 
 | Key | Action | Description |
 | --- | --- | --- |
+| **CTRL+I** | **INTERCEPTOR** | **Global Toggle.** Activates/Deactivates the Tactical Interceptor Modal. |
 | **CTRL + F** | **FORWARD** | Injects the modified packet back into the pipeline. |
 | **CTRL + D** | **DROP** | Drops the packet immediately; the request never leaves the local machine. |
 | **CTRL + A** | **SYNC TO NEURAL** | **Global Action:** Mirrors the current buffer (Tab 4) to **Tab 7 (NEURAL AI)**. |
