@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -283,6 +284,7 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 	}
 
 	// 1. ESTABLISH BASELINE LATENCY (Calibration)
+	// We measure the normal response time to detect Time-Based injections later
 	utils.LogNeural("[blue]NEURO-AUTO:[-] Calibrating baseline network latency...")
 	baseReq, _ := http.NewRequest(method, targetURL, nil)
 
@@ -297,7 +299,7 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 	if errBase == nil {
 		baseResp.Body.Close()
 	} else {
-		baselineLatency = 200 * time.Millisecond // Fallback
+		baselineLatency = 200 * time.Millisecond // Fallback if baseline request fails
 	}
 	utils.LogNeural(fmt.Sprintf("[blue]NEURO-AUTO:[-] Baseline established: %v", baselineLatency))
 
@@ -313,9 +315,28 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 		// Intelligent Injection Strategy
 		if method == "POST" || method == "PUT" || method == "PATCH" {
 			req, _ = http.NewRequest(method, targetURL, bytes.NewBufferString(payload))
-			req.Header.Set("Content-Type", "application/json")
+
+			// --- MULTI-FORMAT SIGNATURE SNIFFING (XXE & YAML) ---
+			lowerPayload := strings.ToLower(payload)
+
+			if strings.Contains(lowerPayload, "<?xml") || strings.Contains(lowerPayload, "<!doctype") || strings.Contains(lowerPayload, "<entity") {
+				// XML/XXE Detection
+				req.Header.Set("Content-Type", "application/xml")
+				utils.LogNeural("[magenta]NEURO-AUTO:[-] XML Signature detected. Switching to application/xml...[-]")
+
+			} else if strings.HasPrefix(payload, "---") || strings.Contains(payload, "!!") || strings.Contains(payload, "y_object:") {
+				// YAML/Deserialization Detection (!! is a common tag for Ruby/Python YAML exploits)
+				req.Header.Set("Content-Type", "application/x-yaml")
+				utils.LogNeural("[cyan]NEURO-AUTO:[-] YAML Signature detected. Switching to application/x-yaml...[-]")
+
+			} else {
+				// Default to JSON for standard API interactions
+				req.Header.Set("Content-Type", "application/json")
+			}
+			// ----------------------------------------------------
+
 		} else {
-			// Query Parameter Injection
+			// Query Parameter Injection (for GET/DELETE)
 			u := targetURL
 			if strings.Contains(u, "?") {
 				u += "&fuzz=" + url.QueryEscape(payload)
@@ -329,6 +350,7 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", CurrentSession.AttackerToken))
 		}
 
+		// Identify the request as an AI-driven exploit for logging/debugging
 		req.Header.Set("X-Neuro-Engine", "Automated-Exploit")
 		req.Header.Set("User-Agent", "VaporTrace-Neuro/1.0")
 
@@ -337,30 +359,42 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 		attackDuration := time.Since(startAttack)
 
 		if err != nil {
+			// Detect Time-Based Blind SQLi if the server hangs
 			if strings.Contains(err.Error(), "Timeout") || attackDuration > 10*time.Second {
 				utils.TacticalLog(fmt.Sprintf("[red]CRITICAL: Request Timed Out (%v). Possible Heavy SQLi.[/]", attackDuration))
 				n.recordTimeBasedSQLi(targetURL, payload, attackDuration, baselineLatency)
 			}
 		} else {
+			// Pass the response to the evaluator to check for 200 OK (Bypass) or 500 (Leak)
 			n.evaluateResponse(resp, payload, targetURL, attackDuration, baselineLatency)
 			resp.Body.Close()
 		}
 
 		// *** CRITICAL RATE LIMIT FIX (LATAM/FREE TIER) ***
-		// Wait 6 seconds between automated attacks to protect Quota
+		// Space out requests to avoid 429 errors from Cloud Providers and WAFs
 		time.Sleep(6000 * time.Millisecond)
 	}
 	utils.TacticalLog("[green]NEURO-AUTO:[-] Sequence Complete. Verified results in Logs.")
 }
 
 func (n *NeuroEngine) evaluateResponse(resp *http.Response, payload, target string, latency time.Duration, baseline time.Duration) {
-	// LOGIC 1: DIFFERENTIAL TIMING (Time-Based SQLi)
+	// 1. EXTRACT DATA FOR AI ANALYSIS
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	// Re-assign body to allow reading if needed later (though we close it in the caller)
+	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	bodySnippet := string(bodyBytes)
+	if len(bodySnippet) > 1000 {
+		bodySnippet = bodySnippet[:1000] // Truncate to save context tokens
+	}
+
+	// 2. LOGIC 1: DIFFERENTIAL TIMING (Fast-Path Time-Based SQLi)
 	if latency > 4*time.Second && latency > (baseline*3) {
 		n.recordTimeBasedSQLi(target, payload, latency, baseline)
 		return
 	}
 
-	// LOGIC 2: ERROR/CRASH
+	// 3. LOGIC 2: ERROR/CRASH (Server-Side Failure)
 	if resp.StatusCode >= 500 {
 		utils.TacticalLog(fmt.Sprintf("[red]CRITICAL HIT (%d): %s (Lat: %v)[-]", resp.StatusCode, shortPayload(payload), latency))
 
@@ -379,7 +413,32 @@ func (n *NeuroEngine) evaluateResponse(resp *http.Response, payload, target stri
 		return
 	}
 
-	// LOGIC 3: BYPASS
+	// 4. LOGIC 3: AI-DRIVEN DEEP ANALYSIS (The "Brain")
+	// We call the AI to see if the 200 OK is a real bypass or just a generic landing page
+	evalQuery := fmt.Sprintf(ai.ResponseEvalPrompt, baseline, latency, payload, resp.StatusCode, bodySnippet)
+
+	// Assuming your NeuroEngine has a method to call the LLM
+	aiEval, err := n.QueryAI(evalQuery)
+	if err == nil && strings.Contains(aiEval, `"success": true`) {
+		utils.TacticalLog(fmt.Sprintf("[magenta]AI CONFIRMED EXPLOIT: %s[-]", aiEval))
+
+		// Parse the JSON from AI to enrich the DB finding
+		if db.DB != nil {
+			utils.RecordFinding(db.Finding{
+				Phase:        "PHASE 10.6: NEURO-EXPLOIT",
+				Command:      "neuro",
+				Target:       target,
+				Details:      fmt.Sprintf("AI Verified Exploit: %s", aiEval),
+				Status:       "VERIFIED",
+				OWASP_ID:     "API3:2023", // Or dynamically set from AI JSON
+				MITRE_ID:     "T1595",
+				CVSS_Numeric: 8.5,
+			})
+		}
+		return
+	}
+
+	// 5. LOGIC 4: GENERIC BYPASS (Fallthrough)
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		utils.TacticalLog(fmt.Sprintf("[green]POTENTIAL BYPASS (%d): %s[-]", resp.StatusCode, shortPayload(payload)))
 		if db.DB != nil {
@@ -559,6 +618,24 @@ func (n *NeuroEngine) AutonomousFuzz(targetURL, method, context string, count in
 			n.executeSmartAttack(targetURL, method, clean)
 		}
 	}()
+}
+
+// QueryAI bridges the evaluation logic with the Hybrid AI execution chain.
+// It uses ExecuteQuery to handle Rate-Limiting and Primary->Secondary fallback.
+func (n *NeuroEngine) QueryAI(prompt string) (string, error) {
+	if !n.Active {
+		return "", fmt.Errorf("NeuroEngine is not active")
+	}
+
+	// Use your existing ExecuteQuery method which already manages
+	// the Primary/Secondary providers and rate limiting.
+	response, err := n.ExecuteQuery(prompt)
+	if err != nil {
+		utils.TacticalLog(fmt.Sprintf("[red]AI_ERROR: Failed to query Hybrid Brain: %v[-]", err))
+		return "", err
+	}
+
+	return response, nil
 }
 
 func (n *NeuroEngine) TestConnectivity() {

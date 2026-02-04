@@ -285,3 +285,13 @@ func getSeverityIcon(score float64) string {
 	} // Medium
 	return "🔵" // Low
 }
+
+// In your reporting logic package
+func GetCurrentReportMarkdown() string {
+	// This should mirror the logic used in writeTechnicalDetails
+	var md string
+	md += "# VAPORTRACE MISSION DEBRIEF\n"
+	md += "## 3. TECHNICAL FINDINGS\n"
+	// ... logic to query DB and build table ...
+	return md
+}

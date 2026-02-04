@@ -27,6 +27,7 @@ var (
 	resView      *tview.TextView
 	aiView       *tview.TextView
 	neuroView    *tview.TextView
+	reportView   *tview.TextView // F7 Report Tab
 	statusFooter *tview.TextView
 	cmdInput     *tview.InputField
 
@@ -167,12 +168,13 @@ func InitTacticalDashboard() {
 
 	aiView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	aiView.SetTitle(" [white:blue] CONTEXT_AGGREGATOR (F5) [white] ").SetBorder(true)
-
-	// Add initial content to F5 (Context) as requested
 	aiView.SetText("[gray]Initializing Context Aggregator...\n\n[blue]●[-] Intelligence Harvest: [green]ACTIVE[-]\n[blue]●[-] Watching For: [white]JWTs, AWS Keys, Bearer Tokens[-]\n[blue]●[-] Correlation Engine: [white]Cross-referencing Findings[-]\n\n")
 
 	neuroView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE (F6) [white] ").SetBorder(true)
+
+	// F7 Report Tab Initialization
+	reportView = InitReportTab()
 
 	// Add Pages
 	pages.AddPage("logs", brainLog, true, true)
@@ -181,6 +183,7 @@ func InitTacticalDashboard() {
 	pages.AddPage("traffic", trafficSplit, true, false)
 	pages.AddPage("ai", aiView, true, false)
 	pages.AddPage("neuro", neuroView, true, false)
+	pages.AddPage("report", reportView, true, false)
 
 	// Main Layout
 	mainFlex := tview.NewFlex().SetDirection(tview.FlexRow).
@@ -196,6 +199,7 @@ func InitTacticalDashboard() {
 
 	// Global Key Bindings
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// F1 - F7 Tab Switching
 		switch event.Key() {
 		case tcell.KeyF1:
 			switchTo("logs")
@@ -208,10 +212,14 @@ func InitTacticalDashboard() {
 		case tcell.KeyF5:
 			switchTo("ai")
 		case tcell.KeyF6:
-			// Swapped F7 to F6 for Neuro Tab
 			switchTo("neuro")
+		case tcell.KeyF7:
+			// Auto-Load Findings on switch
+			LoadFindings()
+			switchTo("report")
+
+		// Tactical Shortcuts
 		case tcell.KeyCtrlI:
-			// Mapped Interceptor Toggle from F6 to Ctrl+I
 			logic.InterceptorActive = !logic.InterceptorActive
 			state := "OFF"
 			color := "[red]"
@@ -220,8 +228,12 @@ func InitTacticalDashboard() {
 				color = "[green]"
 			}
 			utils.TacticalLog(fmt.Sprintf("%sINTERCEPTOR TOGGLED: %s (Wait for Packets)[-]", color, state))
+
+		case tcell.KeyCtrlH:
+			// Global Help Modal
+			ShowHelpModal(app, pages)
+
 		case tcell.KeyPgUp:
-			// Scroll Logic for BrainLog
 			row, col := brainLog.GetScrollOffset()
 			if row > 0 {
 				brainLog.ScrollTo(row-1, col)
@@ -383,10 +395,9 @@ func switchTo(page string) {
 }
 
 func updateTabs(active string) {
-	// Updated Labels: F6 is now Neural
-	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "CTX (F5)", "NEURAL (F6)"}
-	descs := []string{"System", "Recon", "Exfil", "Sniffer", "Intel", "AI-Ops"}
-	ids := []string{"logs", "map", "loot", "traffic", "ai", "neuro"}
+	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "CTX (F5)", "NEURAL (F6)", "REPORT (F7)"}
+	descs := []string{"System", "Recon", "Exfil", "Sniffer", "Intel", "AI-Ops", "Debrief"}
+	ids := []string{"logs", "map", "loot", "traffic", "ai", "neuro", "report"}
 
 	var topRow, bottomRow []string
 
@@ -426,15 +437,18 @@ func startAsyncEngines() {
 			app.QueueUpdateDraw(func() {
 				// Spinner
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
-				intStatus := "[Ctrl+I: INT-OFF]"
+
+				// TASK 1: Dynamic Status Indicators
+				intStatus := "[gray][Ctrl+I: INT-OFF]"
 				if logic.InterceptorActive {
-					intStatus = "[black:red] Ctrl+I: INTERCEPTING (ACTIVE) [-:-]"
+					intStatus = "[black:green] Ctrl+I: INTERCEPTING (ACTIVE) [-:-]"
 				}
 
-				// Added Neural Status Check
-				aiStatus := "[F6: AI-IDLE]"
+				aiStatus := "[gray][F6: AI-IDLE]"
 				if logic.GlobalNeuro.Active {
-					aiStatus = "[black:magenta] F6: NEURAL-ON [-:-]"
+					aiStatus = "[black:magenta] NEURO ENGINE: ACTIVE (HYBRID) [-:-]"
+				} else {
+					aiStatus = "[black:red] NEURO ENGINE: OFF [-:-]"
 				}
 
 				statusFooter.SetText(fmt.Sprintf(" %s %s [blue]SYNC %s [white]| %s", intStatus, aiStatus, spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
@@ -502,7 +516,7 @@ func startAsyncEngines() {
 		}
 	}()
 
-	// 7. F7 (Neural) Consumer
+	// 7. F6 (Neural) Consumer
 	go func() {
 		for msg := range utils.NeuroLogChan {
 			app.QueueUpdateDraw(func() {
