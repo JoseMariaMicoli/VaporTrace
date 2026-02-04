@@ -39,6 +39,33 @@ func ExecuteCommand(rawCmd string) {
 
 	switch verb {
 	// --- NEURAL ENGINE (Sprint 10.6) ---
+	// Task 4: AI Interaction
+	case "ask":
+		if len(args) == 0 {
+			utils.TacticalLog("Usage: ask <your question>")
+			return
+		}
+		question := strings.Join(args, " ")
+		utils.TacticalLog(fmt.Sprintf("[blue]USER ASK:[-] %s", question))
+
+		go func() {
+			if !logic.GlobalNeuro.Active {
+				utils.TacticalLog("[yellow]NEURO:[-] Engine inactive. Auto-starting Hybrid mode...")
+				logic.GlobalNeuro.Configure("hybrid", "", "", "")
+			}
+
+			utils.LogNeural(fmt.Sprintf("[gray]>>> USER QUERY: %s[-]", question))
+			resp, err := logic.GlobalNeuro.ExecuteQuery(question)
+			if err != nil {
+				utils.TacticalLog(fmt.Sprintf("[red]NEURO ERROR:[-] %v", err))
+				utils.LogNeural(fmt.Sprintf("[red]ERROR: %v[-]", err))
+				return
+			}
+
+			utils.LogNeural(fmt.Sprintf("\n[cyan]=== NEURO RESPONSE ===[-]\n[white]%s[-]\n", resp))
+			utils.TacticalLog("[green]NEURO:[-] Response Received (Check Tab 6).")
+		}()
+
 	case "neuro":
 		if len(args) == 0 {
 			utils.TacticalLog("Usage: neuro config | neuro on | neuro off")
@@ -455,10 +482,10 @@ func ExecuteCommand(rawCmd string) {
 		if len(args) > 0 {
 			printHelp(args[0])
 		} else {
-			utils.TacticalLog("[white]Usage: help <command>[-]")
+			utils.TacticalLog("[white]Usage: help <command> OR 'help keys' for hotkeys[-]")
 		}
 
-	// Internal command triggered by UI Modal
+	// Internal command triggered by UI Modal OR explicitly by exit
 	case "__internal_shutdown":
 		go func() {
 			utils.TacticalLog("[red::b]INITIATING SEQUENTIAL SHUTDOWN...[-:-:-]")
@@ -481,8 +508,10 @@ func ExecuteCommand(rawCmd string) {
 			os.Exit(0)
 		}()
 
+	// IMPROVED EXIT: Calls internal shutdown sequence for clean exit
 	case "exit":
-		utils.TacticalLog("[yellow]Please use the Esc key or the Dashboard UI to initiate safe shutdown.[-]")
+		utils.TacticalLog("[yellow]Calling internal shutdown sequence...[-]")
+		ExecuteCommand("__internal_shutdown")
 
 	default:
 		if strings.HasPrefix(verb, "test-") {
@@ -494,7 +523,6 @@ func ExecuteCommand(rawCmd string) {
 }
 
 // seedDatabase injects a massive dataset (120+ entries) strictly aligned to VaporTrace Mapping
-// MODIFIED: Updated to populate new architectural fields (Command, CVSS_Numeric, etc.)
 func seedDatabase() {
 	time.Sleep(500 * time.Millisecond)
 
@@ -621,39 +649,56 @@ func handleTestCommands(verb string) {
 }
 
 func printUsage() {
-	utils.TacticalLog("[aqua]COMMAND MANUAL:[-]")
-	cmds := []string{
-		"[yellow]init_db[-]      | Initialize Persistence",
-		"[yellow]seed_db[-]      | Populate DB with Dummy Data",
-		"[yellow]target[-]       | Lock global target URL",
-		"[yellow]map[-]          | Full Recon (Swagger + JS Scraper)",
-		"[yellow]mine[-]         | Fuzz for hidden parameters",
-		"[yellow]scrape[-]       | Extract API paths from JS",
-		"[yellow]swagger[-]      | Parse OpenAPI docs",
-		"[yellow]bola[-]         | Broken Object Level Auth",
-		"[yellow]bopla[-]        | Mass Assignment Fuzzer",
-		"[yellow]bfla[-]         | Broken Function Level Auth",
-		"[yellow]ssrf[-]         | Server-Side Request Forgery",
-		"[yellow]exhaust[-]      | Resource Exhaustion (DoS)",
-		"[yellow]audit[-]        | Security Misconfiguration Audit",
-		"[yellow]probe[-]        | Integration/Webhook Probe",
-		"[yellow]loot[-]         | View Captured Secrets",
-		"[yellow]weaver[-]       | Deploy OIDC Interceptor",
-		"[yellow]pipeline[-]     | Auto-Analysis & Attack",
-		"[yellow]report[-]       | Generate Markdown Debrief",
-		"[yellow]neuro[-]        | Configure & Control AI Engine",
-		"[yellow]test-neuro[-]   | Verify AI Connectivity",
-		"[yellow]neuro-gen[-]    | Generate AI Attack Vectors",
-		"[yellow]exit[-]         | Secure Shutdown",
+	utils.TacticalLog("[aqua]TACTICAL COMMAND REFERENCE:[-]")
+	// A manual table formatted for the log
+	lines := []string{
+		"[yellow]COMMAND[-]          [cyan]ACTION[-]                 [white]TECHNICAL CONTEXT[-]",
+		"[yellow]target <url>[-]     Scope Definition       Sets the global context for all modules.",
+		"[yellow]map -u <url>[-]     Inventory              Spidering, OpenAPI mining, and route extraction.",
+		"[yellow]swagger <url>[-]    Spec Parsing           Ingests Swagger/OpenAPI definitions into the DB.",
+		"[yellow]scrape <url>[-]     JS Mining              Extracts hidden API paths from JavaScript bundles.",
+		"[yellow]mine <url>[-]       Param Fuzz             Brute-forces hidden parameters (debug, admin, test).",
+		"[yellow]bola <url>[-]       ID Swap                Broken Object Level Authorization testing.",
+		"[yellow]weaver[-]           Auth Forge             Intercepts OIDC tokens and masks data exfiltration.",
+		"[yellow]bopla <url>[-]      Mass Assign            Broken Object Property Level Authorization (Property injection).",
+		"[yellow]exhaust <url>[-]    DoS Probe              Testing resource limits (Payload size, pagination limits).",
+		"[yellow]bfla <url>[-]       PrivEsc                Broken Function Level Authorization (Method tampering).",
+		"[yellow]ssrf <url>[-]       Infra Pivot            SSRF against Cloud Metadata (169.254.169.254).",
+		"[yellow]audit <url>[-]      Config Check           Header analysis, SSL/TLS checks, and CORS auditing.",
+		"[yellow]probe <url>[-]      Integration            Tests for unsafe consumption in webhooks/3rd party APIs.",
+		"[yellow]proxy[-]            Routing                Enables/disables traffic routing (Default: Burp @ 127.0.0.1:8080).",
+		"[yellow]proxies load[-]     Rotation               Loads a list of proxies for rotation to bypass rate limiting.",
+		"[yellow]sessions[-]         Context                Manages active authentication sessions and stored cookies.",
+		"[yellow]neuro on[-]         Enable Engine          Activates the Neural Mutation layer for all traffic.",
+		"[yellow]neuro config[-]     LLM Settings           Opens the configuration modal for LLM provider endpoints.",
+		"[yellow]test-neuro[-]       Engine Diag            Runs connectivity and latency tests to the AI provider.",
+		"[yellow]report[-]           Generate               Triggers the 9.13 Reporting Engine (Markdown/PDF).",
+		"[yellow]init_db[-]          Persistence            Initializes the SQLite3 Framework-Tagged backend.",
+		"[yellow]reset_db[-]         Wipe                   Purges all mission data from the local database.",
 	}
-	for _, c := range cmds {
-		utils.TacticalLog(c)
+	for _, l := range lines {
+		utils.TacticalLog(l)
 	}
 }
 
 func printHelp(cmd string) {
 	utils.TacticalLog(fmt.Sprintf("[aqua]MANUAL: %s[-]", cmd))
 	switch cmd {
+	case "keys":
+		utils.TacticalLog("[aqua]GLOBAL KEY BINDINGS & UI CONTROLS[-]")
+		keys := []string{
+			"[yellow]Ctrl + I[-]    Global    Toggle Interceptor (On/Off)",
+			"[yellow]Ctrl + F[-]    Modal     Forward packet to network",
+			"[yellow]Ctrl + D[-]    Modal     Drop packet",
+			"[yellow]Ctrl + B[-]    Modal     Neuro Brute: Gen payloads for current field",
+			"[yellow]Ctrl + S[-]    Modal     Sync: Save to Loot DB",
+			"[yellow]Ctrl + A[-]    F4 Tab    Analyze: Send snapshot to AI Brain",
+			"[yellow]F1 - F6[-]     Global    Switch Tabs (Logs, Map, Loot, Traffic, Context, Neural)",
+		}
+		for _, k := range keys {
+			utils.TacticalLog(k)
+		}
+
 	case "neuro":
 		utils.TacticalLog("Configures the Neural Engine.")
 		utils.TacticalLog("Usage: neuro config <provider> <model> [api_key] [endpoint]")

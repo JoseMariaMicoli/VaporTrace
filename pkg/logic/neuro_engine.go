@@ -178,8 +178,8 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 		return
 	}
 
-	utils.TacticalLog("[magenta]NEURO:[-] Intercepted Snapshot. Initiating Full-Spectrum Analysis...")
-	utils.LogNeural(fmt.Sprintf("[yellow]>>> AUTONOMOUS SEQUENCE STARTED [%s][-]", time.Now().Format("15:04:05")))
+	// Task 5: Immediate UI Feedback
+	utils.LogNeural("[magenta]>>> PROCESSING TRAFFIC SNAPSHOT (Please Wait)...[-]")
 
 	// Safely truncate dumps to avoid token limit hangs
 	safeReq := truncateContext(reqDump, 1000) // Lowered token count further for 429 safety
@@ -188,29 +188,7 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 	// Async Execution
 	go func() {
 		// 1. Construct the Offensive Prompt
-		prompt := fmt.Sprintf(`ACT AS AN OFFENSIVE SECURITY AI.
-REQUEST:
-%s
-
-RESPONSE:
-%s
-
-TASK:
-1. THINKING: Briefly explain your reasoning process (Chain of Thought).
-2. IDENTIFY: Detect logic flaws (BOLA, BFLA, SQLi, XSS).
-3. EXPLOIT: Generate 3 specific, high-probability exploit payloads.
-4. COMPLIANCE: Map to MITRE and OWASP 2023.
-
-Format:
-CHAIN OF THOUGHT: <Reasoning>
-ANALYSIS: <Summary>
----PAYLOADS---
-<Payload1>
-<Payload2>
-...
----COMPLIANCE---
-<Framework IDs>
-`, safeReq, safeRes)
+		prompt := fmt.Sprintf(ai.TrafficAnalysisPrompt, safeReq, safeRes)
 
 		// 2. Query LLM (Hybrid Execution)
 		response, err := n.ExecuteQuery(prompt)
@@ -224,11 +202,12 @@ ANALYSIS: <Summary>
 		analysis, payloads, compliance := n.parseAIOutput(response)
 
 		// 4. Report to UI (F6 Neural Tab)
-		report := fmt.Sprintf("\n[cyan]=== TACTICAL ANALYSIS ===[-]\n[white]%s[-]\n\n", analysis)
+		report := fmt.Sprintf("\n[cyan]=== TACTICAL ANALYSIS (%s) ===[-]\n[white]%s[-]\n\n", time.Now().Format("15:04:05"), analysis)
 		if compliance != "" {
 			report += fmt.Sprintf("[blue]=== COMPLIANCE ===[-]\n[gray]%s[-]\n", compliance)
 		}
 		utils.LogNeural(report)
+		utils.TacticalLog("[green]NEURO:[-] Analysis Complete. Check Tab 6.")
 
 		// 5. AUTO-FUZZING: Execute Generated Exploits
 		if len(payloads) > 0 {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -21,13 +22,16 @@ var (
 	header       *tview.TextView
 	targetColumn *tview.Table
 	brainLog     *tview.TextView
-	mapView      *tview.TextView
+	mapTable     *tview.Table
 	lootTable    *tview.Table
 	reqView      *tview.TextView
 	resView      *tview.TextView
 	aiView       *tview.TextView
 	neuroView    *tview.TextView
-	reportView   *tview.TextView // F7 Report Tab
+
+	// Removed reportFlex/reportView redeclarations.
+	// They are defined in report_tab.go but visible here in package 'ui'.
+
 	statusFooter *tview.TextView
 	cmdInput     *tview.InputField
 
@@ -36,6 +40,7 @@ var (
 	historyFile  = ".vapor_history"
 
 	knownCommands = []string{
+		"ask",
 		"auth", "sessions", "map", "swagger", "scrape", "mine", "proxy", "proxies", "target", "pipeline",
 		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe",
 		"weaver", "loot", "test-bola", "test-bopla", "test-bfla", "test-exhaust", "test-ssrf", "test-audit", "test-probe",
@@ -80,7 +85,6 @@ func InitTacticalDashboard() {
 	utils.SetLoggerMode("TUI")
 	LoadHistory()
 
-	// Initialize Network & Aggregator
 	logic.InitializeRotaryClient()
 	logic.StartContextAggregator()
 
@@ -110,37 +114,29 @@ func InitTacticalDashboard() {
 
 	// --- PIPELINE QUADRANT SETUP ---
 	targetColumn = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorBlue)
-	targetColumn.SetTitle(" [blue]PIPELINE [white]").SetBorder(true)
-	// Initial Headers
+	targetColumn.SetTitle(" [blue]PIPELINE & STATUS [white]").SetBorder(true)
 	targetColumn.SetCell(0, 0, tview.NewTableCell("[black:blue] PROPERTY "))
 	targetColumn.SetCell(0, 1, tview.NewTableCell("[black:blue] VALUE "))
-	// Pre-populate with defaults
 	updatePipelineQuadrant()
 
 	// --- VIEW SETUP ---
-	brainLog = tview.NewTextView().
-		SetDynamicColors(true).
-		SetRegions(true).
-		SetWordWrap(true).
-		SetScrollable(true)
+	brainLog = tview.NewTextView().SetDynamicColors(true).SetRegions(true).SetWordWrap(true).SetScrollable(true)
 	brainLog.SetTitle(" [green]VAPOR_LOGS (TACTICAL FEED) [white]").SetBorder(true)
 
-	mapView = tview.NewTextView().
-		SetDynamicColors(true).
-		SetRegions(true).
-		SetWordWrap(true).
-		SetTextAlign(tview.AlignCenter)
-	mapView.SetTitle(" [blue]ATTACK_SURFACE [white]").SetBorder(true)
+	mapTable = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorDarkCyan).SetSelectable(true, false)
+	mapTable.SetTitle(" [blue]ATTACK_SURFACE (MAP) [white]").SetBorder(true)
+	mapTable.SetCell(0, 0, tview.NewTableCell("[black:cyan] TIMESTAMP "))
+	mapTable.SetCell(0, 1, tview.NewTableCell("[black:cyan] SOURCE "))
+	mapTable.SetCell(0, 2, tview.NewTableCell("[black:cyan] ENDPOINT "))
+	mapTable.SetCell(0, 3, tview.NewTableCell("[black:cyan] META "))
+	mapTable.SetFixed(1, 0)
 
-	lootTable = tview.NewTable().
-		SetBorders(true).
-		SetBordersColor(tcell.ColorDarkCyan).
-		SetSelectable(true, false)
+	lootTable = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorDarkCyan).SetSelectable(true, false)
 	lootTable.SetTitle(" [magenta]LOOT_VAULT [white]").SetBorder(true)
 	lootTable.SetCell(0, 0, tview.NewTableCell("[black:cyan] TYPE "))
 	lootTable.SetCell(0, 1, tview.NewTableCell("[black:cyan] VALUE "))
 	lootTable.SetCell(0, 2, tview.NewTableCell("[black:cyan] SOURCE "))
-	lootTable.SetFixed(1, 0) // Fix header row
+	lootTable.SetFixed(1, 0)
 
 	reqView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	reqView.SetTitle(" [yellow]REQUEST (UPPER) - Ctrl+A to Analyze [white]").SetBorder(true)
@@ -151,7 +147,7 @@ func InitTacticalDashboard() {
 		AddItem(reqView, 0, 1, false).
 		AddItem(resView, 0, 1, false)
 
-	// F4 Input Capture (AI Trigger)
+	// F4 Input Capture (AI Trigger) with VISUAL FEEDBACK
 	trafficSplit.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlA {
 			req := reqView.GetText(true)
@@ -159,7 +155,12 @@ func InitTacticalDashboard() {
 			if req == "" {
 				utils.TacticalLog("[yellow]NEURO:[-] No request selected to analyze.")
 			} else {
-				logic.GlobalNeuro.AnalyzeTrafficSnapshot(req, res)
+				reqView.SetTitle(" [white:red]>>> ANALYZING SNAPSHOT... PLEASE WAIT <<<[white] ")
+				utils.TacticalLog("[magenta]NEURO:[-] Snapshot captured. Transmitting to Neural Engine...")
+
+				go func() {
+					logic.GlobalNeuro.AnalyzeTrafficSnapshot(req, res)
+				}()
 			}
 			return nil
 		}
@@ -168,22 +169,22 @@ func InitTacticalDashboard() {
 
 	aiView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	aiView.SetTitle(" [white:blue] CONTEXT_AGGREGATOR (F5) [white] ").SetBorder(true)
-	aiView.SetText("[gray]Initializing Context Aggregator...\n\n[blue]●[-] Intelligence Harvest: [green]ACTIVE[-]\n[blue]●[-] Watching For: [white]JWTs, AWS Keys, Bearer Tokens[-]\n[blue]●[-] Correlation Engine: [white]Cross-referencing Findings[-]\n\n")
 
 	neuroView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE (F6) [white] ").SetBorder(true)
 
 	// F7 Report Tab Initialization
-	reportView = InitReportTab()
+	// Note: reportFlex is variable in ui package, initialized here
+	reportFlex = InitReportTab()
 
 	// Add Pages
 	pages.AddPage("logs", brainLog, true, true)
-	pages.AddPage("map", mapView, true, false)
+	pages.AddPage("map", mapTable, true, false)
 	pages.AddPage("loot", lootTable, true, false)
 	pages.AddPage("traffic", trafficSplit, true, false)
 	pages.AddPage("ai", aiView, true, false)
 	pages.AddPage("neuro", neuroView, true, false)
-	pages.AddPage("report", reportView, true, false)
+	pages.AddPage("report", reportFlex, true, false)
 
 	// Main Layout
 	mainFlex := tview.NewFlex().SetDirection(tview.FlexRow).
@@ -199,7 +200,6 @@ func InitTacticalDashboard() {
 
 	// Global Key Bindings
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		// F1 - F7 Tab Switching
 		switch event.Key() {
 		case tcell.KeyF1:
 			switchTo("logs")
@@ -214,23 +214,15 @@ func InitTacticalDashboard() {
 		case tcell.KeyF6:
 			switchTo("neuro")
 		case tcell.KeyF7:
-			// Auto-Load Findings on switch
 			LoadFindings()
 			switchTo("report")
 
-		// Tactical Shortcuts
 		case tcell.KeyCtrlI:
 			logic.InterceptorActive = !logic.InterceptorActive
-			state := "OFF"
-			color := "[red]"
-			if logic.InterceptorActive {
-				state = "ON"
-				color = "[green]"
-			}
-			utils.TacticalLog(fmt.Sprintf("%sINTERCEPTOR TOGGLED: %s (Wait for Packets)[-]", color, state))
+			utils.TacticalLog(fmt.Sprintf("INTERCEPTOR: %v", logic.InterceptorActive))
+			updatePipelineQuadrant()
 
 		case tcell.KeyCtrlH:
-			// Global Help Modal
 			ShowHelpModal(app, pages)
 
 		case tcell.KeyPgUp:
@@ -287,8 +279,12 @@ func InitTacticalDashboard() {
 			SaveHistory(text)
 			historyIndex = len(cmdHistory)
 
-			switchTo("logs")
-			go engine.ExecuteCommand(text)
+			if strings.HasPrefix(strings.ToLower(text), "ask ") {
+				go engine.ExecuteCommand(text)
+			} else {
+				switchTo("logs")
+				go engine.ExecuteCommand(text)
+			}
 		}
 	})
 
@@ -299,9 +295,7 @@ func InitTacticalDashboard() {
 	}
 }
 
-// updatePipelineQuadrant refreshes the top-left status box
 func updatePipelineQuadrant() {
-	// 1. Target
 	t := logic.CurrentSession.GetTarget()
 	if t == "" {
 		t = "[red]NOT SET"
@@ -311,7 +305,6 @@ func updatePipelineQuadrant() {
 	targetColumn.SetCell(1, 0, tview.NewTableCell("TARGET"))
 	targetColumn.SetCell(1, 1, tview.NewTableCell(t))
 
-	// 2. Attacker Token
 	aToken := logic.CurrentSession.AttackerToken
 	if aToken == "" {
 		aToken = "[gray]None"
@@ -321,7 +314,6 @@ func updatePipelineQuadrant() {
 	targetColumn.SetCell(2, 0, tview.NewTableCell("AUTH (ATK)"))
 	targetColumn.SetCell(2, 1, tview.NewTableCell(aToken))
 
-	// 3. Victim Token
 	vToken := logic.CurrentSession.VictimToken
 	if vToken == "" {
 		vToken = "[gray]None"
@@ -331,7 +323,6 @@ func updatePipelineQuadrant() {
 	targetColumn.SetCell(3, 0, tview.NewTableCell("AUTH (VIC)"))
 	targetColumn.SetCell(3, 1, tview.NewTableCell(vToken))
 
-	// 4. Injected Contexts (From DB)
 	count := 0
 	if db.DB != nil && logic.CurrentSession.GetTarget() != "" {
 		_ = db.DB.QueryRow("SELECT COUNT(*) FROM context_store WHERE ? LIKE '%' || scope || '%'", logic.CurrentSession.GetTarget()).Scan(&count)
@@ -343,7 +334,6 @@ func updatePipelineQuadrant() {
 	targetColumn.SetCell(4, 0, tview.NewTableCell("CONTEXTS"))
 	targetColumn.SetCell(4, 1, tview.NewTableCell(fmt.Sprintf("%s%d Active", ctxColor, count)))
 
-	// 5. Proxy Status (Static)
 	staticProxy := logic.GetConfiguredProxy()
 	if staticProxy == "" {
 		staticProxy = "[gray]Direct"
@@ -353,7 +343,6 @@ func updatePipelineQuadrant() {
 	targetColumn.SetCell(5, 0, tview.NewTableCell("PROXY (STAT)"))
 	targetColumn.SetCell(5, 1, tview.NewTableCell(staticProxy))
 
-	// 6. Proxy Pool (Rotation)
 	poolCount := len(logic.ProxyPool)
 	poolStatus := fmt.Sprintf("[gray]%d Nodes", poolCount)
 	if poolCount > 0 {
@@ -361,6 +350,20 @@ func updatePipelineQuadrant() {
 	}
 	targetColumn.SetCell(6, 0, tview.NewTableCell("PROXY POOL"))
 	targetColumn.SetCell(6, 1, tview.NewTableCell(poolStatus))
+
+	intStatus := "[red]OFF (Ctrl+I)"
+	if logic.InterceptorActive {
+		intStatus = "[green]ACTIVE"
+	}
+	targetColumn.SetCell(7, 0, tview.NewTableCell("INTERCEPTOR"))
+	targetColumn.SetCell(7, 1, tview.NewTableCell(intStatus))
+
+	neuroStatus := "[red]OFF"
+	if logic.GlobalNeuro.Active {
+		neuroStatus = "[magenta]ONLINE (HYBRID)"
+	}
+	targetColumn.SetCell(8, 0, tview.NewTableCell("NEURO BRAIN"))
+	targetColumn.SetCell(8, 1, tview.NewTableCell(neuroStatus))
 }
 
 func shortString(s string, l int) string {
@@ -384,7 +387,6 @@ func confirmExit() {
 				app.SetFocus(cmdInput)
 			}
 		})
-
 	pages.AddPage("modal", modal, false, true)
 	app.SetFocus(modal)
 }
@@ -392,6 +394,14 @@ func confirmExit() {
 func switchTo(page string) {
 	updateTabs(page)
 	pages.SwitchToPage(page)
+	// Task 3: Focus routing logic for Report Tab
+	if page == "report" {
+		if reportFlex != nil {
+			app.SetFocus(reportFlex)
+		}
+	} else {
+		app.SetFocus(cmdInput)
+	}
 }
 
 func updateTabs(active string) {
@@ -428,38 +438,18 @@ func updateTabs(active string) {
 	header.SetText(headerText)
 }
 
-// startAsyncEngines consolidates all UI listeners
 func startAsyncEngines() {
-	// 1. Ticker for Status & Pipeline Quadrant
 	go func() {
 		ticker := time.NewTicker(250 * time.Millisecond)
 		for range ticker.C {
 			app.QueueUpdateDraw(func() {
-				// Spinner
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
-
-				// TASK 1: Dynamic Status Indicators
-				intStatus := "[gray][Ctrl+I: INT-OFF]"
-				if logic.InterceptorActive {
-					intStatus = "[black:green] Ctrl+I: INTERCEPTING (ACTIVE) [-:-]"
-				}
-
-				aiStatus := "[gray][F6: AI-IDLE]"
-				if logic.GlobalNeuro.Active {
-					aiStatus = "[black:magenta] NEURO ENGINE: ACTIVE (HYBRID) [-:-]"
-				} else {
-					aiStatus = "[black:red] NEURO ENGINE: OFF [-:-]"
-				}
-
-				statusFooter.SetText(fmt.Sprintf(" %s %s [blue]SYNC %s [white]| %s", intStatus, aiStatus, spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
-
-				// Pipeline Quadrant Update
+				statusFooter.SetText(fmt.Sprintf(" [blue]SYSTEM SYNC %s [white]| %s", spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
 				updatePipelineQuadrant()
 			})
 		}
 	}()
 
-	// 2. F1 (Logs) Consumer
 	go func() {
 		for msg := range utils.UI_Log_Chan {
 			app.QueueUpdateDraw(func() {
@@ -473,21 +463,42 @@ func startAsyncEngines() {
 		}
 	}()
 
-	// 3. F2 (Map) Consumer
+	regexMap := regexp.MustCompile(`DISCOVERED\[-\] (.*?) \[yellow\]\((.*?)\)`)
 	go func() {
 		for msg := range utils.MapDataChan {
 			app.QueueUpdateDraw(func() {
-				fmt.Fprintln(mapView, msg)
-				mapView.ScrollToEnd()
+				cleanMsg := utils.StripANSI(msg)
+				matches := regexMap.FindStringSubmatch(msg)
+				endpoint := cleanMsg
+				meta := "Unknown"
+				source := "Recon"
+				if len(matches) > 2 {
+					endpoint = strings.TrimSpace(matches[1])
+					meta = strings.TrimSpace(matches[2])
+					if strings.Contains(meta, "JS") {
+						source = "Scraper"
+					}
+					if strings.Contains(meta, "Swagger") || strings.Contains(meta, "OpenAPI") {
+						source = "Swagger"
+					}
+					if strings.Contains(meta, "Mining") {
+						source = "Miner"
+					}
+				}
+				row := 1
+				mapTable.InsertRow(row)
+				mapTable.SetCell(row, 0, tview.NewTableCell(time.Now().Format("15:04:05")).SetTextColor(tcell.ColorGray))
+				mapTable.SetCell(row, 1, tview.NewTableCell(source).SetTextColor(tcell.ColorBlue))
+				mapTable.SetCell(row, 2, tview.NewTableCell(endpoint).SetTextColor(tcell.ColorGreen))
+				mapTable.SetCell(row, 3, tview.NewTableCell(meta).SetTextColor(tcell.ColorYellow))
 			})
 		}
 	}()
 
-	// 4. F3 (Loot) Consumer
 	go func() {
 		for pkt := range utils.LootDataChan {
 			app.QueueUpdateDraw(func() {
-				row := 1 // Header is 0, insert below header
+				row := 1
 				lootTable.InsertRow(row)
 				lootTable.SetCell(row, 0, tview.NewTableCell(pkt.Type).SetTextColor(tcell.ColorRed))
 				lootTable.SetCell(row, 1, tview.NewTableCell(pkt.Value).SetTextColor(tcell.ColorYellow))
@@ -496,17 +507,17 @@ func startAsyncEngines() {
 		}
 	}()
 
-	// 5. F4 (Traffic) Consumer
 	go func() {
 		for pkt := range utils.TrafficChan {
 			app.QueueUpdateDraw(func() {
 				reqView.SetText(fmt.Sprintf("[yellow]%s[-]\n\n[white]%s[-]", pkt.ReqHeader, pkt.ReqBody))
 				resView.SetText(fmt.Sprintf("[green]%s[-]\n\n[white]%s[-]", pkt.ResHeader, pkt.ResBody))
+				// Reset title if it was stuck on processing
+				reqView.SetTitle(" [yellow]REQUEST (UPPER) - Ctrl+A to Analyze [white] ")
 			})
 		}
 	}()
 
-	// 6. F5 (Context) Consumer
 	go func() {
 		for msg := range utils.ContextLogChan {
 			app.QueueUpdateDraw(func() {
@@ -516,17 +527,16 @@ func startAsyncEngines() {
 		}
 	}()
 
-	// 7. F6 (Neural) Consumer
 	go func() {
 		for msg := range utils.NeuroLogChan {
 			app.QueueUpdateDraw(func() {
 				fmt.Fprintf(neuroView, "%s\n", msg)
 				neuroView.ScrollToEnd()
+				reqView.SetTitle(" [yellow]REQUEST (UPPER) - Ctrl+A to Analyze [white] ")
 			})
 		}
 	}()
 
-	// 8. Interceptor Modal Listener
 	go func() {
 		for payload := range logic.InterceptorChan {
 			app.QueueUpdateDraw(func() {

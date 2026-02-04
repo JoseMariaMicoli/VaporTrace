@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sync"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
@@ -16,6 +17,9 @@ var (
 	urlRegex  = regexp.MustCompile(`https?://[a-zA-Z0-9\.\-]+\.[a-z]{2,}/[a-zA-Z0-9\-\_/]+`)
 	// Hash router support (Task 6)
 	spaRegex = regexp.MustCompile(`[#][\/]([a-zA-Z0-9\-\_\/]+)`)
+
+	// Task 1: Deduplication for scraper findings within a session
+	scrapedCache sync.Map
 )
 
 func ExtractJSPaths(url string, proxy string) ([]string, error) {
@@ -23,13 +27,17 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch JS bundle: %v", err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("non-200 status code: %d", resp.StatusCode)
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read JS body: %v", err)
 	}
 
 	bodyStr := string(body)
@@ -38,14 +46,17 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 	spaMatches := spaRegex.FindAllString(bodyStr, -1)
 
 	var cleaned []string
-	seen := make(map[string]bool)
 
 	addPath := func(p string, typeStr string) {
-		if _, exists := seen[p]; !exists && len(p) > 2 {
-			seen[p] = true
+		// Task 1: Deduplication logic using sync.Map
+		if _, exists := scrapedCache.Load(p); !exists && len(p) > 2 {
+			scrapedCache.Store(p, true)
 			cleaned = append(cleaned, p)
 			logic.GlobalDiscovery.AddEndpoint(p)
-			utils.LogMap(p, typeStr, "200")
+
+			// Task 2 & 1: Send structured finding info via LogMap
+			// Dashboard will regex parse this format
+			utils.LogMap(p, fmt.Sprintf("%s (JS-Scraper)", typeStr), "200")
 
 			utils.RecordFinding(db.Finding{
 				Phase:   "PHASE II: DISCOVERY",

@@ -17,7 +17,7 @@ const (
 	SessionDraftFile = "reports/current_session_draft.md"
 )
 
-// Global State for Dirty Checking (used by Status Bar)
+// Global State for Dirty Checking (used by Status Bar/LoadFindings)
 var IsReportDirty bool = false
 
 // EnsureReportDir creates the output directory on startup
@@ -28,6 +28,7 @@ func EnsureReportDir() {
 }
 
 // GenerateBaseTemplate queries the DB (same data as generator.go) to create an editable string
+// Task 3: Markdown generation for the TextArea
 func GenerateBaseTemplate() string {
 	var sb strings.Builder
 
@@ -37,14 +38,14 @@ func GenerateBaseTemplate() string {
 
 	sb.WriteString("## 1. EXECUTIVE SUMMARY\n")
 	sb.WriteString("<!-- EDITABLE: Write high-level business impact here -->\n")
-	sb.WriteString("Security assessment conducted using VaporTrace Hydra v3.1. Analysis indicates several critical control failures regarding authentication and input validation.\n\n")
+	sb.WriteString("Security assessment conducted using VaporTrace. Analysis indicates several critical control failures regarding authentication and input validation.\n\n")
 
 	sb.WriteString("## 2. AUTOMATED FINDINGS (DATABASE EXPORT)\n")
 	sb.WriteString("| SEVERITY | OWASP | TARGET | DETAILS |\n")
 	sb.WriteString("| :--- | :--- | :--- | :--- |\n")
 
 	if db.DB != nil {
-		// mirroring logic from report/generator.go but for UI buffer
+		// Mirroring logic from report/generator.go but for UI buffer
 		rows, err := db.DB.Query("SELECT status, owasp_id, target, details, cvss_numeric FROM findings ORDER BY cvss_numeric DESC")
 		if err == nil {
 			defer rows.Close()
@@ -81,6 +82,7 @@ func GenerateBaseTemplate() string {
 
 // SaveReportDisk writes the current buffer to a permanent timestamped file
 func SaveReportDisk(content string) (string, error) {
+	EnsureReportDir()
 	filename := fmt.Sprintf("VaporTrace_Final_%s.md", time.Now().Format("20060102_150405"))
 	fullPath := filepath.Join(ReportsDir, filename)
 
@@ -112,6 +114,10 @@ func DeleteSession(app *tview.Application, pages *tview.Pages, clearView func())
 			}
 			// Close Modal (Return to previous page, handled by caller mostly or manual switch)
 			pages.RemovePage("modal_purge")
+			// Return focus using reportEditor because reportView is undefined
+			if reportEditor != nil {
+				app.SetFocus(reportEditor)
+			}
 		})
 
 	pages.AddPage("modal_purge", modal, false, true)

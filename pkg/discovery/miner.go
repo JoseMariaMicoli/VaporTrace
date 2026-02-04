@@ -11,21 +11,24 @@ import (
 
 func MineParameters(baseURL string, endpoint string, proxy string) {
 	params := []string{"debug", "admin", "test", "dev", "internal", "config", "role"}
-	
+
 	client := logic.GlobalClient
 
 	for _, p := range params {
 		fullURL := fmt.Sprintf("%s%s?%s=true", baseURL, endpoint, p)
-		
+
 		req, _ := http.NewRequest("GET", fullURL, nil)
 		resp, err := client.Do(req)
-		
+
 		if err != nil {
 			continue
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusBadRequest {
+			// Task 2: Log for UI
+			utils.LogMap(fmt.Sprintf("%s?%s", endpoint, p), "Param Mining", fmt.Sprintf("%d", resp.StatusCode))
+
 			utils.RecordFinding(db.Finding{
 				Phase:    "PHASE II: DISCOVERY",
 				Target:   fullURL,
