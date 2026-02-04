@@ -32,7 +32,42 @@ func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 	case "ollama":
 		n.Provider = &ai.OllamaClient{}
 	case "openai":
-		n.Provider = &ai.OpenAIClient{}
+		if model == "" {
+			model = "gpt-4o"
+		}
+		n.Primary = &ai.OpenAIClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
+		utils.TacticalLog("[green]NEURO:[-] OpenAI Cloud Selected.")
+
+	case "google", "gemini":
+		if model == "" {
+			// Using the stable alias to avoid beta quota issues in LATAM regions
+			model = "gemini-1.5-flash"
+		}
+		n.Primary = &ai.GeminiClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
+		utils.TacticalLog(fmt.Sprintf("[cyan]NEURO:[-] Google Gemini Selected (%s).", model))
+
+	case "groq":
+		if model == "" {
+			model = "llama-3.1-8b-instant"
+		}
+		if endpoint == "" {
+			endpoint = "https://api.groq.com/openai/v1/chat/completions"
+		}
+		n.Primary = &ai.OpenAIClient{} // Groq is OpenAI Compatible
+		n.Primary.Configure(apiKey, model, endpoint)
+		utils.TacticalLog("[cyan]NEURO:[-] Groq LPU Cloud Selected.")
+
+	case "hybrid":
+		// Explicit Hybrid Mode
+		if model == "" {
+			model = "gpt-4o"
+		}
+		n.Primary = &ai.OpenAIClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
+		utils.TacticalLog("[magenta]NEURO:[-] Hybrid Brain Activated. Primary: OpenAI | Fallback: Ollama.")
+
 	default:
 		n.Provider = &ai.OllamaClient{} // Default to local
 	}
@@ -42,7 +77,68 @@ func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 	utils.TacticalLog(fmt.Sprintf("[magenta]NEURO:[-] Engine configured with %s (%s)", providerType, model))
 }
 
-// AnalyzeTrafficSnapshot takes raw HTTP dumps and queries the AI
+// enforceRateLimit ensures we don't hit 429s by spacing requests
+func (n *NeuroEngine) enforceRateLimit() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	// Strict 6 seconds between calls for Free Tier safety in high-latency regions
+	elapsed := time.Since(n.lastCall)
+	if elapsed < 6*time.Second {
+		wait := 6*time.Second - elapsed
+		time.Sleep(wait)
+	}
+	n.lastCall = time.Now()
+}
+
+// ExecuteQuery tries primary provider, and immediately falls back to secondary on 429
+func (n *NeuroEngine) ExecuteQuery(prompt string) (string, error) {
+	var primaryErr error
+
+	if n.Primary != nil {
+		// 1. Rate Limit Check
+		n.enforceRateLimit()
+
+		// 2. Primary Attempt
+		res, err := n.Primary.Analyze(prompt)
+
+		// 3. Smart Error Handling
+		if err != nil {
+			primaryErr = err
+			errStr := err.Error()
+
+			// Detect 429 / Quota issues explicitly
+			if strings.Contains(errStr, "429") || strings.Contains(strings.ToLower(errStr), "quota") || strings.Contains(strings.ToLower(errStr), "exhausted") || strings.Contains(strings.ToLower(errStr), "rate limit") {
+				utils.TacticalLog("[red]NEURO:[-] Cloud Brain Quota/Rate-Limit (429) Hit.")
+				utils.TacticalLog("[yellow]NEURO:[-] BYPASSING RETRY -> Engaging Local Brain (Ollama) Immediately.")
+				// We do NOT retry primary here.
+				// Fallthrough directly to secondary.
+			} else {
+				// Other errors (Network, Auth) log and fallthrough
+				utils.TacticalLog(fmt.Sprintf("[red]NEURO:[-] Primary Brain Error: %v. Switching to Fallback...", err))
+			}
+		} else if res != "" {
+			return res, nil
+		}
+	}
+
+	// 4. Fallback Execution (Local / Ollama)
+	if n.Secondary != nil {
+		utils.TacticalLog("[blue]NEURO:[-] Using Local Mistral (Ollama)...")
+		res, err := n.Secondary.Analyze(prompt)
+		if err != nil {
+			// If both fail, return a combined error message
+			finalErr := fmt.Errorf("Hybrid Failure - Cloud: %v | Local: %v", primaryErr, err)
+			return "", finalErr
+		}
+		return res, nil
+	}
+
+	return "", fmt.Errorf("all neural paths failed (Primary: %v, No Secondary configured)", primaryErr)
+}
+
+// AnalyzeTrafficSnapshot is the Core Trigger (Ctrl+A).
+// It safely executes the analysis in a background thread to keep the UI responsive.
 func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 	if !n.Active || n.Provider == nil {
 		utils.TacticalLog("[yellow]NEURO:[-] AI Engine not active. Run 'neuro config'.")
