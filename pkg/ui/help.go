@@ -32,6 +32,7 @@ func ShowHelpModal(app *tview.Application, pages *tview.Pages) {
 		{"F7", "Global", "Report Tab (Read/Edit)"},
 		{"Ctrl + W", "F7 Tab", "Save Report to Disk"},
 		{"Ctrl + X", "F7 Tab", "Delete Session / Clear Report"},
+		{"Ctrl + H", "Global", "Close this Help menu"},
 	}
 
 	for i, row := range data {
@@ -42,19 +43,20 @@ func ShowHelpModal(app *tview.Application, pages *tview.Pages) {
 		}
 	}
 
-	// Wrapper for centering
+	// Wrapper for centering the table on the screen
 	frame := tview.NewFlex().
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(nil, 0, 1, false).
-			AddItem(modal, 14, 1, true).
-			AddItem(nil, 0, 1, false), 80, 1, true).
+			AddItem(modal, len(data)+2, 1, true).    // Height adjusted to data size
+			AddItem(nil, 0, 1, false), 80, 1, true). // Width set to 80
 		AddItem(nil, 0, 1, false)
 
-	// Close on Input
+	// Close on Input and restore focus
 	modal.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEsc || event.Key() == tcell.KeyEnter || event.Key() == tcell.KeyCtrlH {
 			pages.RemovePage("help_modal")
+			// Return focus to the command input so the user can keep typing
 			if cmdInput != nil {
 				app.SetFocus(cmdInput)
 			}
