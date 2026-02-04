@@ -7,19 +7,19 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
-// ShowInterceptorModal builds and displays the F2 Interceptor UI
-// Optimized for strict blocking/resuming of the Logic Thread with visible styling.
+// ShowInterceptorModal builds and displays the Interceptor UI
+// Optimized for strict blocking/resuming of the Logic Thread.
 func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *logic.InterceptorPayload) {
 	req := payload.Request
 
 	// 1. Safe Body Reading
-	// We read the stream, cache it, and immediately restore it to the request so logic flows aren't broken.
 	var bodyBytes []byte
 	var err error
 	if req.Body != nil {
@@ -31,12 +31,10 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 	bodyStr := string(bodyBytes)
 
 	// 2. Normalization
-	// Go http.Request.Method can be empty for GET. We must be explicit for the UI.
 	methodStr := req.Method
 	if methodStr == "" {
 		methodStr = "GET"
 	}
-
 	urlStr := req.URL.String()
 
 	// 3. Format Headers
@@ -51,11 +49,11 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 	// Container Frame
 	formFrame := tview.NewFlex().SetDirection(tview.FlexRow)
 	formFrame.SetBorder(true).
-		SetTitle(" [red::b]TACTICAL INTERCEPTOR (ACTIVE) [white]").
+		SetTitle(" [red::b]TACTICAL INTERCEPTOR [white]").
 		SetTitleAlign(tview.AlignCenter).
 		SetBackgroundColor(tcell.ColorBlack)
 
-	// --- Input Fields (Styled) ---
+	// --- Input Fields ---
 
 	methodField := tview.NewInputField().
 		SetLabel("Method: ").
@@ -81,7 +79,7 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 	headersArea.SetBackgroundColor(tcell.ColorBlack)
 
 	bodyArea := tview.NewTextArea().
-		SetLabel("Body (Payload)").
+		SetLabel("Body (Payload) [Ctrl+B to Brute]").
 		SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite))
 	bodyArea.SetText(bodyStr, false)
 	bodyArea.SetBorder(true).SetTitleColor(tcell.ColorAqua)
@@ -91,15 +89,12 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 
 	closeUI := func() {
 		pages.RemovePage("interceptor")
-		// Safely attempt to refocus the command input if accessible
-		// Note: cmdInput is global in dashboard.go; ensuring focus returns there is UX critical.
 		if cmdInput != nil {
 			app.SetFocus(cmdInput)
 		}
 	}
 
 	forwardFunc := func() {
-		// Reconstruct Request
 		newMethod := methodField.GetText()
 		newURL := urlField.GetText()
 		newBody := bodyArea.GetText()
@@ -109,11 +104,9 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 
 		if err != nil {
 			utils.TacticalLog(fmt.Sprintf("[red]Interceptor Rebuild Error: %v. Forwarding original.", err))
-			// Recover: Send original req back to unblock thread
-			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Ensure body is reset again
+			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			payload.ResponseChan <- req
 		} else {
-			// Parse Headers from Text Area
 			lines := strings.Split(headersArea.GetText(), "\n")
 			for _, line := range lines {
 				if strings.TrimSpace(line) == "" {
@@ -126,7 +119,6 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 					newReq.Header.Add(key, val)
 				}
 			}
-			// Unblock Logic Thread
 			payload.ResponseChan <- newReq
 		}
 		closeUI()
@@ -134,25 +126,53 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 
 	dropFunc := func() {
 		utils.TacticalLog("[red]INTERCEPTOR:[-] Packet Dropped by Operator")
-		payload.ResponseChan <- nil // Signal drop to logic layer
+		payload.ResponseChan <- nil
 		closeUI()
 	}
 
-	// --- BUTTONS (Fixed: Unchained calls to avoid interface panic) ---
+	// Task 7 & Task 2: Sync to Vault Logic
+	syncToVault := func() {
+		utils.TacticalLog("[magenta]VAULT:[-] Snapshot synced to Loot Database.")
+		// Add simple entry to in-memory Vault for immediate UI display
+		logic.Vault = append(logic.Vault, logic.Finding{
+			Type:   "INTERCEPT_SNAP",
+			Value:  shorten(urlField.GetText(), 40),
+			Source: "Operator-Sync",
+		})
+		utils.LogLoot("SNAP", shorten(urlField.GetText(), 30), "Interceptor")
 
-	injectBtn := tview.NewButton("Inject Active Session (Auth)").SetSelectedFunc(func() {
-		token := logic.CurrentSession.AttackerToken
-		if token != "" {
-			current := headersArea.GetText()
-			if current != "" && !strings.HasSuffix(current, "\n") {
-				current += "\n"
-			}
-			newHeaders := current + fmt.Sprintf("Authorization: Bearer %s", token)
-			headersArea.SetText(newHeaders, false)
+		// Persist
+		utils.RecordFinding(db.Finding{
+			Phase:   "PHASE X: MANUAL",
+			Command: "intercept",
+			Target:  urlField.GetText(),
+			Details: "Manual Snapshot synced via Interceptor (Ctrl+S)",
+			Status:  "MANUAL_ENTRY",
+		})
+	}
+
+	// Task 3: Neuro Brute Logic
+	neuroBrute := func() {
+		currentBody := bodyArea.GetText()
+		if currentBody == "" {
+			utils.TacticalLog("[yellow]NEURO:[-] Body empty. Cannot bruteforce empty context.")
+			return
 		}
-	})
-	injectBtn.SetBackgroundColor(tcell.ColorDarkBlue)
-	injectBtn.SetLabelColor(tcell.ColorWhite)
+		utils.TacticalLog("[blue]NEURO:[-] Fuzzing body content with High-Entropy Payloads...")
+		go logic.GlobalNeuro.PerformNeuroBrute(currentBody)
+	}
+
+	// Task 3: Neuro Inverter Logic
+	neuroInvert := func() {
+		logic.NeuroInverterActive = !logic.NeuroInverterActive
+		status := "OFF"
+		if logic.NeuroInverterActive {
+			status = "ACTIVE"
+		}
+		utils.TacticalLog(fmt.Sprintf("[magenta]NEURO-INV:[-] Logic Inversion Mode %s", status))
+	}
+
+	// --- BUTTONS (Fixed: Unchained calls) ---
 
 	forwardBtn := tview.NewButton("FORWARD (Ctrl+F)").SetSelectedFunc(forwardFunc)
 	forwardBtn.SetBackgroundColor(tcell.ColorGreen)
@@ -162,15 +182,31 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 	dropBtn.SetBackgroundColor(tcell.ColorDarkRed)
 	dropBtn.SetLabelColor(tcell.ColorWhite)
 
+	bruteBtn := tview.NewButton("NEURO BRUTE (Ctrl+B)").SetSelectedFunc(neuroBrute)
+	bruteBtn.SetBackgroundColor(tcell.ColorDarkBlue)
+	bruteBtn.SetLabelColor(tcell.ColorWhite)
+
+	invertBtn := tview.NewButton("NEURO INV (Ctrl+N)").SetSelectedFunc(neuroInvert)
+	invertBtn.SetBackgroundColor(tcell.ColorDarkMagenta)
+	invertBtn.SetLabelColor(tcell.ColorWhite)
+
+	syncBtn := tview.NewButton("SYNC VAULT (Ctrl+S)").SetSelectedFunc(syncToVault)
+	syncBtn.SetBackgroundColor(tcell.ColorOlive)
+	syncBtn.SetLabelColor(tcell.ColorWhite)
+
 	// Layout for Buttons
 	btnRow := tview.NewFlex().SetDirection(tview.FlexColumn).
 		AddItem(forwardBtn, 0, 1, false).
-		AddItem(tview.NewBox(), 1, 0, false). // Spacer
-		AddItem(dropBtn, 0, 1, false)
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(dropBtn, 0, 1, false).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(bruteBtn, 0, 1, false).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(invertBtn, 0, 1, false).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(syncBtn, 0, 1, false)
 
 	// --- MAIN LAYOUT ---
-
-	// Row 1: Method (Fixed 12) + URL (Flex)
 	topRow := tview.NewFlex().
 		AddItem(methodField, 12, 0, false).
 		AddItem(urlField, 0, 1, false)
@@ -178,8 +214,7 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 	formFrame.AddItem(topRow, 3, 1, true).
 		AddItem(headersArea, 0, 3, false).
 		AddItem(bodyArea, 0, 4, false).
-		AddItem(injectBtn, 1, 0, false).
-		AddItem(tview.NewBox(), 1, 0, false). // Vertical Spacer
+		AddItem(tview.NewBox(), 1, 0, false).
 		AddItem(btnRow, 1, 0, false)
 
 	// --- KEY BINDINGS ---
@@ -191,11 +226,26 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 		case tcell.KeyCtrlD:
 			dropFunc()
 			return nil
+		case tcell.KeyCtrlB:
+			neuroBrute()
+			return nil
+		case tcell.KeyCtrlN:
+			neuroInvert()
+			return nil
+		case tcell.KeyCtrlS:
+			syncToVault()
+			return nil
 		}
 		return event
 	})
 
-	// Mount and Force Focus
 	pages.AddPage("interceptor", formFrame, true, true)
 	app.SetFocus(formFrame)
+}
+
+func shorten(s string, limit int) string {
+	if len(s) > limit {
+		return s[:limit] + "..."
+	}
+	return s
 }
