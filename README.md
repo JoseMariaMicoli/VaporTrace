@@ -15,9 +15,9 @@
 
 With the successful completion of **Sprint 10 (HYDRA)**, the suite provides a unified tactical interface for real-time monitoring of complex authorization logic and automated alignment with global cybersecurity standards.
 
-> **Project Phase:** HYDRA (Sprint 10) - Stable Release.
-> **Current Version:** v3.1-Hydra (Stable)
-> **Core Principle:** Middleware-First Interception & Heuristic Logic Analysis.
+> **Project Phase:** HYDRA (Sprint 10.6) - Stable Release.
+> **Current Version:** v3.1.2-Hydra
+> **Core Principle:** Middleware-First Interception & Neural Logic Analysis.
 
 ---
 
@@ -35,6 +35,11 @@ With the successful completion of **Sprint 10 (HYDRA)**, the suite provides a un
 * **Hydra Tactical TUI:** A sophisticated, real-time operational dashboard built with `rivo/tview`. It centralizes all interceptor telemetry and mission data into a single, high-visibility interface.
 * **Mission Vault Persistence:** A hardened **SQLite3** backend that maintains a persistent record of all engagement logs, ensuring that every finding is auditable and ready for **DFIR**.
 
+### 🧠 Neural Engine & Brute Logic
+With the v3.1 update, VaporTrace introduces autonomous payload generation:
+* **Contextual Bruting (Ctrl+B):** When a packet is intercepted, the Neural Engine analyzes the JSON/Form structure and generates high-entropy payloads to bypass logic-based filters.
+* **Neural Synchronization (Ctrl+N):** A dedicated high-speed switch to monitor the `NEURO_LOG` stream, allowing operators to see AI reasoning in real-time.
+* **Asynchronous Analysis (Ctrl+A):** Non-blocking traffic evaluation that flags PII leakage or Broken Object Level Authorization (BOLA) patterns.
 ---
 
 ### **📈 Strategic Roadmap: The Path Forward (Sprints 11–16)**
@@ -112,17 +117,21 @@ The legacy interactive shell has been deprecated in favor of the **Hydra TUI**. 
 
 ---
 
-### 🔢 Summary of Hotkeys (v3.1-Hydra)
+## ⌨️ Tactical Keyboard Interface (Global)
+
+The Hydra TUI uses a specialized input capture system to manage the API pipeline in real-time:
 
 | Key Combination | Scope | Function |
 | :--- | :--- | :--- |
-| **`Ctrl + I`** | Global | **Toggle Interceptor** (On/Off) |
-| **`Ctrl + F`** | Modal | **Forward** packet to network |
-| **`Ctrl + D`** | Modal | **Drop** packet |
-| **`Ctrl + B`** | Modal | **Neuro Brute:** Gen payloads for current field |
-| **`Ctrl + S`** | Modal | **Sync:** Save to Loot DB |
-| **`Ctrl + A`** | F4 Tab | **Analyze:** Send snapshot to AI Brain |
-| **`F1 - F6`** | Global | Switch Tabs (Logs, Map, Loot, Traffic, Context, **Neural**) |
+| **Ctrl + H** | Global | **Toggle Help Modal** (Live Reference) |
+| **Ctrl + N** | Global | **Neural Jump:** Immediate switch to Neural Engine (F6) |
+| **Ctrl + I** | Global | **Interceptor:** Toggle Active/Passive Interception |
+| **Ctrl + A** | Traffic | **Analyze:** Offload Req/Res snapshot to AI Brain |
+| **Ctrl + B** | Intercept| **Neuro Brute:** Generate AI-driven payloads for active field |
+| **F1 - F7** | Global | Quick Switch (Logs, Map, Loot, Traffic, AI, Neuro, Report) |
+| **Ctrl + W** | Report | Commit current session findings to disk |
+| **Ctrl + X** | Report | Purge session data and clear report buffer |
+| **Esc** | Global | Close Active Modal / Exit Application |
 
 ---
 
