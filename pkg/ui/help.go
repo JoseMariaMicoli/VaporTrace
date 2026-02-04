@@ -29,9 +29,9 @@ func ShowHelpModal(app *tview.Application, pages *tview.Pages) {
 		{"Ctrl + S", "Modal", "Sync: Save to Loot DB"},
 		{"Ctrl + A", "F4 Tab", "Analyze: Send snapshot to AI Brain"},
 		{"F1 - F6", "Global", "Switch Tabs (Logs...Neural)"},
-		{"F7", "Global", "Report Tab (Preview/Save)"},
-		{"Ctrl + W", "F7 Tab", "Save Report"},
-		{"Ctrl + X", "F7 Tab", "Clear Report"},
+		{"F7", "Global", "Report Tab (Read/Edit)"},
+		{"Ctrl + W", "F7 Tab", "Save Report to Disk"},
+		{"Ctrl + X", "F7 Tab", "Delete Session / Clear Report"},
 	}
 
 	for i, row := range data {

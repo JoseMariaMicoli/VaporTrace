@@ -2,114 +2,145 @@ package ui
 
 import (
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
+var (
+	// reportFlex holds the layout (Editor or Preview)
+	reportFlex    *tview.Flex
+	reportEditor  *tview.TextArea
+	reportPreview *tview.TextView
+
+	// State
+	isPreviewMode bool
+)
+
 // InitReportTab creates the component for the F7 page.
-// It assigns the component to the global reportView defined in dashboard.go.
-func InitReportTab() *tview.TextView {
-	reportView = tview.NewTextView().
+// Returns a Flex container that switches between Editor and Preview
+func InitReportTab() *tview.Flex {
+	reportFlex = tview.NewFlex().SetDirection(tview.FlexRow)
+
+	// 1. Initialize Editor
+	reportEditor = tview.NewTextArea()
+	reportEditor.SetTextStyle(tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite))
+	reportEditor.SetTitle(" [white:red] REPORT EDITOR (EDIT MODE) [white] - [yellow]Ctrl+W/S: Save[-] | [cyan]Ctrl+P: Preview (Color)[-] | [red]Ctrl+X: Delete[-] ").
+		SetBorder(true).
+		SetBorderColor(tcell.ColorRed)
+
+	// 2. Initialize Previewer (Read Only, renders colors)
+	reportPreview = tview.NewTextView().
 		SetDynamicColors(true).
 		SetRegions(true).
 		SetWordWrap(true).
 		SetScrollable(true)
-
-	reportView.SetTitle(" [white:red] MISSION REPORT (PREVIEW) [white] - [yellow]Ctrl+W: Save[-] | [red]Ctrl+X: Clear[-] ").
+	reportPreview.SetTitle(" [white:blue] REPORT PREVIEW (READ ONLY) [white] - [cyan]Ctrl+P: Edit Mode[-] ").
 		SetBorder(true).
-		SetBorderColor(tcell.ColorRed)
+		SetBorderColor(tcell.ColorBlue)
 
-	// Input Capture for Editor Actions
-	reportView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	// 3. Editor Input Capture
+	reportEditor.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyCtrlW:
+		case tcell.KeyCtrlW, tcell.KeyCtrlS:
 			SaveReport()
 			return nil
 		case tcell.KeyCtrlX:
-			ClearReport()
+			DeleteSession(app, pages, ClearReport)
+			return nil
+		case tcell.KeyCtrlP:
+			ToggleReportMode()
 			return nil
 		}
 		return event
 	})
 
-	return reportView
+	// 4. Preview Input Capture
+	reportPreview.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyCtrlP:
+			ToggleReportMode()
+			return nil
+		case tcell.KeyCtrlW, tcell.KeyCtrlS:
+			// Allow save from preview too
+			SaveReport()
+			return nil
+		}
+		return event
+	})
+
+	// Start in Editor Mode
+	reportFlex.AddItem(reportEditor, 0, 1, true)
+	isPreviewMode = false
+
+	return reportFlex
 }
 
-// LoadFindings fetches data from DB and renders Markdown with colors
+// ToggleReportMode switches the view in the Flex container
+func ToggleReportMode() {
+	reportFlex.Clear()
+	if isPreviewMode {
+		// Switch to Edit
+		reportFlex.AddItem(reportEditor, 0, 1, true)
+		app.SetFocus(reportEditor)
+		isPreviewMode = false
+	} else {
+		// Switch to Preview
+		// Sync content: Render markdown colors roughly
+		raw := reportEditor.GetText()
+		rendered := renderMarkdownToTview(raw)
+		reportPreview.SetText(rendered)
+
+		reportFlex.AddItem(reportPreview, 0, 1, true)
+		app.SetFocus(reportPreview)
+		isPreviewMode = true
+	}
+}
+
+// Simple heuristic renderer for tview colors
+func renderMarkdownToTview(md string) string {
+	// Replace headers with Blue/Bold
+	md = strings.ReplaceAll(md, "## ", "[blue::b]## ")
+	md = strings.ReplaceAll(md, "# ", "[blue::b]# ")
+	// Replace bold with white/bold
+	md = strings.ReplaceAll(md, "**", "[white::b]")
+	// Highlight specific keywords
+	md = strings.ReplaceAll(md, "CRITICAL", "[red::b]CRITICAL[white]")
+	md = strings.ReplaceAll(md, "HIGH", "[orange::b]HIGH[white]")
+	md = strings.ReplaceAll(md, "MEDIUM", "[yellow]MEDIUM[white]")
+
+	// Ensure resets exist at newlines for headers (simplified)
+	lines := strings.Split(md, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "[blue::b]") {
+			lines[i] = line + "[-]"
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// LoadFindings fetches data from DB into the Editor
 func LoadFindings() {
-	if db.DB == nil {
-		if reportView != nil {
-			reportView.SetText("[red]Database not initialized. Run 'init_db' first.[-]")
-		}
+	if IsReportDirty {
 		return
 	}
-
-	var sb strings.Builder
-	sb.WriteString("[yellow]# VAPORTRACE MISSION DEBRIEF[-]\n")
-	sb.WriteString(fmt.Sprintf("[gray]Generated: %s[-]\n\n", time.Now().Format("2006-01-02 15:04:05")))
-
-	// Stats
-	var count int
-	err := db.DB.QueryRow("SELECT COUNT(*) FROM findings").Scan(&count)
-	if err != nil {
-		count = 0
-	}
-	sb.WriteString(fmt.Sprintf("[blue]Total Findings:[-] [white]%d[-]\n", count))
-	sb.WriteString("[white]--------------------------------------------------[-]\n\n")
-
-	// Query Findings
-	rows, err := db.DB.Query("SELECT status, owasp_id, target, details, cvss_numeric FROM findings ORDER BY cvss_numeric DESC")
-	if err != nil {
-		if reportView != nil {
-			reportView.SetText(fmt.Sprintf("[red]Error fetching data: %v[-]", err))
-		}
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var status, owasp, target, details string
-		var cvss float64
-		rows.Scan(&status, &owasp, &target, &details, &cvss)
-
-		// Color Logic
-		color := "[blue]"
-		if cvss >= 9.0 {
-			color = "[red]"
-		} else if cvss >= 7.0 {
-			color = "[orange]"
-		} else if cvss >= 4.0 {
-			color = "[yellow]"
-		}
-
-		// Markdown Formatting
-		sb.WriteString(fmt.Sprintf("%s### [%s] %s (CVSS: %.1f)[-]\n", color, status, owasp, cvss))
-		sb.WriteString(fmt.Sprintf("[green]Target:[-] %s\n", target))
-		sb.WriteString(fmt.Sprintf("[white]Details:[-] %s\n", details))
-		sb.WriteString("\n")
-	}
-
-	if reportView != nil {
-		reportView.SetText(sb.String())
-		reportView.ScrollToBeginning()
+	markdown := GenerateBaseTemplate()
+	if reportEditor != nil {
+		reportEditor.SetText(markdown, false)
 	}
 }
 
 // SaveReport exports the buffer to a file
 func SaveReport() {
-	if reportView == nil {
+	if reportEditor == nil {
 		return
 	}
-	content := reportView.GetText(true) // Get clean text without color tags
-	filename := fmt.Sprintf("VaporTrace_Report_%s.md", time.Now().Format("20060102_150405"))
+	// Always save the raw editor text, even if in preview mode
+	content := reportEditor.GetText()
+	filename, err := SaveReportDisk(content)
 
-	err := os.WriteFile(filename, []byte(content), 0644)
 	if err != nil {
 		utils.TacticalLog(fmt.Sprintf("[red]REPORT ERROR: Could not save file: %v[-]", err))
 	} else {
@@ -119,8 +150,12 @@ func SaveReport() {
 
 // ClearReport wipes the buffer
 func ClearReport() {
-	if reportView != nil {
-		reportView.SetText("[gray]Report buffer cleared. Waiting for new data...[-]")
+	if reportEditor != nil {
+		reportEditor.SetText("", false)
+		reportEditor.SetPlaceholder("Session Wiped.")
 	}
-	utils.TacticalLog("[yellow]REPORT: Buffer wiped.[-]")
+	if reportPreview != nil {
+		reportPreview.SetText("")
+	}
+	utils.TacticalLog("[yellow]REPORT: Buffer wiped via Session Purge.[-]")
 }
