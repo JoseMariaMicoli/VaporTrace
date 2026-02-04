@@ -224,6 +224,7 @@ func InitTacticalDashboard() {
 
 		case tcell.KeyCtrlH:
 			ShowHelpModal(app, pages)
+			return nil // PATCH: Prevents "h" from being typed in the input field
 
 		case tcell.KeyPgUp:
 			row, col := brainLog.GetScrollOffset()
