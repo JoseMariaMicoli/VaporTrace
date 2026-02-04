@@ -74,6 +74,17 @@ func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 		n.Primary.Configure(apiKey, model, endpoint)
 		utils.TacticalLog(fmt.Sprintf("[cyan]NEURO:[-] Google Gemini Selected (%s).", model))
 
+	case "groq":
+		if model == "" {
+			model = "llama-3.1-8b-instant"
+		}
+		if endpoint == "" {
+			endpoint = "https://api.groq.com/openai/v1/chat/completions"
+		}
+		n.Primary = &ai.OpenAIClient{} // Groq is OpenAI Compatible
+		n.Primary.Configure(apiKey, model, endpoint)
+		utils.TacticalLog("[cyan]NEURO:[-] Groq LPU Cloud Selected.")
+
 	case "hybrid":
 		// Explicit Hybrid Mode
 		if model == "" {
@@ -129,7 +140,7 @@ func (n *NeuroEngine) ExecuteQuery(prompt string) (string, error) {
 			errStr := err.Error()
 
 			// Detect 429 / Quota issues explicitly
-			if strings.Contains(errStr, "429") || strings.Contains(strings.ToLower(errStr), "quota") || strings.Contains(strings.ToLower(errStr), "exhausted") {
+			if strings.Contains(errStr, "429") || strings.Contains(strings.ToLower(errStr), "quota") || strings.Contains(strings.ToLower(errStr), "exhausted") || strings.Contains(strings.ToLower(errStr), "rate limit") {
 				utils.TacticalLog("[red]NEURO:[-] Cloud Brain Quota/Rate-Limit (429) Hit.")
 				utils.TacticalLog("[yellow]NEURO:[-] BYPASSING RETRY -> Engaging Local Brain (Ollama) Immediately.")
 				// We do NOT retry primary here.
