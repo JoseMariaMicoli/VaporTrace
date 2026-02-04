@@ -15,11 +15,17 @@ import (
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
+// Global state for Neuro Features (Neuro Inverter Toggle)
+var NeuroInverterActive bool = false
+
 // NeuroEngine manages AI interactions for Analysis, Exploit Gen, and Auto-Fuzzing
+// Uses a Hybrid Architecture: Primary (Cloud) -> Secondary (Local Fallback)
 type NeuroEngine struct {
-	Provider ai.LLMProvider
-	Active   bool
-	mu       sync.Mutex
+	Primary   ai.LLMProvider
+	Secondary ai.LLMProvider
+	Active    bool
+	mu        sync.Mutex
+	lastCall  time.Time // Rate Limiter Timestamp
 }
 
 // Global singleton instance
@@ -32,9 +38,13 @@ func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	// Defaults if not provided
+	// Default Fallback is always Ollama (Mistral)
+	// Assumes standard localhost:11434 if not specified otherwise in args
+	n.Secondary = &ai.OllamaClient{}
+	n.Secondary.Configure("", "mistral", "http://localhost:11434")
+
 	if providerType == "" {
-		providerType = "openai"
+		providerType = "openai" // Default to Cloud if unspecified
 	}
 
 	switch strings.ToLower(providerType) {
@@ -42,41 +52,116 @@ func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 		if model == "" {
 			model = "mistral"
 		}
-		n.Provider = &ai.OllamaClient{}
+		// In pure local mode, Primary is also Ollama
+		n.Primary = &ai.OllamaClient{}
+		n.Primary.Configure("", model, endpoint)
 		utils.TacticalLog("[yellow]NEURO:[-] Warning - Local Inference uses significant RAM. Ensure 8GB+ avail.")
 
 	case "openai":
 		if model == "" {
 			model = "gpt-4o"
 		}
-		n.Provider = &ai.OpenAIClient{}
+		n.Primary = &ai.OpenAIClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
 		utils.TacticalLog("[green]NEURO:[-] OpenAI Cloud Selected.")
 
 	case "google", "gemini":
 		if model == "" {
-			// Update to valid v1beta model alias
-			model = "gemini-1.5-flash-latest"
+			// Using the stable alias to avoid beta quota issues in LATAM regions
+			model = "gemini-1.5-flash"
 		}
-		n.Provider = &ai.GeminiClient{}
+		n.Primary = &ai.GeminiClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
 		utils.TacticalLog(fmt.Sprintf("[cyan]NEURO:[-] Google Gemini Selected (%s).", model))
 
-	default:
-		// Default fallback
+	case "hybrid":
+		// Explicit Hybrid Mode
 		if model == "" {
 			model = "gpt-4o"
 		}
-		n.Provider = &ai.OpenAIClient{}
+		n.Primary = &ai.OpenAIClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
+		utils.TacticalLog("[magenta]NEURO:[-] Hybrid Brain Activated. Primary: OpenAI | Fallback: Ollama.")
+
+	default:
+		// Fallback
+		if model == "" {
+			model = "gpt-4o"
+		}
+		n.Primary = &ai.OpenAIClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
 	}
 
-	n.Provider.Configure(apiKey, model, endpoint)
 	n.Active = true
-	utils.TacticalLog(fmt.Sprintf("[magenta]NEURO:[-] Engine configured with %s (%s)", providerType, model))
+	// Initialize Rate Limiter with a past timestamp so the FIRST request works instantly
+	n.lastCall = time.Now().Add(-15 * time.Second)
+	utils.TacticalLog(fmt.Sprintf("[magenta]NEURO:[-] Engine configured with %s (%s) + Smart Rate Limiting (High Latency Mode)", providerType, model))
+}
+
+// enforceRateLimit ensures we don't hit 429s by spacing requests
+func (n *NeuroEngine) enforceRateLimit() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	// Strict 6 seconds between calls for Free Tier safety in high-latency regions
+	elapsed := time.Since(n.lastCall)
+	if elapsed < 6*time.Second {
+		wait := 6*time.Second - elapsed
+		time.Sleep(wait)
+	}
+	n.lastCall = time.Now()
+}
+
+// ExecuteQuery tries primary provider, and immediately falls back to secondary on 429
+func (n *NeuroEngine) ExecuteQuery(prompt string) (string, error) {
+	var primaryErr error
+
+	if n.Primary != nil {
+		// 1. Rate Limit Check
+		n.enforceRateLimit()
+
+		// 2. Primary Attempt
+		res, err := n.Primary.Analyze(prompt)
+
+		// 3. Smart Error Handling
+		if err != nil {
+			primaryErr = err
+			errStr := err.Error()
+
+			// Detect 429 / Quota issues explicitly
+			if strings.Contains(errStr, "429") || strings.Contains(strings.ToLower(errStr), "quota") || strings.Contains(strings.ToLower(errStr), "exhausted") {
+				utils.TacticalLog("[red]NEURO:[-] Cloud Brain Quota/Rate-Limit (429) Hit.")
+				utils.TacticalLog("[yellow]NEURO:[-] BYPASSING RETRY -> Engaging Local Brain (Ollama) Immediately.")
+				// We do NOT retry primary here.
+				// Fallthrough directly to secondary.
+			} else {
+				// Other errors (Network, Auth) log and fallthrough
+				utils.TacticalLog(fmt.Sprintf("[red]NEURO:[-] Primary Brain Error: %v. Switching to Fallback...", err))
+			}
+		} else if res != "" {
+			return res, nil
+		}
+	}
+
+	// 4. Fallback Execution (Local / Ollama)
+	if n.Secondary != nil {
+		utils.TacticalLog("[blue]NEURO:[-] Using Local Mistral (Ollama)...")
+		res, err := n.Secondary.Analyze(prompt)
+		if err != nil {
+			// If both fail, return a combined error message
+			finalErr := fmt.Errorf("Hybrid Failure - Cloud: %v | Local: %v", primaryErr, err)
+			return "", finalErr
+		}
+		return res, nil
+	}
+
+	return "", fmt.Errorf("all neural paths failed (Primary: %v, No Secondary configured)", primaryErr)
 }
 
 // AnalyzeTrafficSnapshot is the Core Trigger (Ctrl+A).
 // It safely executes the analysis in a background thread to keep the UI responsive.
 func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
-	if !n.Active || n.Provider == nil {
+	if !n.Active {
 		utils.TacticalLog("[yellow]NEURO:[-] AI Engine not active. Run 'neuro config'.")
 		return
 	}
@@ -85,8 +170,8 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 	utils.LogNeural(fmt.Sprintf("[yellow]>>> AUTONOMOUS SEQUENCE STARTED [%s][-]", time.Now().Format("15:04:05")))
 
 	// Safely truncate dumps to avoid token limit hangs
-	safeReq := truncateContext(reqDump, 2000)
-	safeRes := truncateContext(resDump, 2000)
+	safeReq := truncateContext(reqDump, 1000) // Lowered token count further for 429 safety
+	safeRes := truncateContext(resDump, 1000)
 
 	// Async Execution
 	go func() {
@@ -99,22 +184,24 @@ RESPONSE:
 %s
 
 TASK:
-1. IDENTIFY: Determine the specific vulnerability (BOLA, SQLi, SSRF, XSS, RCE, IDOR).
-2. EXPLOIT: Generate 3 specific, high-probability exploit payloads. Include at least one Time-Based Blind SQLi payload (e.g. sleep, waitfor). Format as one per line under the header "---PAYLOADS---".
-3. PATCH: Provide the code fix under "---PATCH---".
+1. THINKING: Briefly explain your reasoning process (Chain of Thought).
+2. IDENTIFY: Detect logic flaws (BOLA, BFLA, SQLi, XSS).
+3. EXPLOIT: Generate 3 specific, high-probability exploit payloads.
+4. COMPLIANCE: Map to MITRE and OWASP 2023.
 
-Output Format:
-ANALYSIS: <Short Summary>
+Format:
+CHAIN OF THOUGHT: <Reasoning>
+ANALYSIS: <Summary>
 ---PAYLOADS---
 <Payload1>
 <Payload2>
 ...
----PATCH---
-<Remediation Code>
+---COMPLIANCE---
+<Framework IDs>
 `, safeReq, safeRes)
 
-		// 2. Query LLM
-		response, err := n.Provider.Analyze(prompt)
+		// 2. Query LLM (Hybrid Execution)
+		response, err := n.ExecuteQuery(prompt)
 		if err != nil {
 			utils.TacticalLog(fmt.Sprintf("[red]NEURO ERROR:[-] %v", err))
 			utils.LogNeural(fmt.Sprintf("[red]ERROR: %v[-]", err))
@@ -122,12 +209,12 @@ ANALYSIS: <Short Summary>
 		}
 
 		// 3. Parse Sections
-		analysis, payloads, patch := n.parseAIOutput(response)
+		analysis, payloads, compliance := n.parseAIOutput(response)
 
-		// 4. Report to UI (F7 Neural Tab)
+		// 4. Report to UI (F6 Neural Tab)
 		report := fmt.Sprintf("\n[cyan]=== TACTICAL ANALYSIS ===[-]\n[white]%s[-]\n\n", analysis)
-		if patch != "" {
-			report += fmt.Sprintf("[green]=== GENERATED PATCH ===[-]\n[gray]%s[-]\n", patch)
+		if compliance != "" {
+			report += fmt.Sprintf("[blue]=== COMPLIANCE ===[-]\n[gray]%s[-]\n", compliance)
 		}
 		utils.LogNeural(report)
 
@@ -140,6 +227,39 @@ ANALYSIS: <Short Summary>
 			n.executeSmartAttack(targetURL, method, payloads)
 		} else {
 			utils.TacticalLog("[yellow]NEURO:[-] No viable exploits generated by AI.")
+		}
+	}()
+}
+
+// PerformNeuroBrute implements the Fuzzing logic triggered by Ctrl+B
+// It takes context (body or headers) and generates high-entropy mutations.
+func (n *NeuroEngine) PerformNeuroBrute(seedBody string) {
+	if !n.Active {
+		utils.TacticalLog("[yellow]NEURO:[-] Engine inactive.")
+		return
+	}
+
+	utils.TacticalLog("[blue]NEURO:[-] Generating intelligent mutations for context...")
+
+	go func() {
+		// Reduce context drastically for brute gen to save tokens
+		truncBody := truncateContext(seedBody, 400)
+		prompt := fmt.Sprintf("Generate 5 fuzzing mutations for this data to test for SQLi and BOLA. Return ONLY raw strings/JSON:\n%s", truncBody)
+
+		resp, err := n.ExecuteQuery(prompt)
+		if err != nil {
+			utils.TacticalLog(fmt.Sprintf("[red]Brute Gen Failed: %v", err))
+			return
+		}
+
+		payloads := strings.Split(resp, "\n")
+		utils.LogNeural("[blue]BRUTE:[-] Generated Mutations. Check Log.")
+
+		for _, p := range payloads {
+			p = strings.TrimSpace(p)
+			if len(p) > 2 {
+				utils.LogNeural(fmt.Sprintf("[white]MUTATION:[-] %s", p))
+			}
 		}
 	}()
 }
@@ -179,11 +299,9 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 		utils.LogNeural(fmt.Sprintf("[yellow]>>> FIRING VECTOR %d/%d: %s[-]", i+1, len(payloads), shortPayload(payload)))
 
 		var req *http.Request
-		var err error
-
 		// Intelligent Injection Strategy
 		if method == "POST" || method == "PUT" || method == "PATCH" {
-			req, err = http.NewRequest(method, targetURL, bytes.NewBufferString(payload))
+			req, _ = http.NewRequest(method, targetURL, bytes.NewBufferString(payload))
 			req.Header.Set("Content-Type", "application/json")
 		} else {
 			// Query Parameter Injection
@@ -193,12 +311,7 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 			} else {
 				u += "?fuzz=" + url.QueryEscape(payload)
 			}
-			req, err = http.NewRequest(method, u, nil)
-		}
-
-		if err != nil {
-			utils.TacticalLog(fmt.Sprintf("[red]Attack Build Failed: %v", err))
-			continue
+			req, _ = http.NewRequest(method, u, nil)
 		}
 
 		if CurrentSession.AttackerToken != "" {
@@ -208,28 +321,23 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 		req.Header.Set("X-Neuro-Engine", "Automated-Exploit")
 		req.Header.Set("User-Agent", "VaporTrace-Neuro/1.0")
 
-		// FIRE & TIME
 		startAttack := time.Now()
-
 		resp, err := client.Do(req)
-
 		attackDuration := time.Since(startAttack)
 
 		if err != nil {
-			// Timeout usually implies SQLi SLEEP success
 			if strings.Contains(err.Error(), "Timeout") || attackDuration > 10*time.Second {
 				utils.TacticalLog(fmt.Sprintf("[red]CRITICAL: Request Timed Out (%v). Possible Heavy SQLi.[/]", attackDuration))
 				n.recordTimeBasedSQLi(targetURL, payload, attackDuration, baselineLatency)
 			}
-			continue
+		} else {
+			n.evaluateResponse(resp, payload, targetURL, attackDuration, baselineLatency)
+			resp.Body.Close()
 		}
 
-		// EVALUATE RESPONSE
-		n.evaluateResponse(resp, payload, targetURL, attackDuration, baselineLatency)
-		resp.Body.Close()
-
-		// Evasion Jitter
-		time.Sleep(300 * time.Millisecond)
+		// *** CRITICAL RATE LIMIT FIX (LATAM/FREE TIER) ***
+		// Wait 6 seconds between automated attacks to protect Quota
+		time.Sleep(6000 * time.Millisecond)
 	}
 	utils.TacticalLog("[green]NEURO-AUTO:[-] Sequence Complete. Verified results in Logs.")
 }
@@ -300,7 +408,7 @@ func (n *NeuroEngine) recordTimeBasedSQLi(target, payload string, latency, basel
 	}
 }
 
-func (n *NeuroEngine) parseAIOutput(raw string) (analysis string, payloads []string, patch string) {
+func (n *NeuroEngine) parseAIOutput(raw string) (analysis string, payloads []string, compliance string) {
 	lines := strings.Split(raw, "\n")
 	section := "ANALYSIS"
 
@@ -310,12 +418,11 @@ func (n *NeuroEngine) parseAIOutput(raw string) (analysis string, payloads []str
 		if cleanLine == "---PAYLOADS---" {
 			section = "PAYLOADS"
 			continue
-		} else if cleanLine == "---PATCH---" {
-			section = "PATCH"
+		} else if cleanLine == "---COMPLIANCE---" {
+			section = "COMPLIANCE"
 			continue
-		} else if strings.HasPrefix(cleanLine, "ANALYSIS:") {
+		} else if strings.HasPrefix(cleanLine, "ANALYSIS:") || strings.HasPrefix(cleanLine, "CHAIN OF THOUGHT:") {
 			section = "ANALYSIS"
-			cleanLine = strings.TrimPrefix(cleanLine, "ANALYSIS:")
 		}
 
 		switch section {
@@ -332,8 +439,8 @@ func (n *NeuroEngine) parseAIOutput(raw string) (analysis string, payloads []str
 					payloads = append(payloads, cleanLine)
 				}
 			}
-		case "PATCH":
-			patch += line + "\n"
+		case "COMPLIANCE":
+			compliance += line + "\n"
 		}
 	}
 	return
@@ -383,17 +490,34 @@ func shortPayload(p string) string {
 
 // Legacy wrappers to satisfy interface if needed, or legacy calls
 func (n *NeuroEngine) GenerateAttackVectors(context string, count int) {
-	if !n.Active || n.Provider == nil {
+	if !n.Active {
 		utils.TacticalLog("[yellow]NEURO:[-] AI Engine not active.")
 		return
 	}
 	go func() {
-		payloads, _ := n.Provider.GeneratePayloads(context, count)
-		output := fmt.Sprintf("\n[cyan]--- NEURO PAYLOADS (%s) ---\n[white]", context)
-		for _, p := range payloads {
-			output += fmt.Sprintf("- %s\n", p)
+		// Use ExecuteQuery logic to access primary/secondary via unified interface,
+		// but since GeneratePayloads is an interface method, we access fields directly
+		// with checks to ensure we aren't calling nil.
+		var payloads []string
+		var err error
+
+		if n.Primary != nil {
+			n.enforceRateLimit()
+			payloads, err = n.Primary.GeneratePayloads(context, count)
 		}
-		utils.LogNeural(output)
+
+		// Fallback if Primary failed or nil
+		if (err != nil || n.Primary == nil) && n.Secondary != nil {
+			payloads, err = n.Secondary.GeneratePayloads(context, count)
+		}
+
+		if err == nil {
+			output := fmt.Sprintf("\n[cyan]--- NEURO PAYLOADS (%s) ---\n[white]", context)
+			for _, p := range payloads {
+				output += fmt.Sprintf("- %s\n", p)
+			}
+			utils.LogNeural(output)
+		}
 	}()
 }
 
@@ -402,13 +526,27 @@ func (n *NeuroEngine) AutonomousFuzz(targetURL, method, context string, count in
 		return
 	}
 	go func() {
-		payloads, _ := n.Provider.GeneratePayloads(context, count)
-		// Clean manually since we don't use parseAIOutput here
-		var clean []string
-		for _, p := range payloads {
-			clean = append(clean, strings.TrimSpace(p))
+		var payloads []string
+		var err error
+
+		// Try Primary with Rate Limit
+		if n.Primary != nil {
+			n.enforceRateLimit()
+			payloads, err = n.Primary.GeneratePayloads(context, count)
 		}
-		n.executeSmartAttack(targetURL, method, clean)
+
+		// Try Secondary if Primary failed
+		if (err != nil || n.Primary == nil) && n.Secondary != nil {
+			payloads, err = n.Secondary.GeneratePayloads(context, count)
+		}
+
+		if err == nil {
+			var clean []string
+			for _, p := range payloads {
+				clean = append(clean, strings.TrimSpace(p))
+			}
+			n.executeSmartAttack(targetURL, method, clean)
+		}
 	}()
 }
 
@@ -417,14 +555,10 @@ func (n *NeuroEngine) TestConnectivity() {
 		utils.TacticalLog("[yellow]NEURO:[-] Engine is toggled OFF. Run 'neuro on'.")
 		return
 	}
-	if n.Provider == nil {
-		utils.TacticalLog("[red]NEURO CRITICAL:[-] Provider not configured. Run 'neuro config <provider> <model>' first.")
-		n.Active = false
-		return
-	}
 	go func() {
-		utils.TacticalLog("[blue]NEURO:[-] Sending heartbeat packet to LLM...")
-		resp, err := n.Provider.Analyze("Ping")
+		utils.TacticalLog("[blue]NEURO:[-] Sending heartbeat packet to Brain...")
+		// Use ExecuteQuery to test the whole fallback chain
+		resp, err := n.ExecuteQuery("Ping")
 		if err != nil {
 			utils.TacticalLog(fmt.Sprintf("[red]NEURO FAIL:[-] %v", err))
 		} else {

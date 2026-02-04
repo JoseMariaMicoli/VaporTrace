@@ -156,7 +156,7 @@ func InitTacticalDashboard() {
 	aiView.SetText("[gray]Initializing Context Aggregator...\n\n[blue]●[-] Intelligence Harvest: [green]ACTIVE[-]\n[blue]●[-] Watching For: [white]JWTs, AWS Keys, Bearer Tokens[-]\n[blue]●[-] Correlation Engine: [white]Cross-referencing Findings[-]\n\n")
 
 	neuroView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
-	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE (F7) [white] ").SetBorder(true)
+	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE (F6) [white] ").SetBorder(true)
 
 	// Add Pages
 	pages.AddPage("logs", brainLog, true, true)
@@ -191,6 +191,19 @@ func InitTacticalDashboard() {
 			switchTo("traffic")
 		case tcell.KeyF5:
 			switchTo("ai")
+		case tcell.KeyF6:
+			// Swapped F7 to F6 for Neuro Tab
+			switchTo("neuro")
+		case tcell.KeyCtrlI:
+			// Mapped Interceptor Toggle from F6 to Ctrl+I
+			logic.InterceptorActive = !logic.InterceptorActive
+			state := "OFF"
+			color := "[red]"
+			if logic.InterceptorActive {
+				state = "ON"
+				color = "[green]"
+			}
+			utils.TacticalLog(fmt.Sprintf("%sINTERCEPTOR TOGGLED: %s (Wait for Packets)[-]", color, state))
 		case tcell.KeyPgUp:
 			row, col := brainLog.GetScrollOffset()
 			if row > 0 {
@@ -285,9 +298,9 @@ func switchTo(page string) {
 }
 
 func updateTabs(active string) {
-	// Updated Labels with descriptions below
-	tabs := []string{"LOGS", "MAP", "LOOT", "TRAFFIC", "CONTEXT", "NEURAL"}
-	descs := []string{"(System)", "(Recon)", "(Exfil)", "(Sniffer)", "(Intel)", "(AI-Ops)"}
+	// Updated Labels: F6 is now Neural
+	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "CTX (F5)", "NEURAL (F6)"}
+	descs := []string{"System", "Recon", "Exfil", "Sniffer", "Intel", "AI-Ops"}
 	ids := []string{"logs", "map", "loot", "traffic", "ai", "neuro"}
 
 	var topRow, bottomRow []string
@@ -297,10 +310,7 @@ func updateTabs(active string) {
 		if active == ids[i] {
 			style = "[black:aqua]"
 		}
-		// Build the main tab box
 		topRow = append(topRow, fmt.Sprintf("%s┠ %s ┨[-]", style, t))
-		// Build the description line (aligned)
-		// We use padding to roughly center the description under the tab
 		padLen := (len(t) + 4 - len(descs[i])) / 2
 		if padLen < 0 {
 			padLen = 0
@@ -331,11 +341,18 @@ func startAsyncEngines() {
 			app.QueueUpdateDraw(func() {
 				// Spinner
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
-				intStatus := "[F6: INT-OFF]"
+				intStatus := "[Ctrl+I: INT-OFF]"
 				if logic.InterceptorActive {
-					intStatus = "[black:red] F6: INTERCEPTING (Ctrl+F: FWD, Ctrl+D: DROP) [-:-]"
+					intStatus = "[black:red] Ctrl+I: INTERCEPTING (ACTIVE) [-:-]"
 				}
-				statusFooter.SetText(fmt.Sprintf(" %s [blue]SYNC %s [white]| %s", intStatus, spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
+
+				// Added Neural Status Check
+				aiStatus := "[F6: AI-IDLE]"
+				if logic.GlobalNeuro.Active {
+					aiStatus = "[black:magenta] F6: NEURAL-ON [-:-]"
+				}
+
+				statusFooter.SetText(fmt.Sprintf(" %s %s [blue]SYNC %s [white]| %s", intStatus, aiStatus, spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
 
 				// Pipeline Quadrant Update
 				updatePipelineQuadrant()
@@ -423,7 +440,7 @@ func startAsyncEngines() {
 	go func() {
 		for payload := range logic.InterceptorChan {
 			app.QueueUpdateDraw(func() {
-				utils.TacticalLog("[yellow]INTERCEPTOR:[-] Incoming Request Paused...")
+				utils.TacticalLog("[yellow]INTERCEPTOR:[-] Incoming Request Paused... Check Modal.")
 				ShowInterceptorModal(app, pages, payload)
 			})
 		}

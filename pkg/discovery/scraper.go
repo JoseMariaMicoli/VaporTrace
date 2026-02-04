@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"fmt"
 	"io"
 	"regexp"
 
@@ -10,8 +11,11 @@ import (
 )
 
 var (
-	pathRegex = regexp.MustCompile(`"/(api|v[0-9]|rest)/[a-zA-Z0-9\-\_/]+ "`)
+	// Expanded Regex for SPA routing and relative API calls
+	pathRegex = regexp.MustCompile(`["'](/[a-zA-Z0-9_\-\.\/]+)["']`)
 	urlRegex  = regexp.MustCompile(`https?://[a-zA-Z0-9\.\-]+\.[a-z]{2,}/[a-zA-Z0-9\-\_/]+`)
+	// Hash router support (Task 6)
+	spaRegex = regexp.MustCompile(`[#][\/]([a-zA-Z0-9\-\_\/]+)`)
 )
 
 func ExtractJSPaths(url string, proxy string) ([]string, error) {
@@ -31,41 +35,49 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 	bodyStr := string(body)
 	matches := pathRegex.FindAllString(bodyStr, -1)
 	urlMatches := urlRegex.FindAllString(bodyStr, -1)
+	spaMatches := spaRegex.FindAllString(bodyStr, -1)
 
 	var cleaned []string
+	seen := make(map[string]bool)
+
+	addPath := func(p string, typeStr string) {
+		if _, exists := seen[p]; !exists && len(p) > 2 {
+			seen[p] = true
+			cleaned = append(cleaned, p)
+			logic.GlobalDiscovery.AddEndpoint(p)
+			utils.LogMap(p, typeStr, "200")
+
+			utils.RecordFinding(db.Finding{
+				Phase:   "PHASE II: DISCOVERY",
+				Command: "scrape",
+				Target:  url,
+				Details: fmt.Sprintf("JS Discovery (%s): %s", typeStr, p),
+				Status:  "INFO",
+			})
+		}
+	}
 
 	for _, m := range matches {
-		path := m[1 : len(m)-1]
-		cleaned = append(cleaned, path)
-
-		logic.GlobalDiscovery.AddEndpoint(path)
-
-		// ROUTING: Send to F2 Map Tab
-		utils.LogMap(path, "JS-Scrape", "200")
-
-		utils.RecordFinding(db.Finding{
-			Phase:   "PHASE II: DISCOVERY",
-			Command: "map", // Zero-Touch Trigger
-			Target:  url,
-			Details: "JS Endpoint Discovery (Relative): " + path,
-			Status:  "INFO",
-		})
+		// Strip quotes
+		clean := m[1 : len(m)-1]
+		if len(clean) > 200 {
+			continue
+		} // Noise filter
+		// Filter common false positives
+		if clean == "/json" || clean == "/application" {
+			continue
+		}
+		addPath(clean, "Relative")
 	}
 
 	for _, u := range urlMatches {
-		cleaned = append(cleaned, u)
-		logic.GlobalDiscovery.AddEndpoint(u)
+		addPath(u, "Absolute")
+	}
 
-		// ROUTING: Send to F2 Map Tab
-		utils.LogMap(u, "JS-Scrape", "200")
-
-		utils.RecordFinding(db.Finding{
-			Phase:   "PHASE II: DISCOVERY",
-			Command: "map", // Zero-Touch Trigger
-			Target:  url,
-			Details: "JS Endpoint Discovery (Absolute): " + u,
-			Status:  "INFO",
-		})
+	for _, s := range spaMatches {
+		// Clean the hash '#/' prefix to get the logic path
+		clean := s[2:]
+		addPath(clean, "SPA-Route")
 	}
 
 	return cleaned, nil
