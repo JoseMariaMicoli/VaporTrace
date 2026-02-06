@@ -13,44 +13,124 @@ import (
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
-// Task 1: Deduplication for swagger findings
+// Task 1: Deduplication for swagger findings within a session
 var swaggerCache sync.Map
 
-// Common paths to probe if the user provides a root URL
-var commonSwaggerPaths = []string{
-	"/swagger.json",
-	"/openapi.json",
-	"/spec.json", // httpbin.org
-	"/api-docs",
-	"/v2/api-docs",
-	"/api/v2/api-docs",
-	"/api/swagger.json",
-	"/rest/admin/application-configuration", // Juice Shop (Variant)
-}
+// Define the building blocks for Heuristic Discovery
+var (
+	swaggerPrefixes = []string{
+		"",         // root
+		"/api",     // common
+		"/rest",    // legacy
+		"/swagger", // explicit
+		"/doc",     // documentation
+		"/docs",
+		"/service",
+	}
+
+	swaggerVersions = []string{
+		"",        // no version
+		"/v1",     // version 1
+		"/v2",     // version 2
+		"/v3",     // version 3
+		"/v1.0",   // explicit float
+		"/api/v1", // nested common
+		"/api/v2",
+	}
+
+	swaggerFilenames = []string{
+		"/swagger.json",
+		"/openapi.json",
+		"/api-docs",
+		"/v2/api-docs", // Spring Boot default
+		"/v3/api-docs", // Spring Boot OpenApi 3
+		"/spec.json",
+		"/docs.json",
+	}
+)
 
 func ParseSwagger(url string, proxy string) ([]string, error) {
-	// 1. Initial Attempt
+	// 1. Initial Attempt (User provided specific URL)
 	endpoints, err := fetchAndParse(url)
 	if err == nil && len(endpoints) > 0 {
 		return endpoints, nil
 	}
 
-	// 2. Auto-Discovery Fallback (Heuristics)
-	// If the user provided a root url (e.g. http://site.com), try common suffixes
+	// 2. Auto-Discovery Fallback (Combinatorial Heuristics)
 	baseURL := strings.TrimRight(url, "/")
 
-	utils.TacticalLog(fmt.Sprintf("[yellow]DISCOVER:[-] Direct parse failed. Probing %d common spec locations...", len(commonSwaggerPaths)))
+	// Remove common file extensions from input URL if present to get true root
+	if strings.HasSuffix(baseURL, ".json") || strings.HasSuffix(baseURL, ".yaml") {
+		lastSlash := strings.LastIndex(baseURL, "/")
+		if lastSlash != -1 {
+			baseURL = baseURL[:lastSlash]
+		}
+	}
 
-	for _, suffix := range commonSwaggerPaths {
-		probeURL := baseURL + suffix
+	// Generate Candidate List
+	candidates := generateCandidates(baseURL)
+
+	utils.TacticalLog(fmt.Sprintf("[yellow]DISCOVER:[-] Direct parse failed. Engaging Heuristic Engine to probe %d potential locations...", len(candidates)))
+
+	// Iterate through candidates
+	// Note: In a future sprint, this could be parallelized with a worker pool.
+	for _, probeURL := range candidates {
+		// Log debug only if verbose mode or necessary, otherwise keep UI clean
+		// utils.TacticalLog(fmt.Sprintf("[gray]Probing: %s[-]", probeURL))
+
 		eps, err := fetchAndParse(probeURL)
 		if err == nil && len(eps) > 0 {
-			utils.TacticalLog(fmt.Sprintf("[green]SUCCESS:[-] Found spec at %s", probeURL))
+			utils.TacticalLog(fmt.Sprintf("[green]SUCCESS:[-] Found valid spec at %s", probeURL))
 			return eps, nil
 		}
 	}
 
-	return nil, fmt.Errorf("failed to locate valid Swagger/OpenAPI spec at %s (or common paths)", url)
+	return nil, fmt.Errorf("failed to locate valid Swagger/OpenAPI spec after probing %d paths", len(candidates))
+}
+
+// generateCandidates builds the list of URLs to probe
+func generateCandidates(base string) []string {
+	uniqueMap := make(map[string]bool)
+	var candidates []string
+
+	// Helper to add unique paths
+	add := func(p string) {
+		if !uniqueMap[p] {
+			uniqueMap[p] = true
+			candidates = append(candidates, p)
+		}
+	}
+
+	// Logic 1: Standard Static Paths (High Probability)
+	add(base + "/swagger.json")
+	add(base + "/openapi.json")
+	add(base + "/api/swagger.json")
+	add(base + "/v2/api-docs")
+
+	// Logic 2: Combinatorial Generation
+	// Structure: Base + Prefix + Version + Filename
+	// Example: http://site.com + /api + /v1 + /swagger.json
+
+	for _, prefix := range swaggerPrefixes {
+		for _, version := range swaggerVersions {
+			for _, file := range swaggerFilenames {
+				// Avoid double slashes logic if strings are empty
+				path := base
+
+				if prefix != "" {
+					path += prefix
+				}
+				if version != "" {
+					path += version
+				}
+				path += file
+
+				add(path)
+			}
+		}
+	}
+
+	return candidates
 }
 
 // fetchAndParse handles the network and version-agnostic parsing
@@ -58,7 +138,8 @@ func fetchAndParse(url string) ([]string, error) {
 	client := logic.GlobalClient
 
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("User-Agent", "VaporTrace-Scanner/3.0")
+	req.Header.Set("User-Agent", "VaporTrace-Scanner/3.1")
+	req.Header.Set("Accept", "application/json, */*")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -74,6 +155,19 @@ func fetchAndParse(url string) ([]string, error) {
 	var doc map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
 		return nil, err
+	}
+
+	// Validation: Ensure it's actually a Swagger doc
+	isSwagger := false
+	if _, ok := doc["swagger"]; ok {
+		isSwagger = true
+	}
+	if _, ok := doc["openapi"]; ok {
+		isSwagger = true
+	}
+
+	if !isSwagger {
+		return nil, fmt.Errorf("valid JSON but missing 'swagger' or 'openapi' keys")
 	}
 
 	// Determine Base Path
@@ -104,6 +198,7 @@ func fetchAndParse(url string) ([]string, error) {
 
 	var endpoints []string
 
+	// Log findings to database
 	utils.RecordFinding(db.Finding{
 		Phase:   "PHASE II: DISCOVERY",
 		Command: "map",

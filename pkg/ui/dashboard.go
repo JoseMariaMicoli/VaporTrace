@@ -59,17 +59,16 @@ var (
 	lootTable    *tview.Table
 	reqView      *tview.TextView
 	resView      *tview.TextView
-	aiView       *tview.TextView
-	neuroView    *tview.TextView
 
-	// Tab 5: Strategic Planner Components
-	ctxFlex      *tview.Flex
-	ctxSummary   *tview.TextView
-	plannerTable *tview.Table
-	ctxLogView   *tview.TextView
+	// Tab 5: Context Aggregator Components
+	ctxFlex    *tview.Flex
+	ctxSummary *tview.TextView
+	ctxLogView *tview.TextView
 
 	// Tab 6: Neuro Engine Components
 	neuroView *tview.TextView
+
+	// Report components are managed in report_tab.go but referenced via pages
 
 	statusFooter *tview.TextView
 	cmdInput     *tview.InputField
@@ -78,18 +77,9 @@ var (
 	historyIndex int
 	historyFile  = ".vapor_history"
 
-	// === SPRINT 11: TASK 2 BUFFERS ===
-	logBuffer        = NewLogBuffer(50)
-	mapDataBuffer    = NewLogBuffer(30)
-	lootDataBuffer   = NewLogBuffer(30)
-	trafficBuffer    = NewLogBuffer(10)
-	contextLogBuffer = NewLogBuffer(50)
-	neuroLogBuffer   = NewLogBuffer(50)
-
-	// Updated with HITL commands
+	// Updated with "tasks" command
 	knownCommands = []string{
-		"analyze", "edit", "drop", "commit", "list-plan", "remediate", // HITL
-		"tasks",
+		"tasks", // NEW
 		"ask",
 		"auth", "sessions", "map", "swagger", "scrape", "mine", "proxy", "proxies", "target", "pipeline",
 		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe",
@@ -137,12 +127,14 @@ func InitTacticalDashboard() {
 	logic.InitializeRotaryClient()
 	logic.StartContextAggregator()
 
-	// --- CTX TAB INITIAL FEEDBACK ---
+	// --- CTX TAB INITIAL FEEDBACK (Requested Feature) ---
+	// Inject startup messages to the Context Aggregator Log (Bottom of F5)
+	// This ensures the user knows the system is listening even before data arrives.
 	go func() {
-		time.Sleep(500 * time.Millisecond)
-		utils.LogContext("[green]✓ SYSTEM:[-] Strategic Brain Daemon Started.")
-		utils.LogContext("[green]✓ SYSTEM:[-] Telemetry Aggregator: [white]LISTENING[-]")
-		utils.LogContext("[gray]i INFO:[-] Use 'analyze' to generate a tactical plan...")
+		time.Sleep(500 * time.Millisecond) // Slight delay to ensure UI renders first
+		utils.LogContext("[green]✓ SYSTEM:[-] Context Aggregator Daemon Started.")
+		utils.LogContext("[green]✓ SYSTEM:[-] Correlation Engine: [white]LISTENING[-]")
+		utils.LogContext("[gray]i INFO:[-] Waiting for tactical intelligence stream...")
 	}()
 
 	app = tview.NewApplication()
@@ -208,7 +200,7 @@ func InitTacticalDashboard() {
 	neuroView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE ANALYSIS (F6) [white] ").SetBorder(true)
 
-	// F4 Input Capture
+	// F4 Input Capture (AI Trigger) with VISUAL FEEDBACK & AUTO-SWITCH
 	trafficSplit.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlA {
 			req := reqView.GetText(true)
@@ -216,11 +208,15 @@ func InitTacticalDashboard() {
 			if req == "" {
 				utils.TacticalLog("[yellow]NEURO:[-] No request selected to analyze.")
 			} else {
-				reqView.SetTitle(" [white:red]>>> ANALYZING SNAPSHOT... PLEASE WAIT <<<[white] ")
 				utils.TacticalLog("[magenta]NEURO:[-] Snapshot captured. Transmitting to Neural Engine...")
+
+				// TRIGGER THINKING STATE ON F6
 				neuroView.Clear()
 				neuroView.SetText("[yellow]>>> HYDRA NEURAL ENGINE ENGAGED <<<\n[white]Status: PROCESSING SNAPSHOT...\n[blue]Calculating Entropy...\nCalculating Exploit Probability...\nScanning BOLA Vectors...\n\n[white]Please Wait...[-]")
+
+				// AUTO SWITCH TO F6
 				switchTo("neuro")
+
 				go func() {
 					logic.GlobalNeuro.AnalyzeTrafficSnapshot(req, res)
 				}()
@@ -230,30 +226,19 @@ func InitTacticalDashboard() {
 		return event
 	})
 
-	// --- CTX SETUP (F5) - STRATEGIC COMMAND CENTER ---
+	// --- CTX SETUP (F5) ---
+	// Split View: Top = Summary, Bottom = Logs
 	ctxSummary = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true)
-	ctxSummary.SetTitle(" [white:blue] STRATEGIC OVERVIEW [white] ").SetBorder(true)
-
-	// NEW: HITL Planner Table
-	plannerTable = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorDarkMagenta).SetSelectable(true, false)
-	plannerTable.SetTitle(" [magenta:black] STRATEGIC ACTION BUFFER (Use 'analyze' -> 'commit') [white] ").SetBorder(true)
-	plannerTable.SetCell(0, 0, tview.NewTableCell("[black:magenta] ID "))
-	plannerTable.SetCell(0, 1, tview.NewTableCell("[black:magenta] TYPE "))
-	plannerTable.SetCell(0, 2, tview.NewTableCell("[black:magenta] TARGET "))
-	plannerTable.SetCell(0, 3, tview.NewTableCell("[black:magenta] PAYLOAD "))
-	plannerTable.SetCell(0, 4, tview.NewTableCell("[black:magenta] CONFIDENCE "))
-	plannerTable.SetCell(0, 5, tview.NewTableCell("[black:magenta] STATUS "))
-	plannerTable.SetFixed(1, 0)
+	ctxSummary.SetTitle(" [white:blue] ATTACK SURFACE SUMMARY [white] ").SetBorder(true)
 
 	ctxLogView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
-	ctxLogView.SetTitle(" [white:blue] INTELLIGENCE FEED [white] ").SetBorder(true)
+	ctxLogView.SetTitle(" [white:blue] CONTEXT LOG STREAM [white] ").SetBorder(true)
 
 	ctxFlex = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(ctxSummary, 6, 1, false).
-		AddItem(plannerTable, 0, 2, false).
-		AddItem(ctxLogView, 0, 1, false)
+		AddItem(ctxSummary, 10, 1, false). // Fixed height for summary
+		AddItem(ctxLogView, 0, 3, false)
 
-	// F7 Report Tab
+	// F7 Report Tab Initialization
 	reportFlex = InitReportTab()
 
 	// Add Pages
@@ -261,7 +246,7 @@ func InitTacticalDashboard() {
 	pages.AddPage("map", mapTable, true, false)
 	pages.AddPage("loot", lootTable, true, false)
 	pages.AddPage("traffic", trafficSplit, true, false)
-	pages.AddPage("ai", aiView, true, false)
+	pages.AddPage("ai", ctxFlex, true, false)
 	pages.AddPage("neuro", neuroView, true, false)
 	pages.AddPage("report", reportFlex, true, false)
 
@@ -614,13 +599,11 @@ func startAsyncEngines() {
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
 				statusFooter.SetText(fmt.Sprintf(" [blue]SYSTEM SYNC %s [white]| %s", spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
 				updatePipelineQuadrant()
+
+				// Update Tab 5 Summary in real-time
 				if ctxSummary != nil {
 					ctxSummary.SetText(logic.GetAttackSurfaceSummary())
 				}
-				updatePlannerTable()       // Keep Planner view live
-				RefreshActionBufferTable() // Sync tactical action buffer to UI
-				// NOTE: Removed updateTabs() here - it was causing cascading collapse with ASCII art rebuild
-				// updateTabs() is now only called on tab switch via switchTo()
 			})
 		}
 	}()
@@ -734,14 +717,22 @@ func startAsyncEngines() {
 	// === BUFFER-BACKED CONTEXT LOG LISTENER ===
 	go func() {
 		for msg := range utils.ContextLogChan {
-			contextLogBuffer.Add(msg)
+			app.QueueUpdateDraw(func() {
+				fmt.Fprintln(ctxLogView, msg)
+				ctxLogView.ScrollToEnd()
+			})
 		}
 	}()
 
 	// === BUFFER-BACKED NEURO LOG LISTENER ===
 	go func() {
 		for msg := range utils.NeuroLogChan {
-			neuroLogBuffer.Add(msg)
+			app.QueueUpdateDraw(func() {
+				// Append to Neuro View
+				fmt.Fprintf(neuroView, "%s\n", msg)
+				neuroView.ScrollToEnd()
+				reqView.SetTitle(" [yellow]REQUEST (UPPER) - Ctrl+A to Analyze [white] ")
+			})
 		}
 	}()
 
