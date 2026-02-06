@@ -38,6 +38,41 @@ func ExecuteCommand(rawCmd string) {
 	utils.TacticalLog(fmt.Sprintf("[yellow]EXEC:[-] %s", rawCmd))
 
 	switch verb {
+	// --- NEW TASKS COMMAND (Requested Feature) ---
+	case "tasks":
+		utils.TacticalLog("[cyan]=== ACTIVE TACTICAL TASKS ===[-]")
+
+		// 1. Aggregator Status
+		aggStatus := "[red]STOPPED"
+		if logic.GlobalAggregator.Active {
+			aggStatus = fmt.Sprintf("[green]RUNNING (Interval: %v)[-]", logic.GlobalAggregator.Interval)
+		}
+		utils.TacticalLog(fmt.Sprintf(" [white]Context Aggregator:[-] %s", aggStatus))
+
+		// 2. Neural Engine Status
+		neuroStatus := "[red]OFFLINE"
+		if logic.GlobalNeuro.Active {
+			neuroStatus = "[green]ACTIVE (Hybrid Mode)[-]"
+		}
+		utils.TacticalLog(fmt.Sprintf(" [white]Neural Engine:     [-] %s", neuroStatus))
+
+		// 3. Interceptor Status
+		intStatus := "[yellow]STANDBY (Passive)"
+		if logic.InterceptorActive {
+			intStatus = "[red]BLOCKING (Active)[-]"
+		}
+		utils.TacticalLog(fmt.Sprintf(" [white]HTTP Interceptor:  [-] %s", intStatus))
+
+		// 4. Proxy Rotation
+		proxyCount := len(logic.ProxyPool)
+		proxyStatus := "[gray]Direct (No Proxy Pool)"
+		if proxyCount > 0 {
+			proxyStatus = fmt.Sprintf("[blue]ROTATING (%d Nodes Active)[-]", proxyCount)
+		}
+		utils.TacticalLog(fmt.Sprintf(" [white]Proxy Network:     [-] %s", proxyStatus))
+
+		utils.TacticalLog("[cyan]=============================[-]")
+
 	// --- NEURAL ENGINE (Sprint 10.6) ---
 	// Task 4: AI Interaction
 	case "ask":
@@ -653,6 +688,7 @@ func printUsage() {
 	// A manual table formatted for the log
 	lines := []string{
 		"[yellow]COMMAND[-]          [cyan]ACTION[-]                 [white]TECHNICAL CONTEXT[-]",
+		"[yellow]tasks[-]            Process List           List all active background engines and threads.",
 		"[yellow]target <url>[-]     Scope Definition       Sets the global context for all modules.",
 		"[yellow]map -u <url>[-]     Inventory              Spidering, OpenAPI mining, and route extraction.",
 		"[yellow]swagger <url>[-]    Spec Parsing           Ingests Swagger/OpenAPI definitions into the DB.",
@@ -671,7 +707,9 @@ func printUsage() {
 		"[yellow]sessions[-]         Context                Manages active authentication sessions and stored cookies.",
 		"[yellow]neuro on[-]         Enable Engine          Activates the Neural Mutation layer for all traffic.",
 		"[yellow]neuro config[-]     LLM Settings           Opens the configuration modal for LLM provider endpoints.",
+		"[yellow]neuro-gen[-]        AI Fuzzer              Generates high-entropy payloads via AI (usage: neuro-gen <ctx> <n>).",
 		"[yellow]test-neuro[-]       Engine Diag            Runs connectivity and latency tests to the AI provider.",
+		"[yellow]ask[-]              Ask to AI              Free operator interaction with the AI LLM agent.",
 		"[yellow]report[-]           Generate               Triggers the 9.13 Reporting Engine (Markdown/PDF).",
 		"[yellow]init_db[-]          Persistence            Initializes the SQLite3 Framework-Tagged backend.",
 		"[yellow]reset_db[-]         Wipe                   Purges all mission data from the local database.",
@@ -699,11 +737,18 @@ func printHelp(cmd string) {
 			utils.TacticalLog(k)
 		}
 
+	case "tasks":
+		utils.TacticalLog("Displays a real-time status list of all active VaporTrace engines.")
+		utils.TacticalLog("Monitors: Context Aggregator, Neural Engine, Interceptor, and Proxy Pool.")
 	case "neuro":
 		utils.TacticalLog("Configures the Neural Engine.")
 		utils.TacticalLog("Usage: neuro config <provider> <model> [api_key] [endpoint]")
 		utils.TacticalLog("Example: neuro config ollama mistral")
 		utils.TacticalLog("Example: neuro config openai gpt-4 sk-123...")
+	case "neuro-gen":
+		utils.TacticalLog("Uses the AI to generate a list of fuzzing payloads for a specific context.")
+		utils.TacticalLog("Usage: neuro-gen <context_description> <count>")
+		utils.TacticalLog("Example: neuro-gen \"SQL Injection in ID field\" 5")
 	case "seed_db":
 		utils.TacticalLog("Injects 20 fake vulnerabilities into the database. Useful for verifying the 'report' command without running live attacks.")
 	case "bola":

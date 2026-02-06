@@ -114,3 +114,32 @@ This allows you to analyze traffic *after* it has happened (Post-Mortem).
 | **`F1 - F6`** | Global | Switch Tabs (Logs, Map, Loot, Traffic, Context, **Neural**) |
 
 ---
+## Neuro Notes:
+### 1. The neuro-gen 
+How it works:
+It allows you to manually generate payloads without sending them, using the AI.
+Usage: neuro-gen "search parameter sql injection" 5
+Result: It generates 5 specific payloads for that context and prints them to the Neural Tab (F6).
+(I have included the fix for usage in the code section below).
+### 2. Tactical Hotkeys Explained
+These shortcuts are context-sensitive. Here is exactly what they do:
+Inside Interceptor (Ctrl + I)
+#### Ctrl + B (Neuro Brute):
+Function: Takes the text currently in the Body field of the interceptor and sends it to the AI.
+Goal: The AI generates 5-10 high-entropy mutations (SQLi, XSS, JSON injection) based on that specific body.
+Output: Results appear in the Neural Tab (F6). You can then copy/paste them back into the interceptor to fire them.
+#### Ctrl + S (Sync to Vault):
+Function: "Snapshot." It saves the current Request/Response details to your Loot Database (F3) and the internal SQLite DB immediately.
+Goal: Useful if you see an interesting packet but aren't ready to exploit it yet. It bookmarks it for the Report.
+#### Ctrl + N (Neuro Invert):
+Function: Toggles a logic switch called "Inverter Mode."
+Goal: If active, the system automatically tries to "Invert" logic flow on the next forwarded packet (e.g., swapping POST to GET, or swapping user_id values) without you typing it manually.
+Inside Traffic View (F4)
+#### Ctrl + A (Analyze):
+Function: Takes the currently selected Request/Response pair in the traffic window.
+Goal: Sends the entire snapshot to the AI (Groq/Ollama).
+Output: The AI performs a "Deep Analysis," looking for BOLA, BFLA, and Sensitive Data Exposure, and prints a report to Tab 6.
+
+##### Ctrl + H Shows Keybindings
+
+---

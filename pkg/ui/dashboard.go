@@ -26,11 +26,16 @@ var (
 	lootTable    *tview.Table
 	reqView      *tview.TextView
 	resView      *tview.TextView
-	aiView       *tview.TextView
-	neuroView    *tview.TextView
 
-	// Removed reportFlex/reportView redeclarations.
-	// They are defined in report_tab.go but visible here in package 'ui'.
+	// Tab 5: Context Aggregator Components
+	ctxFlex    *tview.Flex
+	ctxSummary *tview.TextView
+	ctxLogView *tview.TextView
+
+	// Tab 6: Neuro Engine Components
+	neuroView *tview.TextView
+
+	// Report components are managed in report_tab.go but referenced via pages
 
 	statusFooter *tview.TextView
 	cmdInput     *tview.InputField
@@ -39,7 +44,9 @@ var (
 	historyIndex int
 	historyFile  = ".vapor_history"
 
+	// Updated with "tasks" command
 	knownCommands = []string{
+		"tasks", // NEW
 		"ask",
 		"auth", "sessions", "map", "swagger", "scrape", "mine", "proxy", "proxies", "target", "pipeline",
 		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe",
@@ -87,6 +94,16 @@ func InitTacticalDashboard() {
 
 	logic.InitializeRotaryClient()
 	logic.StartContextAggregator()
+
+	// --- CTX TAB INITIAL FEEDBACK (Requested Feature) ---
+	// Inject startup messages to the Context Aggregator Log (Bottom of F5)
+	// This ensures the user knows the system is listening even before data arrives.
+	go func() {
+		time.Sleep(500 * time.Millisecond) // Slight delay to ensure UI renders first
+		utils.LogContext("[green]✓ SYSTEM:[-] Context Aggregator Daemon Started.")
+		utils.LogContext("[green]✓ SYSTEM:[-] Correlation Engine: [white]LISTENING[-]")
+		utils.LogContext("[gray]i INFO:[-] Waiting for tactical intelligence stream...")
+	}()
 
 	app = tview.NewApplication()
 	pages = tview.NewPages()
@@ -147,7 +164,11 @@ func InitTacticalDashboard() {
 		AddItem(reqView, 0, 1, false).
 		AddItem(resView, 0, 1, false)
 
-	// F4 Input Capture (AI Trigger) with VISUAL FEEDBACK
+	// --- NEURO SETUP (F6) ---
+	neuroView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
+	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE ANALYSIS (F6) [white] ").SetBorder(true)
+
+	// F4 Input Capture (AI Trigger) with VISUAL FEEDBACK & AUTO-SWITCH
 	trafficSplit.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlA {
 			req := reqView.GetText(true)
@@ -155,8 +176,14 @@ func InitTacticalDashboard() {
 			if req == "" {
 				utils.TacticalLog("[yellow]NEURO:[-] No request selected to analyze.")
 			} else {
-				reqView.SetTitle(" [white:red]>>> ANALYZING SNAPSHOT... PLEASE WAIT <<<[white] ")
 				utils.TacticalLog("[magenta]NEURO:[-] Snapshot captured. Transmitting to Neural Engine...")
+
+				// TRIGGER THINKING STATE ON F6
+				neuroView.Clear()
+				neuroView.SetText("[yellow]>>> HYDRA NEURAL ENGINE ENGAGED <<<\n[white]Status: PROCESSING SNAPSHOT...\n[blue]Calculating Entropy...\nCalculating Exploit Probability...\nScanning BOLA Vectors...\n\n[white]Please Wait...[-]")
+
+				// AUTO SWITCH TO F6
+				switchTo("neuro")
 
 				go func() {
 					logic.GlobalNeuro.AnalyzeTrafficSnapshot(req, res)
@@ -167,14 +194,19 @@ func InitTacticalDashboard() {
 		return event
 	})
 
-	aiView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
-	aiView.SetTitle(" [white:blue] CONTEXT_AGGREGATOR (F5) [white] ").SetBorder(true)
+	// --- CTX SETUP (F5) ---
+	// Split View: Top = Summary, Bottom = Logs
+	ctxSummary = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true)
+	ctxSummary.SetTitle(" [white:blue] ATTACK SURFACE SUMMARY [white] ").SetBorder(true)
 
-	neuroView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
-	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE (F6) [white] ").SetBorder(true)
+	ctxLogView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
+	ctxLogView.SetTitle(" [white:blue] CONTEXT LOG STREAM [white] ").SetBorder(true)
+
+	ctxFlex = tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(ctxSummary, 10, 1, false). // Fixed height for summary
+		AddItem(ctxLogView, 0, 3, false)
 
 	// F7 Report Tab Initialization
-	// Note: reportFlex is variable in ui package, initialized here
 	reportFlex = InitReportTab()
 
 	// Add Pages
@@ -182,7 +214,7 @@ func InitTacticalDashboard() {
 	pages.AddPage("map", mapTable, true, false)
 	pages.AddPage("loot", lootTable, true, false)
 	pages.AddPage("traffic", trafficSplit, true, false)
-	pages.AddPage("ai", aiView, true, false)
+	pages.AddPage("ai", ctxFlex, true, false)
 	pages.AddPage("neuro", neuroView, true, false)
 	pages.AddPage("report", reportFlex, true, false)
 
@@ -447,6 +479,11 @@ func startAsyncEngines() {
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
 				statusFooter.SetText(fmt.Sprintf(" [blue]SYSTEM SYNC %s [white]| %s", spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
 				updatePipelineQuadrant()
+
+				// Update Tab 5 Summary in real-time
+				if ctxSummary != nil {
+					ctxSummary.SetText(logic.GetAttackSurfaceSummary())
+				}
 			})
 		}
 	}()
@@ -522,8 +559,8 @@ func startAsyncEngines() {
 	go func() {
 		for msg := range utils.ContextLogChan {
 			app.QueueUpdateDraw(func() {
-				fmt.Fprintln(aiView, msg)
-				aiView.ScrollToEnd()
+				fmt.Fprintln(ctxLogView, msg)
+				ctxLogView.ScrollToEnd()
 			})
 		}
 	}()
@@ -531,6 +568,7 @@ func startAsyncEngines() {
 	go func() {
 		for msg := range utils.NeuroLogChan {
 			app.QueueUpdateDraw(func() {
+				// Append to Neuro View
 				fmt.Fprintf(neuroView, "%s\n", msg)
 				neuroView.ScrollToEnd()
 				reqView.SetTitle(" [yellow]REQUEST (UPPER) - Ctrl+A to Analyze [white] ")
