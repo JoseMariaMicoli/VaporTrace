@@ -258,48 +258,35 @@ graph TD
 ```
 
 ### Data Flow
-
 ```mermaid
-graph LR
-    %% Class Definitions
+graph TD
+    %% Global Styles
     classDef startNode fill:#fdd,stroke:#333,stroke-width:2px;
     classDef database fill:#fff,stroke:#333,stroke-width:2px;
     classDef engine fill:#dcf,stroke:#333,stroke-width:2px;
     classDef review fill:#ffe,stroke:#333,stroke-width:2px;
     classDef active fill:#dfd,stroke:#333,stroke-width:2px;
-    classDef report fill:#f0e6ff,stroke:#333,stroke-width:2px;
+    classDef report fill:#f0e6ff,stroke:#333,stroke-width:4px;
 
-    %% Nodes
-    A([<b>Target URL</b>]) 
-    B[Discovery]
-    C[(<b>Endpoints DB</b>)]
-    D{<b>Analysis</b><br/>AI Engine}
-    E[Tactical Plan]
-    F{<b>Human Review</b>}
-    G[<b>Execution</b>]
-    H[Findings]
-    I[<b>Reporting</b><br/>NIST/MITRE/OWASP]
-
-    %% Flow
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F -- Approved --> G
-    F -- Rejected --> D
-    G --> H
-    H --> I
+    %% Workflow Steps
+    A[<b>Target URL</b><br/>Discovery Phase] --> B(<b>Endpoints DB</b><br/>DataSilo Storage)
+    B --> C{<b>AI Analysis</b><br/>NeuroEngine Processing}
+    
+    C -->|Strategic Plan| D[<b>Human Review</b><br/>HITL Approval Gate]
+    D --> E[<b>Execution</b><br/>ActionBuffer Commit]
+    
+    E --> F[<b>Findings</b><br/>Loot & Context Capture]
+    F --> G(<b>Reporting</b><br/>NIST/MITRE Mapping)
+    G --> H((<b>FINAL REPORT</b><br/>Sprint 11 Complete))
 
     %% Assign Classes
     class A startNode;
-    class C database;
-    class D engine;
-    class F review;
-    class G active;
-    class I report;
+    class B database;
+    class C engine;
+    class D review;
+    class E,F active;
+    class G,H report;
 ```
-
 ### AI & Neural Engine
 - **Primary Provider:** Groq (fast cloud LLM)
 - **Fallback Provider:** Mistral via Ollama (local, private)
