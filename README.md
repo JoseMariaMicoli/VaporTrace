@@ -243,24 +243,38 @@ VaporTrace includes built-in evasion for modern defensive environments:
 ### 6-Layer System Design
 ```mermaid
 graph TD
-    A["1. Tactical UI<br/>rivo/tview"] --> B["2. Command Engine<br/>40+ commands"]
-    B --> C["3. Execution Engine<br/>Concurrency"]
-    C --> D["4. Exploitation Modules<br/>BOLA/BFLA/BOPLA/SSRF"]
-    D --> E["5. Networking Layer<br/>HTTP/HTTPS/SOCKS5"]
-    E --> F["6. Persistence & AI<br/>SQLite/Groq/Ollama"]
+    A["1. Tactical UI"] --> B["2. Command Engine"]
+    B --> C["3. Execution Engine"]
+    C --> D["4. Exploitation Modules"]
+    D --> E["5. Networking Layer"]
+    E --> F["6. Persistence & AI"]
+    
+    A -."rivo/tview".-> A2[" "]
+    B -."40+ commands".-> B2[" "]
+    C -."Concurrency".-> C2[" "]
+    D -."BOLA/BFLA/BOPLA/SSRF".-> D2[" "]
+    E -."HTTP/HTTPS/SOCKS5".-> E2[" "]
+    F -."SQLite/Groq/Ollama".-> F2[" "]
+    
+    style A2 fill:none,stroke:none
+    style B2 fill:none,stroke:none
+    style C2 fill:none,stroke:none
+    style D2 fill:none,stroke:none
+    style E2 fill:none,stroke:none
+    style F2 fill:none,stroke:none
 ```
 
 ### Data Flow
 ```mermaid
 graph LR
-    A["Target URL"] --> B["Discovery"]
-    B --> C[("Endpoints DB")]
-    C --> D{"AI Analysis"}
-    D -->|Approved| E["Execution"]
-    D -->|Rejected| D
-    E --> F["Findings"]
-    F --> G["Reporting"]
-    G --> H(("Final Report"))
+    A[Target URL] --> B[Discovery]
+    B --> C[(Endpoints DB)]
+    C --> D{AI Analysis}
+    D -->|Approved| E[Execution]
+    D -->|Rejected| F[Review]
+    F --> D
+    E --> G[Findings]
+    G --> H[Reporting]
 ```
 ### AI & Neural Engine
 - **Primary Provider:** Groq (fast cloud LLM)
