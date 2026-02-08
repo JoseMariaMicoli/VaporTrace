@@ -47,58 +47,52 @@
 ## ⚡ Core Modules
 
 ### **Reconnaissance & Discovery** (OWASP API9)
-\`\`\`
-target          Set global scope URL
-map             Automated endpoint discovery (spider + swagger + scrape + mine)
-swagger         Parse OpenAPI/Swagger specifications
-scrape          Extract endpoints from JavaScript bundles
-mine            Brute-force hidden query parameters
-sessions        Manage authentication tokens and credentials
-\`\`\`
+
+`target`          Set global scope URL
+`map`             Automated endpoint discovery (spider + swagger + scrape + mine)
+`swagger`         Parse OpenAPI/Swagger specifications
+`scrape`          Extract endpoints from JavaScript bundles
+`mine`            Brute-force hidden query parameters
+`sessions`        Manage authentication tokens and credentials
 
 ### **Authorization Testing** (OWASP API1-5)
-\`\`\`
-bola            Broken Object Level Authorization (ID enumeration)
-bfla            Broken Function Level Authorization (privilege escalation)
-bopla           Broken Object Property Authorization (mass assignment)
-flow            Orchestrate multi-step attack chains
-\`\`\`
+
+`bola`            Broken Object Level Authorization (ID enumeration)
+`bfla`            Broken Function Level Authorization (privilege escalation)
+`bopla`           Broken Object Property Authorization (mass assignment)
+`flow`            Orchestrate multi-step attack chains
 
 ### **Infrastructure & Data Testing** (OWASP API4, API7, API8, API10)
-\`\`\`
-exhaust         Resource exhaustion & DoS testing
-ssrf            Server-side request forgery (cloud metadata)
-audit           Security configuration auditing
-probe           Webhook & third-party integration testing
-\`\`\`
+
+`exhaust`         Resource exhaustion & DoS testing
+`ssrf`            Server-side request forgery (cloud metadata)
+`audit`           Security configuration auditing
+`probe`           Webhook & third-party integration testing
 
 ### **Tactical Planning** (HITL Orchestration)
-\`\`\`
-analyze         AI-driven tactical plan generation
-list-plan       Review pending tactical actions
-edit <id>       Override AI payloads
-drop <id>       Mark action to skip execution
-commit          Execute all pending actions
-\`\`\`
+
+`analyze`         AI-driven tactical plan generation
+`list-plan`       Review pending tactical actions
+`edit` <id>       Override AI payloads
+`drop` <id>       Mark action to skip execution
+`commit`          Execute all pending actions
 
 ### **AI & Neural Engine**
-\`\`\`
-neuro on        Activate neural engine (LLM payloads)
-neuro off       Disable AI mutations
-neuro-gen <n>   Generate n alternative payloads
-test-neuro      Test AI provider connectivity
-ask <prompt>    Direct LLM query
-\`\`\`
+
+`neuro on`        Activate neural engine (LLM payloads)
+`neuro off`       Disable AI mutations
+`neuro-gen` <n>   Generate n alternative payloads
+`test-neuro`      Test AI provider connectivity
+`ask` <prompt>    Direct LLM query
 
 ### **Infrastructure & Reporting**
-\`\`\`
-proxy           Set upstream proxy
-proxies load    Load rotating proxy list
-report          Generate findings report (Markdown/PDF)
-loot            Manage captured secrets and credentials
-init_db         Initialize mission database
-reset_db        Clear all mission data
-\`\`\`
+
+`proxy`           Set upstream proxy
+`proxies load`    Load rotating proxy list
+`report`          Generate findings report (Markdown/PDF)
+`loot`            Manage captured secrets and credentials
+`init_db`         Initialize mission database
+`reset_db`        Clear all mission data
 
 **For complete command documentation, see:** [Command Reference](docs/manuals/18_COMMAND_REFERENCE.md)
 
@@ -177,20 +171,27 @@ reset_db        Clear all mission data
 ## 🚀 Installation
 
 ### Quick Start
-\`\`\`bash
+
 # Clone repository
+```bash
 git clone https://github.com/JoseMariaMicoli/VaporTrace.git
 cd VaporTrace
+```
 
 # Install dependencies
+```bash
 go mod tidy
+```
 
 # Build binary
+```bash
 go build -o VaporTrace main.go
+```
 
 # Run
+```bash
 ./VaporTrace
-\`\`\`
+```
 
 **For detailed installation guide, see:** [Installation & Setup](docs/manuals/01_INSTALLATION_SETUP.md)
 

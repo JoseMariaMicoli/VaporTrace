@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "docs/manuals/01_INSTALLATION_SETUP.md",
+                "file": "README.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "01_INSTALLATION_SETUP"
+              "title": "README"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "docs/manuals/01_INSTALLATION_SETUP.md",
+                "file": "README.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for 01_INSTALLATION_SETUP"
+              "title": "Backlinks for README"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "docs/manuals/01_INSTALLATION_SETUP.md",
+                "file": "README.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from 01_INSTALLATION_SETUP"
+              "title": "Outgoing links from README"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "docs/manuals/01_INSTALLATION_SETUP.md",
+                "file": "README.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of 01_INSTALLATION_SETUP"
+              "title": "Outline of README"
             }
           }
         ]
@@ -185,6 +185,7 @@
   },
   "active": "7ad35cc5d256c690",
   "lastOpenFiles": [
+    "docs/manuals/01_INSTALLATION_SETUP.md",
     "docs/manuals/INDEX.md",
     "README.md",
     "docs/dev-logs/Dev-Roadmap.md"
