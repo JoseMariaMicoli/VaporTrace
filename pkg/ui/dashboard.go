@@ -557,7 +557,7 @@ func switchTo(page string) {
 }
 
 func updateTabs(active string) {
-	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "PLAN (F5)", "NEURO (F6)", "RPT (F7)"}
+	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "PLAN (F5)", "NEURO (F6)", "REPORT (F7)"}
 	descs := []string{"System", "Recon", "Exfil", "Sniffer", "Strategy", "AI-Ops", "Debrief"}
 	ids := []string{"logs", "map", "loot", "traffic", "ai", "neuro", "report"}
 

