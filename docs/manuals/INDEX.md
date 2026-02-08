@@ -39,6 +39,7 @@
 18. [Command Reference](18_COMMAND_REFERENCE.md) - All CLI commands with examples
 19. [API Module Documentation](19_API_MODULES.md) - Detailed module descriptions
 20. [FAQ & Tips](20_FAQ_TIPS.md) - Frequently asked questions and pro tips
+21. [WAF Evasion Techniques](21_WAF_EVASION_TECHNIQUES.md) - Advanced WAF bypass strategies
 
 ---
 
@@ -270,7 +271,10 @@ docs/
 │   ├── 17_KEYBOARD_SHORTCUTS.md
 │   ├── 18_COMMAND_REFERENCE.md
 │   ├── 19_API_MODULES.md
-│   └── 20_FAQ_TIPS.md
+│   ├── 20_FAQ_TIPS.md
+│   ├── 21_WAF_EVASION_TECHNIQUES.md
+│   ├── KEYBINDINGS_QUICK_REFERENCE.md
+│   └── [Sprint & Special Guides]
 └── dev-logs/
     ├── INDEX.md (architecture & technical overview)
     ├── 01_ARCHITECTURE.md

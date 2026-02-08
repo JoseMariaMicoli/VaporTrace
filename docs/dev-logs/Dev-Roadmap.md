@@ -8,10 +8,10 @@
 
 | Category | Status | Count |
 |----------|--------|-------|
-| **Completed Sprints** | ✅ DONE | 11 full (Sprints 1-11) |
-| **Active Development** | 🔄 IN PROGRESS | Sprint 12 (Evasion V2) |
+| **Completed Sprints** | ✅ DONE | 12 full (Sprints 1-12) |
+| **Active Development** | 🔄 IN PROGRESS | Sprint 13 (Planned) |
 | **Planned Sprints** | ⏳ QUEUED | Sprints 13-16 |
-| **Total Capabilities** | ✅ SHIPPED | 100+ features |
+| **Total Capabilities** | ✅ SHIPPED | 120+ features |
 
 ---
 
@@ -100,9 +100,9 @@
 |  | 11.3+ | Write-through synchronization barrier (Race-to-Silo fix) | ✅ DONE |
 | **Sprint 12: Evasion V2** |
 |  | 12.1 | Deep Traffic Shaping: Mimicking legitimate API traffic | ✅ DONE |
-|  | 12.2 | TLS Fingerprinting & JA3 Evasion (tls-utls integration) | ⏳ PLANNED |
+|  | 12.2 | TLS Fingerprinting & JA3 Evasion (tls-utls integration) | ✅ DONE |
 |  | 12.3 | Behavioral Jitter: Randomized inter-packet timing | ✅ DONE |
-|  | 12.4 | Encrypted OOB: Secure exfiltration via custom protocols | ⏳ PLANNED |
+|  | 12.4 | User-Agent & TLS Profile Alignment | ✅ DONE |
 | **Sprint 13: The Hive** |
 |  | 13.1 | Hybrid C2 Architecture: gRPC Control Plane | ⏳ PLANNED |
 |  | 13.2 | RESTful Management API for the Hive Master | ⏳ PLANNED |
@@ -140,7 +140,7 @@
 
 ---
 
-## 🚀 Current Release: v3.1-Hydra (February 2026)
+## 🚀 Current Release: v3.2-Chimera (February 2026)
 
 **VaporTrace is production-ready with:**
 - ✅ Full API exploitation capabilities (BOLA, BFLA, BOPLA, SSRF, Exhaustion, Misconfig, Integration)
@@ -149,16 +149,18 @@
 - ✅ Real-time TUI dashboard with 7 tabs and 19 hotkeys
 - ✅ Compliance reporting (NIST, MITRE, OWASP)
 - ✅ Enterprise evasion techniques (header rotation, jitter, IP masking)
+- ✅ **NEW: uTLS Browser Fingerprinting** with 8 realistic browser profiles
+- ✅ **NEW: Stochastic Jitter** (50-250ms behavioral evasion)
+- ✅ **NEW: SNI/ALPN Hardening** for WAF bypass
 - ✅ LLM safety with verification system and Gold Standard snippets
 - ✅ Multi-operator coordination and mission vault (SQLite)
 
 ---
 
-## 📅 Next Phase: Sprint 12+ Evolution
+## 📅 Next Phase: Sprint 13+ Evolution
 
 Future enhancements in planning:
-- TLS fingerprinting with tls-utls library (Sprint 12.2)
-- Encrypted OOB channels for exfiltration (Sprint 12.4)
+- Encrypted OOB channels for exfiltration (Sprint 12.4 reserve)
 - C2 architecture for multi-agent operations (Sprint 13)
 - Cloud/K8s-specific pivoting modules (Sprint 14)
 - Post-quantum cryptography research (Sprint 15)

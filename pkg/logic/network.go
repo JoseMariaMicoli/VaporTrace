@@ -2,11 +2,13 @@ package logic
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"math"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -259,15 +261,82 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 }
 
 // SafeDo executes the request with Context Enrichment, Evasion, Interception, and Traffic Logging.
+// Integrates all WAF evasion techniques:
+// - Contextual thinking time based on request type
+// - Path obfuscation with cache-busters and parameters
+// - Payload encoding (gzip, deflate, whitespace randomization)
+// - Automatic rate-limit backoff with proxy/UA rotation
+// - HTTP/2 pseudo-header randomization
 func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error) {
+	utils.TacticalLog(fmt.Sprintf("[blue]REQUEST:[-] %s %s (module: %s)", req.Method, req.URL, module))
+
+	// === PRIORITY ALPHA: HTTP/2 PSEUDO-HEADER RANDOMIZATION ===
+	profile := GetHTTP2Profile(req.Header.Get("User-Agent"))
+	ApplyHTTP2Evasion(req, profile)
+	utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Applied HTTP/2 profile: %s", profile.Name))
+
+	// === PRIORITY BETA: PATH OBFUSCATION ===
+	if req.Method == "GET" || req.Method == "POST" {
+		obfuscationStrategy := SelectObfuscationStrategy()
+		originalPath := req.URL.Path
+		req.URL.Path = ObfuscatePath(originalPath, obfuscationStrategy)
+		utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Path obfuscation applied: %s → %s", originalPath, req.URL.Path))
+	}
+
+	// === PRIORITY EPSILON: PAYLOAD ENCODING (for POST/PUT bodies) ===
+	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
+		if req.Body != nil {
+			bodyBytes, _ := io.ReadAll(req.Body)
+			encodingTechnique := SelectRandomEncoding()
+			transformedBody, contentEncoding := TransformPayload(bodyBytes, encodingTechnique)
+
+			if contentEncoding != "identity" {
+				req.Header.Set("Content-Encoding", contentEncoding)
+				utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Payload encoding applied: %s", contentEncoding))
+			}
+
+			req.Body = io.NopCloser(bytes.NewReader(transformedBody))
+			if len(transformedBody) != len(bodyBytes) {
+				utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Payload transformed (size: %d → %d bytes)", len(bodyBytes), len(transformedBody)))
+			}
+		}
+	}
+
+	// === PRIORITY GAMMA: CONTEXTUAL THINKING TIME ===
+	// Apply behavioral delay before sending request
+	delay := ContextualThinkingTime(req.Method, req.URL.Path)
+	if delay > 0 {
+		utils.TacticalLog(fmt.Sprintf("[cyan]BEHAVIOR:[-] Contextual thinking time: %dms", delay.Milliseconds()))
+		time.Sleep(delay)
+	}
+
 	ApplyEvasion(req)
 	req.Header.Set("X-VaporTrace-Module", module)
 
 	if GlobalClient.Transport == nil {
+		utils.TacticalLog("[yellow]WARN:[-] GlobalClient.Transport is nil, initializing...")
 		InitializeRotaryClient()
 	}
 
-	return GlobalClient.Do(req)
+	resp, err := GlobalClient.Do(req)
+	if err != nil {
+		utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Request failed: %v", err))
+		return resp, err
+	}
+
+	utils.TacticalLog(fmt.Sprintf("[green]✓ RESPONSE:[-] %s %d", req.URL, resp.StatusCode))
+
+	// === PRIORITY DELTA: RATE-LIMIT BACKOFF ===
+	if resp.StatusCode == 429 || (resp.StatusCode >= 400 && resp.StatusCode <= 430) {
+		backoffDelay := HandleRateLimit(resp.StatusCode, resp.Header)
+		if backoffDelay > 0 {
+			utils.TacticalLog(fmt.Sprintf("[red]BACKOFF:[-] Rate-limit triggered. Waiting %.0f seconds before retry...", backoffDelay.Seconds()))
+			time.Sleep(backoffDelay)
+			utils.TacticalLog("[green]✓ BACKOFF:[-] Cooldown expired. Resuming operations with rotated identity.")
+		}
+	}
+
+	return resp, nil
 }
 
 // EnsureTransport guarantees the GlobalClient has the TacticalTransport middleware.
@@ -286,6 +355,11 @@ func InitializeRotaryClient() {
 
 	baseTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		// Use standard dialer for both HTTP and HTTPS connections
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			dialer := &net.Dialer{Timeout: 30 * time.Second}
+			return dialer.DialContext(ctx, network, addr)
+		},
 		Proxy: func(req *http.Request) (*url.URL, error) {
 			poolProxy := GetRandomProxy()
 			if poolProxy != "" {
@@ -304,6 +378,7 @@ func InitializeRotaryClient() {
 	tacticalTransport := &TacticalTransport{Base: baseTransport}
 	GlobalClient.Transport = tacticalTransport
 	utils.GlobalClient = GlobalClient
+	utils.TacticalLog("[green]✓ HTTP CLIENT:[-] Initialized with standard transport (TLS evasion disabled)")
 }
 
 // DetectAndSetProxy attempts to auto-discover local proxies

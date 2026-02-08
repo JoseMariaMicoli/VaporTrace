@@ -1600,6 +1600,47 @@ func printHelp(cmd string) {
 
 	case "usage":
 		utils.TacticalLog("Display all available commands with categories and brief descriptions.")
+		utils.TacticalLog("[cyan]📖 For detailed manuals, run: help reconnaissance | help exploitation | help config[-]")
+
+	case "reconnaissance":
+		utils.TacticalLog("[cyan]📚 Manual: docs/manuals/05_RECONNAISSANCE.md[-]")
+		utils.TacticalLog("Advanced API discovery, endpoint mapping, parameter mining and Swagger parsing.")
+		utils.TacticalLog("Topics: Target management, spidering, JavaScript extraction, behavioral analysis")
+
+	case "exploitation":
+		utils.TacticalLog("[cyan]📚 Manual: docs/manuals/06_EXPLOITATION.md[-]")
+		utils.TacticalLog("OWASP API Top 10 vulnerability testing: BOLA, BFLA, BOPLA, SSRF, exhaustion")
+		utils.TacticalLog("Topics: Attack vectors, exploitation chains, remediation code")
+
+	case "ai":
+		utils.TacticalLog("[cyan]📚 Manual: docs/manuals/07_AI_NEURO_ENGINE.md[-]")
+		utils.TacticalLog("LLM-powered payload generation using Groq, OpenAI, or local Ollama.")
+		utils.TacticalLog("Topics: Neural engine setup, AI configuration, payload mutation strategies")
+
+	case "interceptor":
+		utils.TacticalLog("[cyan]📚 Manual: docs/manuals/08_INTERCEPTOR_MITM.md[-]")
+		utils.TacticalLog("Request and response interception for real-time modification and analysis.")
+		utils.TacticalLog("Topics: MITM setup, request editing, response tampering, payload injection")
+
+	case "evasion":
+		utils.TacticalLog("[cyan]📚 Manual: docs/manuals/10_GHOST_WEAVER.md[-]")
+		utils.TacticalLog("Advanced WAF/IDS evasion techniques including payload obfuscation.")
+		utils.TacticalLog("Topics: Token forgery, data masking, behavioral evasion, detection avoidance")
+
+	case "config":
+		utils.TacticalLog("[cyan]📚 Manual: docs/manuals/15_CONFIGURATION.md[-]")
+		utils.TacticalLog("Advanced configuration, environment variables, and performance tuning.")
+		utils.TacticalLog("Topics: Config files, target-specific settings, batch sizes, connection pooling")
+
+	case "troubleshoot":
+		utils.TacticalLog("[cyan]📚 Manual: docs/manuals/16_TROUBLESHOOTING.md[-]")
+		utils.TacticalLog("Common issues, diagnosis trees, and solutions for VaporTrace problems.")
+		utils.TacticalLog("Topics: Timeouts, SSL errors, WAF detection, performance optimization")
+
+	case "faq":
+		utils.TacticalLog("[cyan]📚 Manual: docs/manuals/20_FAQ_TIPS.md[-]")
+		utils.TacticalLog("Frequently asked questions, best practices, and legal compliance information.")
+		utils.TacticalLog("Topics: Installation, authentication, evasion, licensing, security")
 
 	case "exit":
 		utils.TacticalLog("Gracefully shutdown VaporTrace with sequential cleanup:")
@@ -1610,6 +1651,7 @@ func printHelp(cmd string) {
 
 	default:
 		utils.TacticalLog("No specific manual entry found. Try 'usage' for a list of commands.")
+		utils.TacticalLog("[cyan]📖 Available manual topics: reconnaissance | exploitation | ai | interceptor | evasion | config | troubleshoot | faq[-]")
 		utils.TacticalLog("Try 'help keys' for keyboard hotkeys and UI controls.")
 	}
 }
