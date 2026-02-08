@@ -260,27 +260,44 @@ graph TD
 ### Data Flow
 
 ```mermaid
-flowchart LR
-    A([Target URL]) --> B[Discovery]
-    B --> C[(Endpoints DB)]
-    C --> D{Analysis<br/>AI Engine}
-    
-    D --> E[Tactical Plan]
-    E --> F{Human Review}
-    
-    F -- Approved --> G[Execution]
-    F -- Rejected --> D
-    
-    G --> H[Findings]
-    H --> I[Reporting<br/>NIST/MITRE/OWASP]
+graph LR
+    %% Class Definitions
+    classDef startNode fill:#fdd,stroke:#333,stroke-width:2px;
+    classDef database fill:#fff,stroke:#333,stroke-width:2px;
+    classDef engine fill:#dcf,stroke:#333,stroke-width:2px;
+    classDef review fill:#ffe,stroke:#333,stroke-width:2px;
+    classDef active fill:#dfd,stroke:#333,stroke-width:2px;
+    classDef report fill:#f0e6ff,stroke:#333,stroke-width:2px;
 
-    %% Styling for Obsidian & GitHub Compatibility
-    style A fill:#fdd,stroke:#333,stroke-width:2px
-    style C fill:#fff,stroke:#333,stroke-width:2px
-    style D fill:#dcf,stroke:#333,stroke-width:2px
-    style F fill:#ffe,stroke:#333,stroke-width:2px
-    style G fill:#dfd,stroke:#333,stroke-width:2px
-    style I fill:#f0e6ff,stroke:#333,stroke-width:2px```
+    %% Nodes
+    A([<b>Target URL</b>]) 
+    B[Discovery]
+    C[(<b>Endpoints DB</b>)]
+    D{<b>Analysis</b><br/>AI Engine}
+    E[Tactical Plan]
+    F{<b>Human Review</b>}
+    G[<b>Execution</b>]
+    H[Findings]
+    I[<b>Reporting</b><br/>NIST/MITRE/OWASP]
+
+    %% Flow
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F -- Approved --> G
+    F -- Rejected --> D
+    G --> H
+    H --> I
+
+    %% Assign Classes
+    class A startNode;
+    class C database;
+    class D engine;
+    class F review;
+    class G active;
+    class I report;
 ```
 
 ### AI & Neural Engine
