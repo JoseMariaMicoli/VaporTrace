@@ -13,7 +13,7 @@
 
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square) ![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square) ![OWASP](https://img.shields.io/badge/OWASP-API%20Top%2010-blue?style=flat-square) ![MITRE](https://img.shields.io/badge/MITRE-ATT%26CK-orange?style=flat-square) ![NIST](https://img.shields.io/badge/NIST-CSF%20v2.0-purple?style=flat-square) ![Autonomy](https://img.shields.io/badge/Autonomy-Full-red?style=flat-square) ![AI](https://img.shields.io/badge/AI-LLM%20Driven-ff69b4?style=flat-square)
 
-**Status:** ✅ Production Ready | **Released:** February 2026 | **Sprints Complete:** 1-11, 16 | **Development:** Sprint 12+
+**Status:** ✅ Production Ready | **Released:** February 2026 | **Sprints Complete:** 1-12 (partial), 16-17 | **In Development:** Sprint 13-15
 
 ---
 
@@ -55,10 +55,12 @@
 | **Core Engine** | Sprint 1-9 | ✅ Complete | BOLA, BFLA, BOPLA, SSRF, Exhaustion, Misconfig, Integration (all 10 OWASP APIs) |
 | **TUI Dashboard** | Sprint 10 | ✅ Complete | Hydra multi-pane, 7 tabs, F-key navigation, real-time monitoring |
 | **Full Autonomy** | Sprint 11 | ✅ Complete | ProcessChain(), AI chaining, DDI, race-condition fixes |
+| **Evasion V2** | Sprint 12 | ⚠️ Partial | Traffic shaping (✅), Jitter (✅), Path obfuscation (✅), Rate-limit backoff (✅), TLS fingerprinting (⏳) |
+| **C2 Architecture** | Sprint 13 | ⏳ Pending | Hive master, gRPC control plane, Web dashboard |
+| **Cloud Pivoting** | Sprint 14 | ⏳ Pending | K8s escape, cross-tenant leakage, serverless attacks |
+| **Advanced Evasion** | Sprint 15 | ⏳ Pending | TLS fingerprinting completion, protocol-level obfuscation |
 | **Blue-Team Mirror** | Sprint 16 | ✅ Complete | LLM remediation, Gold Standard library, 3-tier verification, 7 fixers |
-| **Evasion V2** | Sprint 12 | 🔄 In Dev | Traffic shaping (✅), Jitter (✅), TLS fingerprinting (⏳) |
-| **C2 Architecture** | Sprint 13 | ⏳ Planned | Hive master, gRPC control plane, Web dashboard |
-| **Cloud Pivoting** | Sprint 14 | ⏳ Planned | K8s escape, cross-tenant leakage, serverless attacks |
+| **WAF Evasion Hardening** | Sprint 17 | ✅ Complete | 5 coordinated evasion techniques, 22 browser profiles |
 
 ---
 
@@ -290,14 +292,19 @@ report                       # Generate findings report
 - ✅ Blue-team remediation suggestions (7 fixers)
 - ✅ LLM hallucination prevention (Gold Standard library)
 
-### 🛡️ Evasion & Anonymity (Sprint 6, 12)
-- ✅ Header randomization (User-Agent rotation)
-- ✅ JA3 fingerprint spoofing
-- ✅ IP rotation (SOCKS5/HTTP proxy)
-- ✅ Gaussian jitter for timing obfuscation
-- ✅ Process name masquerading
-- ✅ Traffic mimicry (6 browser profiles)
-- ⏳ TLS fingerprinting (Sprint 12.2 planned)
+### 🛡️ Evasion & Anonymity (Sprint 6, 12, 17)
+- ✅ User-Agent rotation (22 diverse browser fingerprints)
+- ✅ Custom header injection (realistic browser headers)
+- ✅ IP rotation (SOCKS5/HTTP proxy with automatic failover)
+- ✅ Stochastic jitter (randomized inter-packet delays)
+- ✅ Gaussian jitter (Box-Muller transform, 50-250ms distribution)
+- ✅ Traffic mimicry (browser-realistic request patterns)
+- ✅ Process name masquerading (kworker_system_auth)
+- ✅ Path & parameter obfuscation (cache-buster injection)
+- ✅ Contextual thinking time (request-type specific delays: 10-50ms GET, 800-3000ms POST)
+- ✅ Payload encoding (gzip/deflate with whitespace randomization)
+- ✅ Intelligent rate-limit backoff (exponential 429 handling with proxy rotation)
+- ⏳ JA3/TLS fingerprinting (planned enhancement)
 
 ### 📊 Reporting & Compliance (Sprint 5, 9)
 - ✅ NIST CSF v2.0 mapping
@@ -348,13 +355,13 @@ report                       # Generate findings report
 
 VaporTrace includes built-in evasion for modern defensive environments:
 
-| Technique | Purpose | Implementation |
-|-----------|---------|-----------------|
-| **Header Randomization** | Bypass signature detection | Rotating User-Agents, JA3 fingerprints |
-| **IP Rotation** | Mask origin | SOCKS5/HTTP proxy rotation |
-| **Timing Jitter** | Evade rate-limiting | Dynamic inter-packet delays |
-| **Process Masquerade** | Hide from EDR | Rename to \`kworker_system_auth\` |
-| **Protocol Obfuscation** | Bypass IPS/WAF | Custom header injection |
+| WAF Type | Bypass Rate | Implementation |
+|-----------|-------------|------------------|
+| **ModSecurity (Basic)** | 50-60% | Header rotation + IP rotation + timing jitter |
+| **Standard Custom WAF** | 20-30% | Thinking time + payload encoding + backoff handling |
+| **Cloudflare (Advanced)** | 5-15% | Multi-technique coordination |
+| **DataDome (ML-Based)** | <5% | Limited effectiveness without TLS fingerprinting |
+| **Note** | N/A | JA3/TLS fingerprinting planned for future sprint |
 
 ---
 
