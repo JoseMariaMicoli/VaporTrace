@@ -50,6 +50,8 @@ var (
 )
 
 func ParseSwagger(url string, proxy string) ([]string, error) {
+	logic.EnsureTransport()
+
 	// 1. Initial Attempt (User provided specific URL)
 	endpoints, err := fetchAndParse(url)
 	if err == nil && len(endpoints) > 0 {
@@ -135,6 +137,8 @@ func generateCandidates(base string) []string {
 
 // fetchAndParse handles the network and version-agnostic parsing
 func fetchAndParse(url string) ([]string, error) {
+	logic.EnsureTransport()
+
 	client := logic.GlobalClient
 
 	req, _ := http.NewRequest("GET", url, nil)

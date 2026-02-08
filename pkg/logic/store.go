@@ -53,7 +53,7 @@ func (ds *DiscoveryStore) AddEndpoint(path string) {
 	if _, exists := ds.Inventory[path]; !exists {
 		ds.Inventory[path] = &EndpointEntry{
 			Path:    path,
-			Engines: []string{}, 
+			Engines: []string{},
 		}
 	}
 }
@@ -64,6 +64,61 @@ func (ds *DiscoveryStore) GetEndpoints() []string {
 	defer ds.mu.RUnlock()
 	keys := make([]string, 0, len(ds.Inventory))
 	for k := range ds.Inventory {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// === SPRINT 11.2: DataSilo for Autonomous Chaining ===
+// DataSilo stores extracted loot (credentials, tokens, env vars) for use by subsequent actions
+// Thread-safe storage for cross-action data dependencies
+type DataSilo struct {
+	mu   sync.RWMutex
+	data map[string]interface{} // e.g., {"k8s_token": "eyJ0...", "admin_session": "xyz..."}
+}
+
+// GlobalDataSilo is the centralized singleton for autonomous action chaining
+var GlobalDataSilo = &DataSilo{
+	data: make(map[string]interface{}),
+}
+
+// Set stores a value in the DataSilo
+func (ds *DataSilo) Set(key string, value interface{}) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+	ds.data[key] = value
+}
+
+// Get retrieves a value from the DataSilo
+func (ds *DataSilo) Get(key string) (interface{}, bool) {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	val, ok := ds.data[key]
+	return val, ok
+}
+
+// GetString retrieves a value as a string
+func (ds *DataSilo) GetString(key string) string {
+	if val, ok := ds.Get(key); ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+// Exists checks if a key exists in the DataSilo
+func (ds *DataSilo) Exists(key string) bool {
+	_, ok := ds.Get(key)
+	return ok
+}
+
+// List returns all keys in the DataSilo (for debugging)
+func (ds *DataSilo) List() []string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	keys := make([]string, 0, len(ds.data))
+	for k := range ds.data {
 		keys = append(keys, k)
 	}
 	return keys

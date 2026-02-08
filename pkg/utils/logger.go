@@ -41,7 +41,9 @@ func SetLoggerMode(mode string) {
 // EscapeTview sanitizes strings to prevent tview from interpreting brackets as tags
 func EscapeTview(text string) string {
 	text = StripANSI(text)
-	return strings.ReplaceAll(text, "[", "[[")
+	text = strings.ReplaceAll(text, "[", "[[")
+	text = strings.ReplaceAll(text, "]", "]]")
+	return text
 }
 
 func timeStamp() string {

