@@ -11,7 +11,7 @@
 
 **Enterprise-Grade API Security Testing Platform**
 
-![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go) ![License](https://img.shields.io/badge/License-Custom-red?style=flat-square) ![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square) ![OWASP](https://img.shields.io/badge/OWASP-API%20Top%2010-blue?style=flat-square) ![MITRE](https://img.shields.io/badge/MITRE-ATT%26CK-orange?style=flat-square) ![NIST](https://img.shields.io/badge/NIST-CSF%20v2.0-purple?style=flat-square)
+![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square) ![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square) ![OWASP](https://img.shields.io/badge/OWASP-API%20Top%2010-blue?style=flat-square) ![MITRE](https://img.shields.io/badge/MITRE-ATT%26CK-orange?style=flat-square) ![NIST](https://img.shields.io/badge/NIST-CSF%20v2.0-purple?style=flat-square)
 
 ---
 
@@ -240,28 +240,40 @@ VaporTrace includes built-in evasion for modern defensive environments:
 ## 🏗️ Architecture
 
 ### 6-Layer System Design
-\`\`\`
-┌─────────────────────────────────────────┐
-│ 1. Tactical UI (rivo/tview)            │ Real-time dashboard
-├─────────────────────────────────────────┤
-│ 2. Command Engine                      │ 40+ commands, orchestration
-├─────────────────────────────────────────┤
-│ 3. Execution Engine                    │ Module coordination, concurrency
-├─────────────────────────────────────────┤
-│ 4. Exploitation Modules                │ BOLA, BFLA, BOPLA, SSRF, etc.
-├─────────────────────────────────────────┤
-│ 5. Networking Layer                    │ HTTP, proxy, TLS hardening
-├─────────────────────────────────────────┤
-│ 6. Persistence & AI                    │ SQLite, Groq/Ollama, reporting
-└─────────────────────────────────────────┘
-\`\`\`
+```mermaid
+graph TD
+    A["1. Tactical UI<br/>rivo/tview"] --> B["2. Command Engine<br/>40+ commands"]
+    B --> C["3. Execution Engine<br/>Concurrency"]
+    C --> D["4. Exploitation Modules<br/>BOLA/BFLA/BOPLA/SSRF"]
+    D --> E["5. Networking Layer<br/>HTTP/HTTPS/SOCKS5"]
+    E --> F["6. Persistence & AI<br/>SQLite/Groq/Ollama"]
+    
+    style A fill:#ff9999
+    style B fill:#ffcc99
+    style C fill:#ffff99
+    style D fill:#99ff99
+    style E fill:#99ffcc
+    style F fill:#99ccff
+```
 
 ### Data Flow
-1. **Discovery** → Endpoints discovered → Stored in database
-2. **Analysis** → AI examines endpoints → Generates tactical plan
-3. **Planning** → Human reviews plan → Edits/approves actions
-4. **Execution** → Actions executed → Findings captured
-5. **Reporting** → Results → Framework-mapped report
+```mermaid
+graph LR
+    A["Target URL"] --> B["Discovery"] --> C["Endpoints DB"]
+    C --> D["Analysis<br/>AI Engine"] --> E["Tactical Plan"]
+    E --> F{"Human Review"}
+    F -->|Approved| G["Execution"]
+    F -->|Rejected| D
+    G --> H["Findings"]
+    H --> I["Reporting<br/>NIST/MITRE/OWASP"]
+    
+    style A fill:#ffe6e6
+    style B fill:#fff0e6
+    style D fill:#e6f0ff
+    style F fill:#fff9e6
+    style G fill:#e6ffe6
+    style I fill:#f0e6ff
+```
 
 ### AI & Neural Engine
 - **Primary Provider:** Groq (fast cloud LLM)
@@ -294,11 +306,12 @@ VaporTrace includes built-in evasion for modern defensive environments:
 
 ## 📄 License
 
-Custom License - See LICENSE file
+MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
 **VaporTrace** — Surgical API Exploitation Platform  
-**Version:** 3.1.2-Hydra | **Status:** Production Ready
+**Version:** 3.1.2-Hydra | **Status:** Production Ready  
+**Author:** José María Micoli
 
 For complete documentation, see [docs/manuals/INDEX.md](docs/manuals/INDEX.md)
