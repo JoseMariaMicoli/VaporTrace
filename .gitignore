@@ -25,3 +25,6 @@ go.sum (optional, usually kept)
 serializer.py
 kworker_system_auth
 codebase_vaportrace.txt
+
+# Obsidian
+.obsidian/
