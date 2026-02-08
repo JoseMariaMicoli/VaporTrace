@@ -142,7 +142,7 @@ func fetchAndParse(url string) ([]string, error) {
 	client := logic.GlobalClient
 
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("User-Agent", "VaporTrace-Scanner/3.1")
+	logic.ApplyEvasion(req) // Apply rotating User-Agent
 	req.Header.Set("Accept", "application/json, */*")
 
 	resp, err := client.Do(req)

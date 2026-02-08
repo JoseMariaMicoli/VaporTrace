@@ -3,6 +3,7 @@ VaporTrace
 *.exe
 *.bin
 *.db
+test_build
 
 # Dependency directories
 vendor/

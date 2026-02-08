@@ -80,7 +80,7 @@ func (b *BOLAContext) getResource(resourceID string, token string) (int, string,
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", CurrentSession.AttackerToken))
 	}
 
-	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.10 Industrialized)")
+	ApplyEvasion(req) // Use rotating User-Agent
 
 	resp, err := SafeDo(req, false, "BOLA-ENGINE")
 	if err != nil {
