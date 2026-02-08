@@ -143,3 +143,173 @@ Output: The AI performs a "Deep Analysis," looking for BOLA, BFLA, and Sensitive
 ##### Ctrl + H Shows Keybindings
 
 ---
+
+
+
+
+Here is the comprehensive, step-by-step usage guide for the **VaporTrace Phase III** architecture. This guide covers compilation, initialization, telemetry gathering, and the new **AI Strategic Planner (HITL)** workflow.
+
+---
+
+# 🛡️ VaporTrace Phase III - Operator Manual
+
+## 1. Installation & Initialization
+
+Before starting a mission, ensure the binary is compiled with the latest patches.
+
+### Step 1: Compile the Suite
+Ensure you are in the root directory of the project.
+```bash
+go mod tidy
+go build -o VaporTrace main.go
+```
+
+### Step 2: Launch the Dashboard
+Run the tool in TUI (Tactical User Interface) mode.
+```bash
+./VaporTrace
+```
+
+### Step 3: Initialize Persistence
+VaporTrace uses an SQLite backend to track findings and map them to MITRE/OWASP.
+1.  Type `init_db` in the command bar.
+2.  **Verify:** Check the **LOGS (F1)** tab for `[green]Database Persistence Initialized`.
+
+---
+
+## 2. Telemetry Gathering (Feeding the Brain)
+
+The **Strategic Brain** relies on data. It will not generate a plan if the system is empty. You must populate the **Sensors** first.
+
+### Step 4: Set Global Scope
+Define the target to ensure all modules share the same context.
+```text
+target https://httpbin.org
+```
+
+### Step 5: Populate Discovery Map (Sensor F2)
+The AI needs to know the API topology (endpoints) to recommend attacks.
+*   **Option A (Swagger):**
+    ```text
+    map -u https://httpbin.org/spec.json
+    ```
+*   **Option B (JS Scraping):**
+    ```text
+    scrape https://target.com/assets/app.bundle.js
+    ```
+*   **Verification:** Press **F2** to see the populated Endpoint Map.
+
+### Step 6: Populate Loot/Auth (Sensor F3)
+The AI increases confidence scores if it detects valid credentials (e.g., swapping a found JWT to test BOLA).
+*   **Manual Injection:**
+    ```text
+    auth attacker eyJhbGciOiJIUzI1Ni...
+    ```
+*   **Auto-Capture:** Browse the target using the VaporTrace Proxy. Any captured tokens will automatically appear in **LOOT (F3)**.
+
+---
+
+## 3. The Strategic Planner (HITL Workflow)
+
+This is the core Phase III workflow. You will use the AI to generate an attack plan, refine it, and execute it.
+
+### Step 7: Analyze Telemetry
+Trigger the Neuro-Engine to correlate Map + Loot + Traffic.
+```text
+analyze
+```
+*   **Behavior:** The screen will automatically switch to **PLAN (F5)**.
+*   **Visual:** You will see the **Strategic Action Buffer** table populated with "PENDING" actions (e.g., BOLA candidates, BFLA candidates).
+
+### Step 8: Human-in-the-Loop (Refinement)
+Review the proposed table in Tab F5. The AI might guess IDs incorrectly or suggest unsafe actions.
+
+*   **Edit a Payload:**
+    If Action #1 is a BOLA attack using `ID: 1337`, but you know the target ID is `999`:
+    ```text
+    edit 1 ID: 999
+    ```
+    *Result:* The table updates the Payload column immediately.
+
+*   **Drop an Action:**
+    If Action #2 is a destructive DELETE method you don't want to run:
+    ```text
+    drop 2
+    ```
+    *Result:* The status changes to `[red]DROPPED`.
+
+### Step 9: Commit the Plan
+Once the buffer is refined, authorize the engine to fire.
+```text
+commit
+```
+*   **Behavior:**
+    1.  The engine iterates through the buffer.
+    2.  It skips `DROPPED` actions.
+    3.  It executes `PENDING` actions asynchronously.
+    4.  Status updates to `[green]EXECUTED`.
+
+### Step 10: Review Results
+*   Switch to **LOGS (F1)** to see the raw output of the attacks.
+*   Switch to **NEURO (F6)** if you used the `remediate` command.
+
+---
+
+## 4. Remediation & Reporting
+
+### Step 11: Generate Fixes (Sprint 16 Preview)
+If the BOLA attack (Action #1) was successful, ask the Blue Team module for a fix.
+```text
+remediate BOLA
+```
+*   **Result:** Check **NEURO (F6)** for a Golang/Node.js code snippet to fix the vulnerability.
+
+### Step 12: Mission Debrief
+Generate the final artifact for the client.
+```text
+report
+```
+*   **Result:** A timestamped Markdown file (e.g., `VAPORTRACE_PEN_TEST_2026...md`) is created in the `reports/` folder.
+
+---
+
+## 🔒 Advanced: Interceptor Mode
+
+To manually manipulate traffic before it hits the sensors:
+1.  Press `Ctrl + I` to toggle the Interceptor **ON**.
+2.  Trigger an action (e.g., `exhaust https://httpbin.org/get limit`).
+3.  The UI will freeze and show a **Modal**.
+4.  **Edit** the Body/Headers.
+5.  Press `Ctrl + F` to Forward or `Ctrl + D` to Drop.
+
+
+
+1. SYSTEM ARCHITECTURE DIAGRAM
+The VaporTrace Strategic Brain implements a centralized telemetry aggregation model. The pkg/engine acts as the cortex, pulling state from three sensory inputs located in pkg/logic and pkg/db, processing them through a Heuristic State Machine, and outputting actionable vectors to the UI.
+code
+Ascii
+[ F2: TOPOLOGY SENSOR ]      [ F3: CREDENTIAL SENSOR ]      [ F4: TRAFFIC SENSOR ]
+      (pkg/logic/store.go)         (pkg/logic/loot.go)            (pkg/logic/network.go)
+             |                            |                              |
+             | GetEndpoints()             | GetLootSummary()             | GetTrafficHistory()
+             |                            |                              |
+             +-------------+--------------+--------------+---------------+
+                           |                             |
+                           v                             v
+                  +-----------------------------------------+
+                  |      PKG/ENGINE: STRATEGIC CORTEX       |
+                  | 1. Aggregates data into 'TelemetryState'|
+                  | 2. Runs Heuristic State Machine         |
+                  | 3. Generates 'TacticalAction' objects   |
+                  +-----------------------------------------+
+                                       |
+                                       v
+                  +-----------------------------------------+
+                  |      TAB F5: STRATEGIC ACTION BUFFER    |
+                  | [ID] [TYPE] [TARGET] [CONFIDENCE]       |
+                  |  1.  BFLA   /admin   HIGH (403->200)    |
+                  |  2.  SSRF   /hook    CRITICAL (AWS Key) |
+                  +-----------------------------------------+
+                                       ^
+                                       | (HITL Loop)
+                               [ HUMAN OPERATOR ] 

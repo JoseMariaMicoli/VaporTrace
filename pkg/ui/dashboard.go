@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
@@ -15,6 +16,40 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
+
+// === SPRINT 11: TASK 2 - BUFFER FOR CASCADING COLLAPSE FIX ===
+// LogBuffer provides thread-safe batched rendering to prevent TUI corruption
+type LogBuffer struct {
+	mu       sync.Mutex
+	messages []string
+	maxSize  int
+}
+
+func NewLogBuffer(maxSize int) *LogBuffer {
+	return &LogBuffer{
+		messages: make([]string, 0, maxSize),
+		maxSize:  maxSize,
+	}
+}
+
+func (lb *LogBuffer) Add(msg string) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	if len(lb.messages) >= lb.maxSize {
+		// Drop oldest message if buffer is full
+		lb.messages = lb.messages[1:]
+	}
+	lb.messages = append(lb.messages, msg)
+}
+
+func (lb *LogBuffer) Flush() []string {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	result := make([]string, len(lb.messages))
+	copy(result, lb.messages)
+	lb.messages = lb.messages[:0] // Clear after flush
+	return result
+}
 
 var (
 	app          *tview.Application
@@ -27,15 +62,14 @@ var (
 	reqView      *tview.TextView
 	resView      *tview.TextView
 
-	// Tab 5: Context Aggregator Components
-	ctxFlex    *tview.Flex
-	ctxSummary *tview.TextView
-	ctxLogView *tview.TextView
+	// Tab 5: Strategic Planner Components
+	ctxFlex      *tview.Flex
+	ctxSummary   *tview.TextView
+	plannerTable *tview.Table
+	ctxLogView   *tview.TextView
 
 	// Tab 6: Neuro Engine Components
 	neuroView *tview.TextView
-
-	// Report components are managed in report_tab.go but referenced via pages
 
 	statusFooter *tview.TextView
 	cmdInput     *tview.InputField
@@ -44,9 +78,18 @@ var (
 	historyIndex int
 	historyFile  = ".vapor_history"
 
-	// Updated with "tasks" command
+	// === SPRINT 11: TASK 2 BUFFERS ===
+	logBuffer        = NewLogBuffer(50)
+	mapDataBuffer    = NewLogBuffer(30)
+	lootDataBuffer   = NewLogBuffer(30)
+	trafficBuffer    = NewLogBuffer(10)
+	contextLogBuffer = NewLogBuffer(50)
+	neuroLogBuffer   = NewLogBuffer(50)
+
+	// Updated with HITL commands
 	knownCommands = []string{
-		"tasks", // NEW
+		"analyze", "edit", "drop", "commit", "list-plan", "remediate", // HITL
+		"tasks",
 		"ask",
 		"auth", "sessions", "map", "swagger", "scrape", "mine", "proxy", "proxies", "target", "pipeline",
 		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe",
@@ -95,14 +138,12 @@ func InitTacticalDashboard() {
 	logic.InitializeRotaryClient()
 	logic.StartContextAggregator()
 
-	// --- CTX TAB INITIAL FEEDBACK (Requested Feature) ---
-	// Inject startup messages to the Context Aggregator Log (Bottom of F5)
-	// This ensures the user knows the system is listening even before data arrives.
+	// --- CTX TAB INITIAL FEEDBACK ---
 	go func() {
-		time.Sleep(500 * time.Millisecond) // Slight delay to ensure UI renders first
-		utils.LogContext("[green]✓ SYSTEM:[-] Context Aggregator Daemon Started.")
-		utils.LogContext("[green]✓ SYSTEM:[-] Correlation Engine: [white]LISTENING[-]")
-		utils.LogContext("[gray]i INFO:[-] Waiting for tactical intelligence stream...")
+		time.Sleep(500 * time.Millisecond)
+		utils.LogContext("[green]✓ SYSTEM:[-] Strategic Brain Daemon Started.")
+		utils.LogContext("[green]✓ SYSTEM:[-] Telemetry Aggregator: [white]LISTENING[-]")
+		utils.LogContext("[gray]i INFO:[-] Use 'analyze' to generate a tactical plan...")
 	}()
 
 	app = tview.NewApplication()
@@ -168,7 +209,7 @@ func InitTacticalDashboard() {
 	neuroView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	neuroView.SetTitle(" [magenta:black] NEURAL ENGINE ANALYSIS (F6) [white] ").SetBorder(true)
 
-	// F4 Input Capture (AI Trigger) with VISUAL FEEDBACK & AUTO-SWITCH
+	// F4 Input Capture
 	trafficSplit.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlA {
 			req := reqView.GetText(true)
@@ -177,14 +218,9 @@ func InitTacticalDashboard() {
 				utils.TacticalLog("[yellow]NEURO:[-] No request selected to analyze.")
 			} else {
 				utils.TacticalLog("[magenta]NEURO:[-] Snapshot captured. Transmitting to Neural Engine...")
-
-				// TRIGGER THINKING STATE ON F6
 				neuroView.Clear()
 				neuroView.SetText("[yellow]>>> HYDRA NEURAL ENGINE ENGAGED <<<\n[white]Status: PROCESSING SNAPSHOT...\n[blue]Calculating Entropy...\nCalculating Exploit Probability...\nScanning BOLA Vectors...\n\n[white]Please Wait...[-]")
-
-				// AUTO SWITCH TO F6
 				switchTo("neuro")
-
 				go func() {
 					logic.GlobalNeuro.AnalyzeTrafficSnapshot(req, res)
 				}()
@@ -194,19 +230,30 @@ func InitTacticalDashboard() {
 		return event
 	})
 
-	// --- CTX SETUP (F5) ---
-	// Split View: Top = Summary, Bottom = Logs
+	// --- CTX SETUP (F5) - STRATEGIC COMMAND CENTER ---
 	ctxSummary = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true)
-	ctxSummary.SetTitle(" [white:blue] ATTACK SURFACE SUMMARY [white] ").SetBorder(true)
+	ctxSummary.SetTitle(" [white:blue] STRATEGIC OVERVIEW [white] ").SetBorder(true)
+
+	// NEW: HITL Planner Table
+	plannerTable = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorDarkMagenta).SetSelectable(true, false)
+	plannerTable.SetTitle(" [magenta:black] STRATEGIC ACTION BUFFER (Use 'analyze' -> 'commit') [white] ").SetBorder(true)
+	plannerTable.SetCell(0, 0, tview.NewTableCell("[black:magenta] ID "))
+	plannerTable.SetCell(0, 1, tview.NewTableCell("[black:magenta] TYPE "))
+	plannerTable.SetCell(0, 2, tview.NewTableCell("[black:magenta] TARGET "))
+	plannerTable.SetCell(0, 3, tview.NewTableCell("[black:magenta] PAYLOAD "))
+	plannerTable.SetCell(0, 4, tview.NewTableCell("[black:magenta] CONFIDENCE "))
+	plannerTable.SetCell(0, 5, tview.NewTableCell("[black:magenta] STATUS "))
+	plannerTable.SetFixed(1, 0)
 
 	ctxLogView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
-	ctxLogView.SetTitle(" [white:blue] CONTEXT LOG STREAM [white] ").SetBorder(true)
+	ctxLogView.SetTitle(" [white:blue] INTELLIGENCE FEED [white] ").SetBorder(true)
 
 	ctxFlex = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(ctxSummary, 10, 1, false). // Fixed height for summary
-		AddItem(ctxLogView, 0, 3, false)
+		AddItem(ctxSummary, 6, 1, false).
+		AddItem(plannerTable, 0, 2, false).
+		AddItem(ctxLogView, 0, 1, false)
 
-	// F7 Report Tab Initialization
+	// F7 Report Tab
 	reportFlex = InitReportTab()
 
 	// Add Pages
@@ -230,7 +277,6 @@ func InitTacticalDashboard() {
 
 	updateTabs("logs")
 
-	// Global Key Bindings
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyF1:
@@ -248,16 +294,13 @@ func InitTacticalDashboard() {
 		case tcell.KeyF7:
 			LoadFindings()
 			switchTo("report")
-
 		case tcell.KeyCtrlI:
 			logic.InterceptorActive = !logic.InterceptorActive
 			utils.TacticalLog(fmt.Sprintf("INTERCEPTOR: %v", logic.InterceptorActive))
 			updatePipelineQuadrant()
-
 		case tcell.KeyCtrlH:
 			ShowHelpModal(app, pages)
-			return nil // PATCH: Prevents "h" from being typed in the input field
-
+			return nil
 		case tcell.KeyPgUp:
 			row, col := brainLog.GetScrollOffset()
 			if row > 0 {
@@ -272,7 +315,6 @@ func InitTacticalDashboard() {
 		return event
 	})
 
-	// Input History Navigation
 	cmdInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyUp:
@@ -294,12 +336,10 @@ func InitTacticalDashboard() {
 		return event
 	})
 
-	// Command Execution
 	cmdInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			text := cmdInput.GetText()
 			cmdInput.SetText("")
-
 			if text == "" {
 				return
 			}
@@ -307,17 +347,17 @@ func InitTacticalDashboard() {
 				confirmExit()
 				return
 			}
-
 			cmdHistory = append(cmdHistory, text)
 			SaveHistory(text)
 			historyIndex = len(cmdHistory)
 
-			if strings.HasPrefix(strings.ToLower(text), "ask ") {
-				go engine.ExecuteCommand(text)
-			} else {
+			if strings.HasPrefix(text, "analyze") || strings.HasPrefix(text, "commit") || strings.HasPrefix(text, "edit") {
+				switchTo("ai")
+			} else if !strings.HasPrefix(text, "ask") {
 				switchTo("logs")
-				go engine.ExecuteCommand(text)
 			}
+
+			go engine.ExecuteCommand(text)
 		}
 	})
 
@@ -325,6 +365,100 @@ func InitTacticalDashboard() {
 
 	if err := app.SetRoot(mainFlex, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
+	}
+}
+
+func updatePlannerTable() {
+	if plannerTable == nil {
+		return
+	}
+	plannerTable.Clear()
+	plannerTable.SetCell(0, 0, tview.NewTableCell("[black:magenta] ID "))
+	plannerTable.SetCell(0, 1, tview.NewTableCell("[black:magenta] TYPE "))
+	plannerTable.SetCell(0, 2, tview.NewTableCell("[black:magenta] TARGET "))
+	plannerTable.SetCell(0, 3, tview.NewTableCell("[black:magenta] PAYLOAD "))
+	plannerTable.SetCell(0, 4, tview.NewTableCell("[black:magenta] CONFIDENCE "))
+	plannerTable.SetCell(0, 5, tview.NewTableCell("[black:magenta] STATUS "))
+
+	row := 1
+	for _, act := range engine.ActionBuffer {
+		idColor := tcell.ColorWhite
+		if act.Status == "EXECUTED" {
+			idColor = tcell.ColorGreen
+		} else if act.Status == "DROPPED" {
+			idColor = tcell.ColorRed
+		}
+
+		confColor := tcell.ColorGray
+		if act.Confidence == "HIGH" || act.Confidence == "CRITICAL" {
+			confColor = tcell.ColorRed
+		} else if act.Confidence == "MEDIUM" {
+			confColor = tcell.ColorYellow
+		}
+
+		// FIX: Use ColorAqua instead of ColorCyan
+		plannerTable.SetCell(row, 0, tview.NewTableCell(fmt.Sprintf("%d", act.ID)).SetTextColor(idColor))
+		plannerTable.SetCell(row, 1, tview.NewTableCell(act.Type).SetTextColor(tcell.ColorAqua))
+		plannerTable.SetCell(row, 2, tview.NewTableCell(shortString(act.Target, 30)).SetTextColor(tcell.ColorWhite))
+		plannerTable.SetCell(row, 3, tview.NewTableCell(shortString(act.Payload, 20)).SetTextColor(tcell.ColorYellow))
+		plannerTable.SetCell(row, 4, tview.NewTableCell(act.Confidence).SetTextColor(confColor))
+		plannerTable.SetCell(row, 5, tview.NewTableCell(act.Status).SetTextColor(tcell.ColorWhite))
+		row++
+	}
+}
+
+// RefreshActionBufferTable synchronizes the F5 table with the engine.ActionBuffer
+// This is called periodically to reflect any changes to the tactical action queue
+// Thread-safe via app.QueueUpdateDraw
+func RefreshActionBufferTable() {
+	if plannerTable == nil {
+		return
+	}
+
+	// Clear and rebuild headers
+	plannerTable.Clear()
+	plannerTable.SetCell(0, 0, tview.NewTableCell("[black:magenta] ID "))
+	plannerTable.SetCell(0, 1, tview.NewTableCell("[black:magenta] TYPE "))
+	plannerTable.SetCell(0, 2, tview.NewTableCell("[black:magenta] TARGET "))
+	plannerTable.SetCell(0, 3, tview.NewTableCell("[black:magenta] PAYLOAD "))
+	plannerTable.SetCell(0, 4, tview.NewTableCell("[black:magenta] CONFIDENCE "))
+	plannerTable.SetCell(0, 5, tview.NewTableCell("[black:magenta] STATUS "))
+	plannerTable.SetFixed(1, 0)
+
+	// Iterate through action buffer and populate rows
+	row := 1
+	for _, act := range engine.ActionBuffer {
+		// Determine text color based on status
+		statusColor := tcell.ColorWhite
+		if act.Status == "EXECUTED" {
+			statusColor = tcell.ColorGreen
+		} else if act.Status == "DROPPED" {
+			statusColor = tcell.ColorRed
+		} else if act.Status == "PENDING" {
+			statusColor = tcell.ColorYellow
+		}
+
+		// Determine confidence color
+		confColor := tcell.ColorGray
+		if act.Confidence == "CRITICAL" {
+			confColor = tcell.ColorDarkRed
+		} else if act.Confidence == "HIGH" {
+			confColor = tcell.ColorRed
+		} else if act.Confidence == "MEDIUM" {
+			confColor = tcell.ColorYellow
+		} else if act.Confidence == "LOW" {
+			confColor = tcell.ColorGray
+		}
+
+		// Set cells with appropriate colors
+		plannerTable.SetCell(row, 0, tview.NewTableCell(fmt.Sprintf("%d", act.ID)).SetTextColor(statusColor))
+		plannerTable.SetCell(row, 1, tview.NewTableCell(act.Type).SetTextColor(tcell.ColorAqua))
+		plannerTable.SetCell(row, 2, tview.NewTableCell(shortString(act.Target, 35)).SetTextColor(tcell.ColorWhite))
+		plannerTable.SetCell(row, 3, tview.NewTableCell(shortString(act.Payload, 25)).SetTextColor(tcell.ColorYellow))
+		plannerTable.SetCell(row, 4, tview.NewTableCell(act.Confidence).SetTextColor(confColor))
+		plannerTable.SetCell(row, 5, tview.NewTableCell(act.Status).SetTextColor(statusColor))
+
+		row++
 	}
 }
 
@@ -425,9 +559,8 @@ func confirmExit() {
 }
 
 func switchTo(page string) {
-	updateTabs(page)
+	updateTabs(page) // Update header with new active tab
 	pages.SwitchToPage(page)
-	// Task 3: Focus routing logic for Report Tab
 	if page == "report" {
 		if reportFlex != nil {
 			app.SetFocus(reportFlex)
@@ -438,8 +571,8 @@ func switchTo(page string) {
 }
 
 func updateTabs(active string) {
-	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "CTX (F5)", "NEURAL (F6)", "REPORT (F7)"}
-	descs := []string{"System", "Recon", "Exfil", "Sniffer", "Intel", "AI-Ops", "Debrief"}
+	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "PLAN (F5)", "NEURO (F6)", "RPT (F7)"}
+	descs := []string{"System", "Recon", "Exfil", "Sniffer", "Strategy", "AI-Ops", "Debrief"}
 	ids := []string{"logs", "map", "loot", "traffic", "ai", "neuro", "report"}
 
 	var topRow, bottomRow []string
@@ -467,37 +600,79 @@ func updateTabs(active string) {
    ╚═╝   ╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝[-]
 %s
 %s`, strings.Join(topRow, " "), strings.Join(bottomRow, " "))
-
 	header.SetText(headerText)
 }
 
 func startAsyncEngines() {
+	// Primary UI Update Ticker (250ms) - Spinner and core UI elements
 	go func() {
 		ticker := time.NewTicker(250 * time.Millisecond)
+		defer ticker.Stop()
 		for range ticker.C {
 			app.QueueUpdateDraw(func() {
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
 				statusFooter.SetText(fmt.Sprintf(" [blue]SYSTEM SYNC %s [white]| %s", spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
 				updatePipelineQuadrant()
-
-				// Update Tab 5 Summary in real-time
 				if ctxSummary != nil {
 					ctxSummary.SetText(logic.GetAttackSurfaceSummary())
+				}
+				updatePlannerTable()       // Keep Planner view live
+				RefreshActionBufferTable() // Sync tactical action buffer to UI
+				// NOTE: Removed updateTabs() here - it was causing cascading collapse with ASCII art rebuild
+				// updateTabs() is now only called on tab switch via switchTo()
+			})
+		}
+	}()
+
+	// === SPRINT 11: TASK 2 - 200ms BATCH RENDER TICKER ===
+	// Collects all SSRF/Weaver/Exhaust telemetry and renders once per 200ms
+	// This prevents TUI cascading collapse from high-speed network commands
+	go func() {
+		batchTicker := time.NewTicker(200 * time.Millisecond)
+		defer batchTicker.Stop()
+
+		for range batchTicker.C {
+			// === BATCH RENDER: All telemetry sources in one UI update ===
+			app.QueueUpdateDraw(func() {
+				// 1. Flush log buffer to brainLog
+				logMsgs := logBuffer.Flush()
+				for _, msg := range logMsgs {
+					if msg == "___CLEAR_SCREEN_SIGNAL___" {
+						brainLog.Clear()
+					} else {
+						fmt.Fprintln(brainLog, msg)
+					}
+				}
+				if len(logMsgs) > 0 {
+					brainLog.ScrollToEnd()
+				}
+
+				// 2. Flush context log buffer to ctxLogView
+				ctxMsgs := contextLogBuffer.Flush()
+				for _, msg := range ctxMsgs {
+					fmt.Fprintln(ctxLogView, msg)
+				}
+				if len(ctxMsgs) > 0 {
+					ctxLogView.ScrollToEnd()
+				}
+
+				// 3. Flush neuro log buffer to neuroView
+				neuroMsgs := neuroLogBuffer.Flush()
+				for _, msg := range neuroMsgs {
+					fmt.Fprintf(neuroView, "%s\n", msg)
+				}
+				if len(neuroMsgs) > 0 {
+					neuroView.ScrollToEnd()
 				}
 			})
 		}
 	}()
 
+	// === BUFFER-BACKED LOG LISTENER ===
+	// Instead of drawing directly, add to buffer for batch rendering
 	go func() {
 		for msg := range utils.UI_Log_Chan {
-			app.QueueUpdateDraw(func() {
-				if msg == "___CLEAR_SCREEN_SIGNAL___" {
-					brainLog.Clear()
-					return
-				}
-				fmt.Fprintln(brainLog, msg)
-				brainLog.ScrollToEnd()
-			})
+			logBuffer.Add(msg)
 		}
 	}()
 
@@ -550,29 +725,22 @@ func startAsyncEngines() {
 			app.QueueUpdateDraw(func() {
 				reqView.SetText(fmt.Sprintf("[yellow]%s[-]\n\n[white]%s[-]", pkt.ReqHeader, pkt.ReqBody))
 				resView.SetText(fmt.Sprintf("[green]%s[-]\n\n[white]%s[-]", pkt.ResHeader, pkt.ResBody))
-				// Reset title if it was stuck on processing
 				reqView.SetTitle(" [yellow]REQUEST (UPPER) - Ctrl+A to Analyze [white] ")
 			})
 		}
 	}()
 
+	// === BUFFER-BACKED CONTEXT LOG LISTENER ===
 	go func() {
 		for msg := range utils.ContextLogChan {
-			app.QueueUpdateDraw(func() {
-				fmt.Fprintln(ctxLogView, msg)
-				ctxLogView.ScrollToEnd()
-			})
+			contextLogBuffer.Add(msg)
 		}
 	}()
 
+	// === BUFFER-BACKED NEURO LOG LISTENER ===
 	go func() {
 		for msg := range utils.NeuroLogChan {
-			app.QueueUpdateDraw(func() {
-				// Append to Neuro View
-				fmt.Fprintf(neuroView, "%s\n", msg)
-				neuroView.ScrollToEnd()
-				reqView.SetTitle(" [yellow]REQUEST (UPPER) - Ctrl+A to Analyze [white] ")
-			})
+			neuroLogBuffer.Add(msg)
 		}
 	}()
 

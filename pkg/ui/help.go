@@ -22,17 +22,25 @@ func ShowHelpModal(app *tview.Application, pages *tview.Pages) {
 	}
 
 	data := [][]string{
+		{"Ctrl + H", "Global", "Show this keybindings popup (press Esc to close)"},
 		{"Ctrl + I", "Global", "Toggle Interceptor (On/Off)"},
 		{"Ctrl + F", "Modal", "Forward packet to network"},
 		{"Ctrl + D", "Modal", "Drop packet"},
 		{"Ctrl + B", "Modal", "Neuro Brute: Gen payloads for current field"},
 		{"Ctrl + S", "Modal", "Sync: Save to Loot DB"},
 		{"Ctrl + A", "F4 Tab", "Analyze: Send snapshot to AI Brain"},
-		{"F1 - F6", "Global", "Switch Tabs (Logs...Neural)"},
-		{"F7", "Global", "Report Tab (Read/Edit)"},
-		{"Ctrl + W", "F7 Tab", "Save Report to Disk"},
-		{"Ctrl + X", "F7 Tab", "Delete Session / Clear Report"},
-		{"Ctrl + H", "Global", "Close this Help menu"},
+		{"F1", "Global", "LOGS tab - Tactical feed & system messages"},
+		{"F2", "Global", "MAP tab - Discovered endpoints"},
+		{"F3", "Global", "LOOT tab - Captured secrets"},
+		{"F4", "Global", "TRAFFIC tab - HTTP requests/responses"},
+		{"F5", "Global", "PLAN tab - Strategic actions"},
+		{"F6", "Global", "NEURO tab - AI engine output"},
+		{"F7", "Global", "REPORT tab - Findings export"},
+		{"Page Up", "F1 Tab", "Scroll up in logs"},
+		{"Page Down", "F1 Tab", "Scroll down in logs"},
+		{"Ctrl + W", "F7 Tab", "Save report to disk"},
+		{"Ctrl + X", "F7 Tab", "Delete session"},
+		{"Esc", "Global", "Exit VaporTrace"},
 	}
 
 	for i, row := range data {
