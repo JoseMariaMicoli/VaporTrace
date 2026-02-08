@@ -173,9 +173,8 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	jitterDelay := ApplyJitter(100) // 100ms base with Gaussian variation
 	time.Sleep(jitterDelay)
 
-	// Apply traffic mimicry (set realistic headers based on profile)
-	// Default to "Chrome-MacOS" for general attacks, adaptive based on target
-	MimicTraffic(req, "Chrome-MacOS")
+	// NOTE: User-Agent rotation handled by ApplyEvasion() in discovery modules
+	// MimicTraffic is NOT called here to avoid overwriting rotating User-Agents
 
 	// 1. Content Aggregator: Contextual Enrichment (Phase 10.3)
 	EnrichCommandRequest(req)
