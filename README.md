@@ -253,14 +253,14 @@ graph TD
 ### Data Flow
 ```mermaid
 graph LR
-    A[Target URL] --> B[Discovery]
-    B --> C[(Endpoints DB)]
-    C --> D{AI Analysis}
-    D -->|Approved| E[Execution]
+    A["Target URL"] --> B["Discovery"]
+    B --> C[("Endpoints DB")]
+    C --> D{"AI Analysis"}
+    D -->|Approved| E["Execution"]
     D -->|Rejected| D
-    E --> F[Findings]
-    F --> G[Reporting]
-    G --> H((Final Report))
+    E --> F["Findings"]
+    F --> G["Reporting"]
+    G --> H(("Final Report"))
 ```
 ### AI & Neural Engine
 - **Primary Provider:** Groq (fast cloud LLM)
