@@ -248,44 +248,19 @@ graph TD
     C --> D["4. Exploitation Modules<br/>BOLA/BFLA/BOPLA/SSRF"]
     D --> E["5. Networking Layer<br/>HTTP/HTTPS/SOCKS5"]
     E --> F["6. Persistence & AI<br/>SQLite/Groq/Ollama"]
-    
-    style A fill:#ff9999
-    style B fill:#ffcc99
-    style C fill:#ffff99
-    style D fill:#99ff99
-    style E fill:#99ffcc
-    style F fill:#99ccff
 ```
 
 ### Data Flow
 ```mermaid
-graph TD
-    %% Global Styles
-    classDef startNode fill:#fdd,stroke:#333,stroke-width:2px;
-    classDef database fill:#fff,stroke:#333,stroke-width:2px;
-    classDef engine fill:#dcf,stroke:#333,stroke-width:2px;
-    classDef review fill:#ffe,stroke:#333,stroke-width:2px;
-    classDef active fill:#dfd,stroke:#333,stroke-width:2px;
-    classDef report fill:#f0e6ff,stroke:#333,stroke-width:4px;
-
-    %% Workflow Steps
-    A[<b>Target URL</b><br/>Discovery Phase] --> B(<b>Endpoints DB</b><br/>DataSilo Storage)
-    B --> C{<b>AI Analysis</b><br/>NeuroEngine Processing}
-    
-    C -->|Strategic Plan| D[<b>Human Review</b><br/>HITL Approval Gate]
-    D --> E[<b>Execution</b><br/>ActionBuffer Commit]
-    
-    E --> F[<b>Findings</b><br/>Loot & Context Capture]
-    F --> G(<b>Reporting</b><br/>NIST/MITRE Mapping)
-    G --> H((<b>FINAL REPORT</b><br/>Sprint 11 Complete))
-
-    %% Assign Classes
-    class A startNode;
-    class B database;
-    class C engine;
-    class D review;
-    class E,F active;
-    class G,H report;
+graph LR
+    A[Target URL] --> B[Discovery]
+    B --> C[(Endpoints DB)]
+    C --> D{AI Analysis}
+    D -->|Approved| E[Execution]
+    D -->|Rejected| D
+    E --> F[Findings]
+    F --> G[Reporting]
+    G --> H((Final Report))
 ```
 ### AI & Neural Engine
 - **Primary Provider:** Groq (fast cloud LLM)
