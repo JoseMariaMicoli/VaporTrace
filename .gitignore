@@ -4,6 +4,7 @@ VaporTrace
 *.bin
 *.db
 test_build
+test_diagnostic.sh
 
 # Dependency directories
 vendor/

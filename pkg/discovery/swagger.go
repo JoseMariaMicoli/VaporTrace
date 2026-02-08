@@ -137,18 +137,24 @@ func generateCandidates(base string) []string {
 
 // fetchAndParse handles the network and version-agnostic parsing
 func fetchAndParse(url string) ([]string, error) {
+	utils.TacticalLog(fmt.Sprintf("[cyan]SWAGGER:[-] Starting fetchAndParse for %s", url))
 	logic.EnsureTransport()
 
 	client := logic.GlobalClient
+	utils.TacticalLog(fmt.Sprintf("[cyan]SWAGGER:[-] GlobalClient transport is nil? %v", client.Transport == nil))
 
 	req, _ := http.NewRequest("GET", url, nil)
 	logic.ApplyEvasion(req) // Apply rotating User-Agent
 	req.Header.Set("Accept", "application/json, */*")
+	
+	utils.TacticalLog(fmt.Sprintf("[cyan]SWAGGER:[-] About to make request to %s", url))
 
 	resp, err := client.Do(req)
 	if err != nil {
+		utils.TacticalLog(fmt.Sprintf("[red]SWAGGER ERROR:[-] Request failed: %v", err))
 		return nil, err
 	}
+	utils.TacticalLog(fmt.Sprintf("[green]✓ SWAGGER:[-] Got response: %d", resp.StatusCode))
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
