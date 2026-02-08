@@ -258,22 +258,29 @@ graph TD
 ```
 
 ### Data Flow
+
 ```mermaid
-graph LR
-    A["Target URL"] --> B["Discovery"] --> C["Endpoints DB"]
-    C --> D["Analysis<br/>AI Engine"] --> E["Tactical Plan"]
-    E --> F{"Human Review"}
-    F -->|Approved| G["Execution"]
-    F -->|Rejected| D
-    G --> H["Findings"]
-    H --> I["Reporting<br/>NIST/MITRE/OWASP"]
+flowchart LR
+    A([Target URL]) --> B[Discovery]
+    B --> C[(Endpoints DB)]
+    C --> D{Analysis<br/>AI Engine}
     
-    style A fill:#ffe6e6
-    style B fill:#fff0e6
-    style D fill:#e6f0ff
-    style F fill:#fff9e6
-    style G fill:#e6ffe6
-    style I fill:#f0e6ff
+    D --> E[Tactical Plan]
+    E --> F{Human Review}
+    
+    F -- Approved --> G[Execution]
+    F -- Rejected --> D
+    
+    G --> H[Findings]
+    H --> I[Reporting<br/>NIST/MITRE/OWASP]
+
+    %% Styling for Obsidian & GitHub Compatibility
+    style A fill:#fdd,stroke:#333,stroke-width:2px
+    style C fill:#fff,stroke:#333,stroke-width:2px
+    style D fill:#dcf,stroke:#333,stroke-width:2px
+    style F fill:#ffe,stroke:#333,stroke-width:2px
+    style G fill:#dfd,stroke:#333,stroke-width:2px
+    style I fill:#f0e6ff,stroke:#333,stroke-width:2px```
 ```
 
 ### AI & Neural Engine
