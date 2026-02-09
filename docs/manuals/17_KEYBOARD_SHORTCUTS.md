@@ -53,17 +53,17 @@ Context: Credentials, tokens, emails found during exploitation
 
 **When to use:** Review captured data between attacks
 
-### F4 - Toggle Analysis Panel
+### F4 - Toggle Traffic Panel
 **Scope:** Global  
-**Action:** Show/hide F4 (ANALYSIS) tab
+**Action:** Show/hide F4 (TRAFFIC) tab - HTTP requests/responses
 
 ```
 Press: F4
-Result: Toggle visibility of findings analysis
-Context: Vulnerabilities, confidence scores, remediation
+Result: Toggle visibility of HTTP request/response traffic
+Context: Live captured HTTP requests and responses from target
 ```
 
-**When to use:** Review vulnerability analysis
+**When to use:** Inspect HTTP traffic during reconnaissance and exploitation
 
 ### F5 - Toggle Plan Panel
 **Scope:** Global  
@@ -89,17 +89,19 @@ Context: Shows AI-generated payloads and mutations
 
 **When to use:** See AI payload alternatives
 
-### F7 - Toggle Settings Panel
+### F7 - Toggle Report Panel
 **Scope:** Global  
-**Action:** Show/hide F7 (SETTINGS) tab - configuration
+**Action:** Show/hide F7 (REPORT) tab - Markdown editor with preview
 
 ```
 Press: F7
-Result: Toggle visibility of settings/configuration panel
-Context: Runtime settings, API keys, proxy, modules
+Result: Toggle visibility of report editor/preview panel
+Context: View/edit findings in Markdown with syntax highlighting
+Modes: EDIT (raw Markdown) or PREVIEW (rendered colors for severity)
+Capabilities: Read findings from DB, edit payload, save to disk, delete session
 ```
 
-**When to use:** Adjust configuration mid-test
+**When to use:** Document findings, export results, review captured vulnerabilities
 
 ### Ctrl+H - Open Help Modal
 **Scope:** Global  
@@ -113,41 +115,62 @@ Format: Organized table with Hotkey | Scope | Description
 
 **When to use:** Need to quickly see hotkeys (inside dashboard)
 
-### Ctrl+I - Open Interceptor
+### Ctrl+I - Toggle Interceptor
 **Scope:** Global  
-**Action:** Open MITM request interceptor modal
+**Action:** Enable/disable MITM request interception
 
 ```
 Press: Ctrl+I
-Result: Opens interceptor modal showing pending requests
-Context: Inspect/modify requests, forward/drop
-Features: Edit payload, view response, modify headers
+Result: Toggle interceptor ON/OFF; shows modal when request captured
+Context: Inspect/modify HTTP requests in real-time
+Features: Edit method, URL, headers, body; forward or drop packets
 ```
 
-**When to use:** Intercept and modify requests in real-time
+**When to use:** Intercept and modify requests during exploitation phase
 
-### Ctrl+F - Search
-**Scope:** Global  
-**Action:** Open search modal
-
-```
-Press: Ctrl+F
-Result: Opens search modal to filter logs/endpoints/loot
-```
-
-**When to use:** Find specific endpoints or logs
-
-### Ctrl+D - Debug Mode
-**Scope:** Global  
-**Action:** Toggle verbose debug output
+### Ctrl+F - Forward Packet
+**Scope:** Modal Only (Interceptor)  
+**Action:** Forward intercepted packet to target
 
 ```
-Press: Ctrl+D
-Result: Enable/disable debug logging (verbose)
-Output: Additional technical details in logs panel
+Press: Ctrl+F (inside interceptor modal)
+Result: Send modified request to network immediately
 ```
 
-**When to use:** Troubleshooting issues
+**When to use:** Allowing request to proceed after inspection/modification
+
+### Ctrl+D - Drop Packet
+**Scope:** Modal Only (Interceptor)  
+**Action:** Drop and discard intercepted packet
+
+```
+Press: Ctrl+D (inside interceptor modal)
+Result: Block packet from reaching target (discard)
+```
+
+**When to use:** Blocking malicious or test requests
+
+### Ctrl+B - Neuro Brute
+**Scope:** Modal Only (Interceptor)  
+**Action:** Generate AI payloads for intercepted request field
+
+```
+Press: Ctrl+B (inside interceptor modal)
+Result: Generate mutation payloads using Neural Engine
+```
+
+**When to use:** AI-assisted payload generation for specific fields
+
+### Ctrl+S - Sync Loot
+**Scope:** Modal Only (Interceptor)  
+**Action:** Save intercepted request to Loot Database
+
+```
+Press: Ctrl+S (inside interceptor modal)
+Result: Store request data in Loot vault (F3)
+```
+
+**When to use:** Capturing interesting requests for later analysis
 
 ### Ctrl+B - Batch Operation
 **Scope:** Global  
