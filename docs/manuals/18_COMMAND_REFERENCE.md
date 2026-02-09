@@ -965,6 +965,44 @@ Example:
 [blue]THINKING:[-] Exploitation request: Heavy jitter (400-1500ms - halved)
 ```
 
+#### `stealth off`
+Kill switch to disable all evasion techniques immediately.
+
+```bash
+Usage:
+> stealth off
+
+Description:
+Disables all evasion techniques at once and sets multiplier to 1.0x.
+Running in maximum speed/aggression mode. No delays, no obfuscation,
+no encoding - raw requests at network speed.
+
+Effects:
+- Disables: Jitter, Thinking, Backoff, Obfuscation, Encoding
+- Multiplier reset to 1.0x (baseline)
+- Running in fastest possible mode
+
+When to use:
+- Speed testing against unprotected targets
+- Aggressive probing in network-friendly environments
+- Quick mapping without WAF concerns
+- Testing target responsiveness
+- Proof-of-concept scenarios where speed matters
+
+Warning:
+- No evasion = higher detection risk on WAF-protected targets
+- May trigger rate limits on strict APIs
+- Not recommended for production targets with WAF protection
+
+Example:
+> stealth silent
+> analyze    (slow, stealthy analysis)
+> stealth off
+> bola https://target.com/api/users/[id]    (rapid, aggressive test)
+[green]STEALTH MODE: OFF
+[yellow]All evasion techniques disabled. Running in fastest/most aggressive mode.
+```
+
 #### `evasion <technique>`
 Test individual evasion techniques in isolation.
 
