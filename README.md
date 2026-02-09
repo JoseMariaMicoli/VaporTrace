@@ -64,6 +64,8 @@
 
 ---
 
+## 📋 Command Summary
+
 ### **Reconnaissance & Discovery** (OWASP API9)
 
 - `target`          Set global scope URL
@@ -86,6 +88,24 @@
 - `ssrf`            Server-side request forgery (cloud metadata)
 - `audit`           Security configuration auditing
 - `probe`           Webhook & third-party integration testing
+- `weaver`          Ghost protocol for stealthy requests
+
+### **Data Exfiltration & Evasion** (Advanced)
+
+- `oob config`      Configure encrypted out-of-band exfiltration channel
+- `oob queue`       Queue sensitive data for encrypted transmission
+- `oob flush`       Transmit all queued data via OOB channel
+- `oob status`      View exfiltration statistics
+- `oob dns`         Setup DNS-based exfiltration (for firewall bypass)
+
+### **Stealth & WAF Evasion Control** (Sprint 12, 17)
+
+- `stealth`         Set evasion mode (aggressive|fast|silent|debug)
+- `stealth status`  View current evasion configuration
+- `stealth toggle`  Enable/disable individual evasion techniques
+- `stealth multiplier` Scale all delays (0.1x to 5.0x)
+- `evasion`         Test individual evasion techniques vs target
+- `waf detect`      Probe and identify WAF type
 
 ### **Tactical Planning** (HITL Orchestration)
 
@@ -136,19 +156,27 @@
 
 | Key | Function | Scope |
 |-----|----------|-------|
-| **F1-F7** | Toggle tabs (LOGS, MAP, LOOT, ANALYSIS, PLAN, NEURO, SETTINGS) | Global |
-| **Ctrl+H** | Help modal (all hotkeys) | Global |
-| **Ctrl+I** | Interceptor MITM modal | Global |
-| **Ctrl+F** | Search current tab | Global |
-| **Ctrl+D** | Debug mode toggle | Global |
-| **Ctrl+S** | Save session | Global |
-| **Ctrl+A** | Select all items | Tab context |
-| **Ctrl+B** | Batch operations | Tab context |
-| **Ctrl+X** | Export current view | Tab context |
-| **Esc** | Close modal | Modal context |
-| **Page Up/Down** | Scroll lists | List context |
+| **F1** | LOGS Tab - Tactical feed & system messages | Global |
+| **F2** | MAP Tab - Discovered endpoints & attack surface | Global |
+| **F3** | LOOT Tab - Captured secrets & credentials | Global |
+| **F4** | TRAFFIC Tab - HTTP requests & responses | Global |
+| **F5** | PLAN Tab - Strategic actions & tactical planner | Global |
+| **F6** | NEURO Tab - AI engine output & analysis | Global |
+| **F7** | REPORT Tab - Markdown editor with preview & syntax highlighting | Global |
+| **Ctrl+H** | Show keybindings modal | Global |
+| **Ctrl+I** | Toggle Interceptor ON/OFF | Global |
+| **Ctrl+F** | Forward packet (Interceptor modal only) | Modal |
+| **Ctrl+D** | Drop packet (Interceptor modal only) | Modal |
+| **Ctrl+B** | Neuro Brute - Generate AI payloads (Interceptor modal only) | Modal |
+| **Ctrl+S** | Sync Loot - Save to database (Interceptor modal only) | Modal |
+| **Ctrl+P** | Toggle EDIT/PREVIEW mode (F7 Report tab) | F7 Tab |
+| **Ctrl+W** | Save report to disk (F7 Report tab) | F7 Tab |
+| **Ctrl+X** | Delete session & clear report (F7 Report tab) | F7 Tab |
+| **Page Up** | Scroll up in logs (F1 tab) | F1 Tab |
+| **Page Down** | Scroll down in logs (F1 tab) | F1 Tab |
+| **Esc** | Exit VaporTrace (with confirmation) | Global |
 
-**For complete hotkey reference, see:** [Keyboard Shortcuts](docs/manuals/17_KEYBOARD_SHORTCUTS.md)
+**For complete hotkey reference with descriptions and examples, see:** [Keyboard Shortcuts](docs/manuals/17_KEYBOARD_SHORTCUTS.md)
 
 ---
 
@@ -304,6 +332,7 @@ report                       # Generate findings report
 - ✅ Contextual thinking time (request-type specific delays: 10-50ms GET, 800-3000ms POST)
 - ✅ Payload encoding (gzip/deflate with whitespace randomization)
 - ✅ Intelligent rate-limit backoff (exponential 429 handling with proxy rotation)
+- ✅ **OOB Exfiltration** (AES-256-GCM encrypted channels: Custom TCP, DNS, ICMP)
 - ⏳ JA3/TLS fingerprinting (planned enhancement)
 
 ### 📊 Reporting & Compliance (Sprint 5, 9)
@@ -312,16 +341,19 @@ report                       # Generate findings report
 - ✅ OWASP API Top 10 classification
 - ✅ CVSS v3.1/4.0 scoring
 - ✅ Markdown/PDF report generation
+- ✅ Dual-mode report editor (EDIT raw Markdown, PREVIEW rendered with color syntax highlighting)
 - ✅ Database persistence (SQLite)
 - ✅ Audit logging
 
 ### 🎮 User Interface (Sprint 10)
 - ✅ Multi-pane TUI dashboard (Hydra)
-- ✅ 7 realtime tabs (LOGS, MAP, LOOT, ANALYSIS, PLAN, NEURO, SETTINGS)
+- ✅ 7 real-time tabs (LOGS, MAP, LOOT, TRAFFIC, PLAN, NEURO, REPORT)
 - ✅ F1-F7 tab switching
-- ✅ Modal interceptor (F2)
+- ✅ Modal interceptor with packet forwarding/dropping
 - ✅ Command auto-completion
-- ✅ 19 keyboard shortcuts
+- ✅ 19 keyboard shortcuts (F1-F7, Ctrl+H/I/F/D/B/S/P/W/X, Page Up/Down, Esc)
+- ✅ Real-time progress indicators
+- ✅ Report editor with Markdown syntax highlighting
 - ✅ Real-time progress indicators
 
 ---

