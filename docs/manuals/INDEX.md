@@ -250,6 +250,9 @@ A: See [13_REPORTING.md](13_REPORTING.md) - Report Generation
 
 ```
 docs/
+├── DOCUMENTATION_STATUS.md
+├── TUI.png
+├── diagram_mermaid.png
 ├── manuals/
 │   ├── INDEX.md (you are here)
 │   ├── 01_INSTALLATION_SETUP.md
@@ -264,7 +267,9 @@ docs/
 │   ├── 10_GHOST_WEAVER.md
 │   ├── 11_LOOT_VAULT.md
 │   ├── 12_PROXY_NETWORK.md
+│   ├── 12_SPRINT12_EVASION_V2.md
 │   ├── 13_REPORTING.md
+│   ├── 13_SPRINT13_EVASION_HARDENING.md
 │   ├── 14_ANALYTICS.md
 │   ├── 15_CONFIGURATION.md
 │   ├── 16_TROUBLESHOOTING.md
@@ -274,15 +279,27 @@ docs/
 │   ├── 20_FAQ_TIPS.md
 │   ├── 21_WAF_EVASION_TECHNIQUES.md
 │   ├── KEYBINDINGS_QUICK_REFERENCE.md
-│   └── [Sprint & Special Guides]
+│   └── SPRINT12_INTEGRATION_GUIDE.md
 └── dev-logs/
-    ├── INDEX.md (architecture & technical overview)
-    ├── 01_ARCHITECTURE.md
-    ├── 02_IMPLEMENTATION.md
-    ├── 03_MODULES_DETAILED.md
-    ├── 04_DATA_FLOW.md
-    ├── 05_AI_INTEGRATION.md
-    └── DIAGRAMS/ (ASCII flow diagrams)
+    ├── INDEX.md
+    ├── Dev-Roadmap.md
+    ├── BUG-Fixes/
+    ├── Sprint-01/
+    ├── Sprint-02/
+    ├── Sprint-03/
+    ├── Sprint-04/
+    ├── Sprint-05/
+    ├── Sprint-06/
+    ├── Sprint-07/
+    ├── Sprint-08/
+    ├── Sprint-09/
+    ├── Sprint-10/
+    ├── Sprint-11/
+    ├── Sprint-12/
+    ├── Sprint-13/
+    ├── Sprint-14/
+    ├── Sprint-15/
+    └── Sprint-16/
 ```
 
 ---
