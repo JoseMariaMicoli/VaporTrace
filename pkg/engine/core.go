@@ -204,7 +204,7 @@ var SafeTransport = &http.Transport{
 
 		// 2. Neural Engine Status
 		neuroStatus := "[red]OFFLINE"
-		if logic.GlobalNeuro.Active {
+		if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active {
 			neuroStatus = "[green]ACTIVE (Hybrid Mode)[-]"
 		}
 		utils.TacticalLog(fmt.Sprintf(" [white]Neural Engine:     [-] %s", neuroStatus))
@@ -241,12 +241,13 @@ var SafeTransport = &http.Transport{
 		utils.TacticalLog(fmt.Sprintf("[blue]USER ASK:[-] %s", question))
 
 		go func() {
-			if !logic.GlobalNeuro.Active {
+			neuro := logic.GetGlobalNeuro()
+			if !neuro.Active {
 				utils.TacticalLog("[yellow]NEURO:[-] Engine inactive. Auto-starting Hybrid mode...")
-				logic.GlobalNeuro.Configure("hybrid", "", "", "")
+				neuro.Configure("hybrid", "", "", "")
 			}
 			utils.LogNeural(fmt.Sprintf("[gray]>>> USER QUERY: %s[-]", question))
-			resp, err := logic.GlobalNeuro.ExecuteQuery(question)
+			resp, err := neuro.ExecuteQuery(question)
 			if err != nil {
 				utils.TacticalLog(fmt.Sprintf("[red]NEURO ERROR:[-] %v", err))
 				return
@@ -274,18 +275,22 @@ var SafeTransport = &http.Transport{
 			if len(args) > 4 {
 				endpoint = args[4]
 			}
-			logic.GlobalNeuro.Configure(provider, apiKey, model, endpoint)
+			neuro := logic.GetGlobalNeuro()
+			neuro.Configure(provider, apiKey, model, endpoint)
 		} else if args[0] == "on" {
-			logic.GlobalNeuro.Active = true
+			neuro := logic.GetGlobalNeuro()
+			neuro.Active = true
 			utils.TacticalLog("[green]Neural Engine Activated.[-]")
 		} else if args[0] == "off" {
-			logic.GlobalNeuro.Active = false
+			neuro := logic.GetGlobalNeuro()
+			neuro.Active = false
 			utils.TacticalLog("[yellow]Neural Engine Deactivated.[-]")
 		}
 
 	case "test-neuro":
 		utils.TacticalLog("[blue]Testing Neural Engine Connectivity...[-]")
-		logic.GlobalNeuro.TestConnectivity()
+		neuro := logic.GetGlobalNeuro()
+		neuro.TestConnectivity()
 
 	case "neuro-gen":
 		if len(args) < 2 {
@@ -293,7 +298,11 @@ var SafeTransport = &http.Transport{
 			return
 		}
 		count, _ := strconv.Atoi(args[1])
-		logic.GlobalNeuro.GenerateAttackVectors(args[0], count)
+		if neuro := logic.GetGlobalNeuro(); neuro != nil {
+			neuro.GenerateAttackVectors(args[0], count)
+		} else {
+			utils.TacticalLog("[red]Error: Neuro engine not initialized")
+		}
 
 	// --- IDENTITY & SESSION ---
 	case "auth":
@@ -876,7 +885,7 @@ func AggregateDataSilo() *DataSilo {
 			VictimToken:        logic.CurrentSession.VictimToken,
 			ProxyActive:        logic.GetConfiguredProxy(),
 			ProxyPoolSize:      len(logic.ProxyPool),
-			NeuroEngineActive:  logic.GlobalNeuro.Active,
+			NeuroEngineActive:  func() bool { neuro := logic.GetGlobalNeuro(); return neuro != nil && neuro.Active }(),
 			ContextAggregating: logic.GlobalAggregator.Active,
 		},
 		F2_Discovery: DiscoveryData{
@@ -1158,7 +1167,7 @@ func ComprehensiveAnalysis() []TacticalAction {
 	actions = append(actions, stateActions...)
 
 	// === PHASE 6: NEURAL PASS (if enabled) ===
-	if logic.GlobalNeuro.Active {
+	if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active {
 		utils.TacticalLog("[magenta]ANALYSIS:[-] Neural Pass: Engaging AI for contextual analysis...[-]")
 		aiActions := GlobalNeuroCore.ComprehensiveAnalysis(endpoints, logic.GetLootSummary(), silo.F4_Traffic.StatusCodeMap)
 		utils.TacticalLog(fmt.Sprintf("[magenta]ANALYSIS:[-] Neural Pass: %d AI-generated actions.[-]", len(aiActions)))

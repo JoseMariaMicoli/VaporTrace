@@ -223,7 +223,9 @@ func InitTacticalDashboard() {
 				neuroView.SetText("[yellow]>>> HYDRA NEURAL ENGINE ENGAGED <<<\n[white]Status: PROCESSING SNAPSHOT...\n[blue]Calculating Entropy...\nCalculating Exploit Probability...\nScanning BOLA Vectors...\n\n[white]Please Wait...[-]")
 				switchTo("neuro")
 				go func() {
-					logic.GlobalNeuro.AnalyzeTrafficSnapshot(req, res)
+					if neuro := logic.GetGlobalNeuro(); neuro != nil {
+						neuro.AnalyzeTrafficSnapshot(req, res)
+					}
 				}()
 			}
 			return nil
@@ -532,7 +534,7 @@ func updatePipelineQuadrant() {
 	targetColumn.SetCell(7, 1, tview.NewTableCell(intStatus))
 
 	neuroStatus := "[red]OFF"
-	if logic.GlobalNeuro.Active {
+	if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active {
 		neuroStatus = "[magenta]ONLINE (HYBRID)"
 	}
 	targetColumn.SetCell(8, 0, tview.NewTableCell("NEURO BRAIN"))
@@ -657,7 +659,7 @@ func startAsyncEngines() {
 
 				// Build NEURO status indicator
 				neuroStatus := ""
-				if logic.GlobalNeuro.Active {
+				if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active {
 					neuroStatus = " [green]🧠NEURO:ON[-]"
 				}
 

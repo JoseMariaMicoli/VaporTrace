@@ -29,9 +29,26 @@ type NeuroEngine struct {
 	lastCall  time.Time // Rate Limiter Timestamp
 }
 
-// Global singleton instance
-var GlobalNeuro = &NeuroEngine{
-	Active: false,
+// Global singleton instance with thread-safe initialization
+var (
+	GlobalNeuro *NeuroEngine
+	neuroMutex  sync.RWMutex
+	neuroOnce   sync.Once
+)
+
+// GetGlobalNeuro returns the singleton instance with double-checked locking
+func GetGlobalNeuro() *NeuroEngine {
+	if GlobalNeuro != nil {
+		return GlobalNeuro
+	}
+
+	neuroOnce.Do(func() {
+		GlobalNeuro = &NeuroEngine{
+			Active: false,
+		}
+	})
+
+	return GlobalNeuro
 }
 
 // Configure sets up the AI provider with Hydra Optimization (Prioritize Cloud)
@@ -115,10 +132,11 @@ func (n *NeuroEngine) enforceRateLimit() {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	// Strict 6 seconds between calls for Free Tier safety in high-latency regions
+	// Industry standard 2 seconds between calls (sufficient for most rate limiting)
+	const rateLimitDelay = 2 * time.Second
 	elapsed := time.Since(n.lastCall)
-	if elapsed < 6*time.Second {
-		wait := 6*time.Second - elapsed
+	if elapsed < rateLimitDelay {
+		wait := rateLimitDelay - elapsed
 		time.Sleep(wait)
 	}
 	n.lastCall = time.Now()
@@ -126,6 +144,14 @@ func (n *NeuroEngine) enforceRateLimit() {
 
 // ExecuteQuery tries primary provider, and immediately falls back to secondary on 429
 func (n *NeuroEngine) ExecuteQuery(prompt string) (string, error) {
+	if !n.Active {
+		return "", fmt.Errorf("neural engine is not active")
+	}
+
+	if prompt == "" {
+		return "", fmt.Errorf("prompt cannot be empty")
+	}
+
 	var primaryErr error
 
 	if n.Primary != nil {
@@ -164,10 +190,13 @@ func (n *NeuroEngine) ExecuteQuery(prompt string) (string, error) {
 			finalErr := fmt.Errorf("Hybrid Failure - Cloud: %v | Local: %v", primaryErr, err)
 			return "", finalErr
 		}
+		if res == "" {
+			return "", fmt.Errorf("secondary provider returned empty response (Primary: %v)", primaryErr)
+		}
 		return res, nil
 	}
 
-	return "", fmt.Errorf("all neural paths failed (Primary: %v, No Secondary configured)", primaryErr)
+	return "", fmt.Errorf("all neural paths failed: primary=%v, secondary=nil", primaryErr)
 }
 
 // AnalyzeTrafficSnapshot is the Core Trigger (Ctrl+A).
