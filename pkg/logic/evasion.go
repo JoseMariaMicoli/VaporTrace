@@ -341,35 +341,3 @@ func GetStealthStatus() string {
 		map[bool]string{true: "[green]ON", false: "[red]OFF"}[config.EnablePayloadEncoding],
 	)
 }
-
-// GetWAFDetectionStats analyzes findings to detect WAF/IDS indicators
-// GetWAFDetectionStats analyzes rate limiting and WAF indicators
-func GetWAFDetectionStats() map[string]interface{} {
-	// Gather WAF/Rate limit statistics from global state
-	stats := map[string]interface{}{
-		"rate_limit_blocks": 0,
-		"waf_blocks":        0,
-		"redirects":         0,
-		"server_errors":     0,
-		"detected":          false,
-	}
-
-	// Get rate limit backoff status (tracks 429 responses)
-	runsStats := GetRateLimitStatus()
-	if runsStats != nil {
-		if count, ok := runsStats["count"].(int); ok {
-			stats["rate_limit_blocks"] = count
-		}
-	}
-
-	// If we have significant rate limiting detected, flag as potential WAF
-	rateLimit := 0
-	if rlValue, ok := stats["rate_limit_blocks"].(int); ok {
-		rateLimit = rlValue
-	}
-	if rateLimit > 3 {
-		stats["detected"] = true
-	}
-
-	return stats
-}
