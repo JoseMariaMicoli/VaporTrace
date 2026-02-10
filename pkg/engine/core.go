@@ -1002,7 +1002,39 @@ func ComprehensiveAnalysis() []TacticalAction {
 	endpoints := silo.F2_Discovery.Endpoints
 	if len(endpoints) == 0 {
 		utils.TacticalLog("[yellow]ANALYSIS:[-] No endpoints discovered. Run 'map', 'swagger', or 'scrape' first.[-]")
-		return actions
+
+		// ✅ NEW: Provide hint actions to guide user
+		hintActions := []TacticalAction{
+			{
+				ID:         1,
+				Type:       "HINT: DISCOVERY",
+				Target:     "N/A - Start reconnaissance",
+				Payload:    "Run 'map <url>' or 'swagger <openapi-url>' to discover endpoints",
+				Confidence: "MEDIUM",
+				Status:     "PENDING",
+			},
+			{
+				ID:         2,
+				Type:       "HINT: SPIDERING",
+				Target:     "N/A - Explore application",
+				Payload:    "Run 'scrape <url>' to extract links from HTML responses",
+				Confidence: "MEDIUM",
+				Status:     "PENDING",
+			},
+			{
+				ID:         3,
+				Type:       "HINT: TRAFFIC",
+				Target:     "F4 Tab - Intercept requests",
+				Payload:    "Enable Interceptor (Ctrl+I) and press Ctrl+A to analyze traffic snapshots",
+				Confidence: "LOW",
+				Status:     "PENDING",
+			},
+		}
+
+		utils.TacticalLog("[blue]INFO:[-] Strategic buffer populated with discovery workflow hints.")
+		utils.TacticalLog("[cyan]TIP:[-] Check F5 tab for guided next steps to begin reconnaissance.")
+
+		return hintActions
 	}
 
 	utils.TacticalLog(fmt.Sprintf("[blue]ANALYSIS:[-] Phase 1 Complete: %d endpoints discovered.[-]", len(endpoints)))
