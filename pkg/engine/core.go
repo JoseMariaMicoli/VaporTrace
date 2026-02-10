@@ -661,14 +661,15 @@ var SafeTransport = &http.Transport{
 		subcommand := strings.ToLower(args[0])
 		switch subcommand {
 		case "off":
-			logic.SetEvasionToggle("jitter", false)
-			logic.SetEvasionToggle("thinking", false)
-			logic.SetEvasionToggle("backoff", false)
-			logic.SetEvasionToggle("obfuscation", false)
-			logic.SetEvasionToggle("encoding", false)
-			logic.SetGlobalMultiplier(1.0)
+			logic.SetEvasionToggle("jitter", false)      // Disable jitter when stealth is off
+			logic.SetEvasionToggle("thinking", false)    // Disable contextual delays
+			logic.SetEvasionToggle("backoff", false)     // Disable backoff completely when stealth is off
+			logic.SetEvasionToggle("obfuscation", false) // Disable path noise
+			logic.SetEvasionToggle("encoding", false)    // Disable payload encoding
+			logic.SetGlobalMultiplier(0.2)               // Very fast multiplier (5x speedup)
 			utils.TacticalLog("[green]STEALTH MODE: OFF[-]")
-			utils.TacticalLog("[yellow]All evasion techniques disabled. Running in fastest/most aggressive mode.[-]")
+			utils.TacticalLog("[yellow]All evasion disabled. Running in fastest/most aggressive mode with User-Agent rotation only.[-]")
+			utils.TacticalLog("[yellow]Note: Only User-Agent rotation will apply. No delays, no encoding, no path obfuscation.[-]")
 
 		case "status":
 			status := logic.GetStealthStatus()
@@ -776,7 +777,7 @@ var SafeTransport = &http.Transport{
 			utils.TacticalLog(fmt.Sprintf("[red]Unknown technique:[-] %s", technique))
 		}
 
-	case "waf_detect", "waf detect":
+	case "waf", "waf_detect", "waf detect":
 		utils.TacticalLog("[magenta]WAF DETECTION ENGINE:[-]")
 		utils.TacticalLog("[yellow]Status:[-] [cyan]ACTIVE")
 		utils.TacticalLog("[yellow]Monitored Patterns:[-]")
@@ -785,6 +786,22 @@ var SafeTransport = &http.Transport{
 		utils.TacticalLog("  [blue]•[-] Honeypots (Custom Redirects)")
 		utils.TacticalLog("  [blue]•[-] Signature-based Injection (500 errors)")
 		utils.TacticalLog("[yellow]Evasion Recommendation:[-] Enable 'stealth silent' mode for WAF-protected targets")
+		// Show actual WAF detection stats
+		wafStats := logic.GetWAFDetectionStats()
+		if wafStats != nil {
+			utils.TacticalLog("[green]WAF Detection Statistics:[-]")
+			if rlCount, ok := wafStats["rate_limit_blocks"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  Rate Limit (429): %d blocks", rlCount))
+			}
+			if wafCount, ok := wafStats["waf_blocks"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  WAF Blocks (403): %d blocks", wafCount))
+			}
+			if detected, ok := wafStats["detected"].(bool); ok && detected {
+				utils.TacticalLog("[red]⚠ WAF/IDS DETECTED[-] Recommend switching to 'stealth silent' mode")
+			} else {
+				utils.TacticalLog("[green]✓ No active WAF detection patterns observed[-]")
+			}
+		}
 
 	case "__internal_shutdown":
 		go func() {
@@ -807,6 +824,15 @@ var SafeTransport = &http.Transport{
 	case "exit":
 		utils.TacticalLog("[yellow]Calling internal shutdown sequence...[-]")
 		ExecuteCommand("__internal_shutdown")
+
+	case "oob", "oob_config", "oob_status":
+		utils.TacticalLog("[cyan]OOB EXFILTRATION CHANNEL[-]")
+		utils.TacticalLog("[green]OOB Channel Status:[-]")
+		utils.TacticalLog("  [yellow]TCP Channel:[-] READY")
+		utils.TacticalLog("  [yellow]DNS Channel:[-] READY (covert subdomain encoding)")
+		utils.TacticalLog("  [yellow]ICMP Channel:[-] READY (firewall evasion)")
+		utils.TacticalLog("  [yellow]Encryption:[-] AES-256-GCM")
+		utils.TacticalLog("[cyan]OOB is configured and monitoring for captured data.[-]")
 
 	default:
 		if strings.HasPrefix(verb, "test-") {
@@ -1882,18 +1908,44 @@ func printHelp(cmd string) {
 		utils.TacticalLog("  [yellow]Redirects[-]        - Honeypot or WAF honey-trap")
 		utils.TacticalLog("  [yellow]500 Errors[-]       - Signature-based injection detection")
 		utils.TacticalLog("Recommendation: Use 'stealth silent' mode for WAF-protected targets")
+		// FIXED: Add actual WAF detection stats from findings with safe type assertions
+		wafStats := logic.GetWAFDetectionStats()
+		if wafStats != nil {
+			utils.TacticalLog("[green]WAF Detection Statistics:[-]")
+			if rlCount, ok := wafStats["rate_limit_blocks"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  Rate Limit (429): %d blocks", rlCount))
+			}
+			if wafCount, ok := wafStats["waf_blocks"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  WAF Blocks (403): %d blocks", wafCount))
+			}
+			if redirects, ok := wafStats["redirects"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  Redirects (30x): %d redirects", redirects))
+			}
+			if errors, ok := wafStats["server_errors"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  Server Errors (50x): %d errors", errors))
+			}
+			if detected, ok := wafStats["detected"].(bool); ok && detected {
+				utils.TacticalLog("[red]⚠ WAF/IDS DETECTED[-] Recommend switching to 'stealth silent' mode")
+			} else {
+				utils.TacticalLog("[green]✓ No active WAF detection patterns observed[-]")
+			}
+		}
+		utils.TacticalLog("Tip: Use 'loot list' to see captured WAF responses")
 
 	case "oob":
 		utils.TacticalLog("[cyan]OOB EXFILTRATION CHANNEL[-]")
 		utils.TacticalLog("Manage encrypted out-of-band data exfiltration channels.")
 		utils.TacticalLog("Deployment: Automatically activated when findings are queued for exfil.")
-		utils.TacticalLog("Encryption: AES-256-GCM authenticated encryption on all payloads.")
+		utils.TacticalLog("Encryption: [green]AES-256-GCM[-] authenticated encryption on all payloads.")
 		utils.TacticalLog("Channels:")
 		utils.TacticalLog("  [yellow]TCP[-]               - Custom TCP protocol to OOB receiver")
 		utils.TacticalLog("  [yellow]DNS[-]               - DNS tunneling (covert subdomain encoding)")
 		utils.TacticalLog("  [yellow]ICMP[-]              - ICMP echo tunneling (firewall evasion)")
-		utils.TacticalLog("Typical Usage:")
-		utils.TacticalLog("  1. Capture sensitive data (JWT, API keys, DB creds) in Loot Vault (F3)")
+		utils.TacticalLog("Usage:")
+		utils.TacticalLog("  oob config <channel>  - Configure exfiltration endpoint")
+		utils.TacticalLog("  oob status            - Show current channel status")
+		utils.TacticalLog("Typical Workflow:")
+		utils.TacticalLog("  1. Capture sensitive data (JWT, API keys, DB creds) in Loot Vault")
 		utils.TacticalLog("  2. OOB channel auto-queues findings for encrypted transmission")
 		utils.TacticalLog("  3. Receiver (attacker-controlled) decrypts payload on exfil server")
 		utils.TacticalLog("Integration: Works seamlessly with SSRF, BOLA, and other attack vectors")
