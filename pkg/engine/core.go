@@ -757,30 +757,7 @@ func ExecuteCommand(rawCmd string) {
 		}
 
 	case "waf", "waf_detect", "waf detect":
-		utils.TacticalLog("[magenta]WAF DETECTION ENGINE:[-]")
-		utils.TacticalLog("[yellow]Status:[-] [cyan]ACTIVE")
-		utils.TacticalLog("[yellow]Monitored Patterns:[-]")
-		utils.TacticalLog("  [blue]•[-] Rate Limits (429)")
-		utils.TacticalLog("  [blue]•[-] WAF Blocks (403)")
-		utils.TacticalLog("  [blue]•[-] Honeypots (Custom Redirects)")
-		utils.TacticalLog("  [blue]•[-] Signature-based Injection (500 errors)")
-		utils.TacticalLog("[yellow]Evasion Recommendation:[-] Enable 'stealth silent' mode for WAF-protected targets")
-		// Show actual WAF detection stats
-		wafStats := logic.GetWAFDetectionStats()
-		if wafStats != nil {
-			utils.TacticalLog("[green]WAF Detection Statistics:[-]")
-			if rlCount, ok := wafStats["rate_limit_blocks"].(int); ok {
-				utils.TacticalLog(fmt.Sprintf("  Rate Limit (429): %d blocks", rlCount))
-			}
-			if wafCount, ok := wafStats["waf_blocks"].(int); ok {
-				utils.TacticalLog(fmt.Sprintf("  WAF Blocks (403): %d blocks", wafCount))
-			}
-			if detected, ok := wafStats["detected"].(bool); ok && detected {
-				utils.TacticalLog("[red]⚠ WAF/IDS DETECTED[-] Recommend switching to 'stealth silent' mode")
-			} else {
-				utils.TacticalLog("[green]✓ No active WAF detection patterns observed[-]")
-			}
-		}
+		logic.ReportWAFDetection()
 
 	case "__internal_shutdown":
 		go func() {
@@ -805,13 +782,7 @@ func ExecuteCommand(rawCmd string) {
 		ExecuteCommand("__internal_shutdown")
 
 	case "oob", "oob_config", "oob_status":
-		utils.TacticalLog("[cyan]OOB EXFILTRATION CHANNEL[-]")
-		utils.TacticalLog("[green]OOB Channel Status:[-]")
-		utils.TacticalLog("  [yellow]TCP Channel:[-] READY")
-		utils.TacticalLog("  [yellow]DNS Channel:[-] READY (covert subdomain encoding)")
-		utils.TacticalLog("  [yellow]ICMP Channel:[-] READY (firewall evasion)")
-		utils.TacticalLog("  [yellow]Encryption:[-] AES-256-GCM")
-		utils.TacticalLog("[cyan]OOB is configured and monitoring for captured data.[-]")
+		logic.ReportOOBStatus()
 
 	default:
 		if strings.HasPrefix(verb, "test-") {

@@ -50,7 +50,7 @@ func ExecuteMassBOPLA(concurrency int) {
 
 	for _, path := range targets {
 		ctx := &BOPLAContext{
-			TargetURL: CurrentSession.TargetURL + path,
+			TargetURL: utils.JoinURL(CurrentSession.TargetURL, path),
 			Method:    "POST",
 			BaseJSON:  "{}",
 		}
