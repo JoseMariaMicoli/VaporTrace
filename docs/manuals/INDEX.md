@@ -37,6 +37,7 @@
 
 ### 📚 Reference
 18. [Command Reference](18_COMMAND_REFERENCE.md) - All CLI commands with examples
+**22. [Advanced Discovery Guide](22_DISCOVERY_GUIDE.md) - Spider & Fuzz techniques (Tier 2) ⭐ NEW**
 19. [API Module Documentation](19_API_MODULES.md) - Detailed module descriptions
 20. [FAQ & Tips](20_FAQ_TIPS.md) - Frequently asked questions and pro tips
 21. [WAF Evasion Techniques](21_WAF_EVASION_TECHNIQUES.md) - Advanced WAF bypass strategies
@@ -46,11 +47,29 @@
 ## Quick Navigation by Use Case
 
 ### 🔍 "I want to discover API endpoints"
-**Read:** [05_RECONNAISSANCE.md](05_RECONNAISSANCE.md)
+**Read:** [05_RECONNAISSANCE.md](05_RECONNAISSANCE.md) and **[22_DISCOVERY_GUIDE.md](22_DISCOVERY_GUIDE.md)** ⭐ NEW
 - Target management
-- Automatic endpoint discovery
+- Automatic endpoint discovery (map, swagger, scrape)
+- **Advanced: Domain crawling with spider (Tier 2) ⭐ NEW**
+- **Advanced: Brute-force fuzzing with fuzz (Tier 2) ⭐ NEW**
 - Parameter fuzzing
 - Swagger/OpenAPI parsing
+
+### 🕷️ "I want to crawl a domain for endpoints"
+**Read:** **[22_DISCOVERY_GUIDE.md](22_DISCOVERY_GUIDE.md)** ⭐ NEW
+- Spider command for recursive crawling
+- Depth control and optimization
+- WAF evasion for crawling
+- Performance tuning
+- Real-world examples
+
+### 🔎 "I want to fuzz for hidden paths/parameters"
+**Read:** **[22_DISCOVERY_GUIDE.md](22_DISCOVERY_GUIDE.md)** ⭐ NEW
+- Fuzz command for path enumeration
+- Parameter discovery with anomaly detection
+- Embedded wordlists
+- Speed vs stealth tradeoffs
+- Troubleshooting guides
 
 ### ⚔️ "I want to test for vulnerabilities"
 **Read:** [06_EXPLOITATION.md](06_EXPLOITATION.md)
