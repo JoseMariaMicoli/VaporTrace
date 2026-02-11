@@ -78,7 +78,9 @@ func FuzzParams(targetURL string, customList []string) {
 	utils.TacticalLog(fmt.Sprintf("[cyan]FUZZ:[-] Parameter mining on %s (%d payloads)", targetURL, len(wordlist)))
 
 	// Baseline Request (to compare against)
-	baseResp, err := logic.SafeDo(&http.Request{Method: "GET", URL: &url.URL{Path: targetURL}}, false, "BASELINE")
+	baseReq, _ := http.NewRequest("GET", targetURL, nil)
+	logic.ApplyEvasion(baseReq)
+	baseResp, err := logic.GlobalClient.Do(baseReq)
 	var baseLen int64 = 0
 	if err == nil && baseResp != nil {
 		baseLen = baseResp.ContentLength
