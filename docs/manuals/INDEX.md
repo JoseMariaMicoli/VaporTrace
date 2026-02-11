@@ -25,6 +25,7 @@
 10. [Ghost Weaver (Evasion)](10_GHOST_WEAVER.md) - Token forgery and data masking
 11. [Loot Vault (Exfiltration)](11_LOOT_VAULT.md) - Secret capture and management
 12. [Proxy & Network](12_PROXY_NETWORK.md) - Upstream proxies and traffic routing
+12a. [QUICK_START_RACE.md](QUICK_START_RACE.md) - Race Condition Testing (Tier 3) ⭐ NEW
 
 ### 📊 Reporting & Analysis
 13. [Report Generation](13_REPORTING.md) - Export findings and generate reports
@@ -113,6 +114,21 @@
 - Credential usage
 - Export options
 
+### 🏃 "I want to test for race conditions" (Tier 3)
+**Read:** [QUICK_START_RACE.md](QUICK_START_RACE.md) ⭐ NEW
+- Race condition basics
+- Synchronization gate pattern
+- TOCTOU vulnerability detection
+- Common race scenarios
+- Troubleshooting guide
+
+### 🔫 "I want to fuzz parameters with custom wordlists" (Tier 3)
+**Read:** [QUICK_START_RACE.md](QUICK_START_RACE.md) & [18_COMMAND_REFERENCE.md](18_COMMAND_REFERENCE.md) ⭐ NEW
+- Intruder sniper mode
+- Anomaly detection
+- Custom wordlist loading
+- Baseline comparison
+
 ---
 
 ## Step-by-Step Workflows
@@ -144,7 +160,20 @@ list-plan
 commit
 ```
 
-### Workflow 3: AI-Driven Exploitation (20 minutes)
+### Workflow 3: Race Condition Testing (Tier 3) (15 minutes)
+1. [QUICK_START_RACE.md](QUICK_START_RACE.md) - Learn race testing basics
+2. [Identify target endpoint](#) - Find state-changing endpoints
+3. Run race test - Execute concurrent requests
+4. Analyze results - Check for timing-based vulnerabilities
+
+**Commands:**
+```bash
+target https://api.example.com
+race https://api.example.com/api/claim?code=WINNER 30
+report
+```
+
+### Workflow 4: AI-Driven Exploitation (20 minutes)
 1. [07_AI_NEURO_ENGINE.md](07_AI_NEURO_ENGINE.md) - Setup neural engine
 2. [06_EXPLOITATION.md](06_EXPLOITATION.md) - Run attacks with AI
 3. [13_REPORTING.md](13_REPORTING.md) - Generate report
@@ -329,7 +358,104 @@ docs/
 2. **Want to do something specific?** Use "Quick Navigation by Use Case" above
 3. **Need step-by-step?** Follow the "Workflows" section
 4. **Looking for reference?** Jump to [18_COMMAND_REFERENCE.md](18_COMMAND_REFERENCE.md)
-5. **Technical details?** See [dev-logs/INDEX.md](../dev-logs/INDEX.md)
+5. **Want to use AI/Neuro?** Check [NEURO_QUICK_USAGE_GUIDE.md](NEURO_QUICK_USAGE_GUIDE.md) for complete workflows
+6. **Technical details?** See [dev-logs/INDEX.md](../dev-logs/INDEX.md) or [dev-logs/00_START_HERE.md](../dev-logs/00_START_HERE.md)
+7. **Need quick AI reference?** Use [dev-logs/NEURO_QUICK_REFERENCE.md](../dev-logs/NEURO_QUICK_REFERENCE.md)
+
+---
+
+## 🎯 New: Comprehensive Neuro Engine Documentation (February 2026)
+
+We've completely refreshed the Neuro Engine documentation and guides:
+
+### For Users
+- **[NEURO_QUICK_USAGE_GUIDE.md](NEURO_QUICK_USAGE_GUIDE.md)** - Start here! Complete workflows, provider setup, troubleshooting
+  - 4 real-world attack scenarios
+  - Setup instructions for 5 providers (Groq, OpenAI, Gemini, Ollama, Hybrid)
+  - 2,500+ words of actionable guidance
+  
+### For Developers
+- **[dev-logs/NEURO_SOURCE_FIXES_NEEDED.md](../dev-logs/NEURO_SOURCE_FIXES_NEEDED.md)** - Implementation guide
+
+---
+
+## 🔥 NEW: Tier 3 Offensive Capability Upgrade (February 11, 2026)
+
+VaporTrace now includes **advanced fuzzing and race condition testing** for sophisticated logic flaw detection.
+
+### What's New (Sprint 20)
+- ✅ **Intruder Engine** - Automated fuzzing with anomaly detection
+- ✅ **Race Condition Engine** - TOCTOU vulnerability testing with synchronization gate
+- ✅ **AI Payload Generation** - Groq-driven fuzzing suggestions (Sprint 19)
+- ✅ **Reporting Integration** - Tier 3 findings in F7 reports
+
+### For Users
+- **[QUICK_START_RACE.md](QUICK_START_RACE.md)** ⭐ **START HERE FOR TIER 3**
+  - Race condition testing basics
+  - Common TOCTOU vulnerabilities
+  - Step-by-step usage guide
+  - Troubleshooting tips
+
+### For Developers
+- **[../dev-logs/TIER_3_IMPLEMENTATION_SUMMARY.md](../dev-logs/TIER_3_IMPLEMENTATION_SUMMARY.md)** - Architecture overview
+- **[../dev-logs/YOUR_ACTION_ITEMS.md](../dev-logs/YOUR_ACTION_ITEMS.md)** - Implementation checklist
+
+### Quick Commands (Tier 3)
+```bash
+# Fuzzing with custom wordlists
+intruder sniper https://api.example.com/user?id=1 id ./payloads.txt
+
+# Race condition testing (20 threads by default)
+race https://api.example.com/api/claim?code=WINNER
+
+# High-intensity race test (50 threads)
+race https://api.example.com/api/claim?code=WINNER 50
+
+# View findings in report
+report
+```
+
+### Severity & Remediation
+- **Intruder Findings:** Medium/High severity
+- **Race Condition Findings:** CRITICAL (CVSS 8.5+)
+- **Remediation:** Flagged as `**ARCHITECTURAL FIX REQ**` (not simple patches)
+
+---
+
+## 📁 Tier 3 Documentation Structure
+
+```
+docs/
+├── manuals/
+│   ├── QUICK_START_RACE.md                    ⭐ User guide
+│   └── INDEX.md                                (you are here)
+└── dev-logs/
+    ├── TIER_3_IMPLEMENTATION_SUMMARY.md       ⭐ Architecture
+    ├── YOUR_ACTION_ITEMS.md                    Implementation checklist
+    └── Dev-Roadmap.md                          Updated with Tier 3 & Tier 4 planning
+```
+
+---
+
+## 🎯 Version History
+
+- **v3.2-Chimera (Feb 11, 2026)** - Tier 3 Complete: Race Condition & Intruder Engines
+- **v3.2-Chimera (Feb 8, 2026)** - Sprint 16-17: Blue-Team Mirror + WAF Hardening
+- **v3.1-Hydra (Feb 1, 2026)** - Sprint 11 Complete: Full Autonomy & Neuro Integration
+- **v3.0 (Jan 15, 2026)** - Core APIs + TUI Dashboard (Sprint 1-10)
+  - All 6 critical code issues documented
+  - Before/after code examples
+  - 1.5-2 hour implementation roadmap
+  
+### Quick Reference
+- **[dev-logs/NEURO_QUICK_REFERENCE.md](../dev-logs/NEURO_QUICK_REFERENCE.md)** - One-page reference
+  - All commands at a glance
+  - Feature status table
+  
+### Navigation Hub
+- **[dev-logs/00_START_HERE.md](../dev-logs/00_START_HERE.md)** - Central navigation
+  - Links organized by role (user/dev/manager)
+  - Complete workflow diagrams
 
 ---
 

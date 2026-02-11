@@ -478,6 +478,31 @@ func ExecuteCommand(rawCmd string) {
 			utils.TacticalLog("[green]INTRUDER:[-] Session finished. Check logs/db for anomalies.")
 		}()
 
+	case "race":
+		// Syntax: race <url> [threads]
+		if len(args) < 1 {
+			utils.TacticalLog("[red]Usage:[-] race <url> [threads]")
+			return
+		}
+
+		target := args[0]
+		threads := 20 // Default to high concurrency for race conditions
+
+		if len(args) > 1 {
+			if t, err := strconv.Atoi(args[1]); err == nil {
+				threads = t
+			}
+		}
+
+		go func() {
+			config := attack.RaceConfig{
+				TargetURL: target,
+				Method:    "GET", // Default, in future add flags for POST
+				Threads:   threads,
+			}
+			attack.RunRace(config)
+		}()
+
 	// --- FLOW ENGINE ---
 	case "flow":
 		if len(args) == 0 {
@@ -1539,8 +1564,8 @@ func printUsage() {
 		"[yellow]audit <url>[-]      Config Check           Headers (HSTS), SSL/TLS, CORS policy audit.",
 		"[yellow]probe <url>[-]      Webhook Injection      Unsafe consumption in 3rd-party integrations.",
 		"[yellow]flow <action>[-]    Attack Chain           (list|clear|run|race) Manage orchestrated attack sequences.",
-		"",
 		"[yellow]intruder <mode>[-]  Fuzzing Engine         (sniper) Automated payload injection against params.",
+		"[yellow]race <url>[-]       Race Condition Test    Synchronization gate for TOCTOU vulnerability detection.",
 		"[cyan]→ Type 'usage 2' to see Evasion, AI, Infrastructure, and System commands[-]",
 	}
 	for _, l := range lines {
@@ -1701,6 +1726,28 @@ func printHelp(cmd string) {
 		utils.TacticalLog("  1. Baselines the target (normal request).")
 		utils.TacticalLog("  2. Injects payloads from wordlist.")
 		utils.TacticalLog("  3. Flags responses with status code changes or >10% length variation.")
+
+	case "race":
+		utils.TacticalLog("[cyan]RACE CONDITION ENGINE - TOCTOU Vulnerability Testing[-]")
+		utils.TacticalLog("Detects Time-of-Check to Time-of-Use (TOCTOU) race conditions.")
+		utils.TacticalLog("Uses synchronization gate pattern to execute parallel requests with nanosecond precision.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Usage: race <url> [threads]")
+		utils.TacticalLog("Example: race https://api.target.com/api/claim?code=WINNER 30")
+		utils.TacticalLog("")
+		utils.TacticalLog("Detection Logic:")
+		utils.TacticalLog("  1. Spawns N concurrent goroutines (default: 20 threads)")
+		utils.TacticalLog("  2. All threads wait on synchronization gate (channel barrier)")
+		utils.TacticalLog("  3. Gate closes -> all threads fire simultaneously (nanosecond precision)")
+		utils.TacticalLog("  4. Analyzes response variance (status codes, body length)")
+		utils.TacticalLog("")
+		utils.TacticalLog("Common Vulnerabilities Detected:")
+		utils.TacticalLog("  - Coupon reuse (double spending)")
+		utils.TacticalLog("  - Bypassing transfer limits")
+		utils.TacticalLog("  - Creating duplicate resources")
+		utils.TacticalLog("  - Gift card redemption exploits")
+		utils.TacticalLog("")
+		utils.TacticalLog("Severity: CRITICAL (CVSS 8.5+) - Requires architectural fixes")
 
 	case "weaver":
 		utils.TacticalLog("Deploys Ghost Weaver agent for OIDC token interception and data masking.")
@@ -1977,7 +2024,7 @@ func GetAvailableCommands() []string {
 		"target", "map", "spider", "swagger", "scrape", "mine", "fuzz",
 		"sessions", "pipeline",
 		// Exploitation
-		"bola", "bfla", "bopla", "ssrf", "exhaust", "audit", "probe", "flow", "intruder",
+		"bola", "bfla", "bopla", "ssrf", "exhaust", "audit", "probe", "flow", "intruder", "race",
 		// Neural Engine
 		"ask", "neuro", "neuro-gen", "test-neuro",
 		// Identity & Sessions
@@ -2032,6 +2079,7 @@ func GetCommandSyntax(cmd string) string {
 		"audit":      "audit <url>",
 		"probe":      "probe <url>",
 		"flow":       "flow <list|clear|run|race>",
+		"race":       "race <url> [threads]",
 		"ask":        "ask <your_question>",
 		"neuro":      "neuro <on|off|config <provider> <model>>",
 		"neuro-gen":  "neuro-gen <context> <count>",
