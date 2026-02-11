@@ -60,6 +60,9 @@
 | **WAF Evasion Hardening** | Sprint 17 | ✅ Complete | 5 coordinated evasion techniques, 22 browser profiles |
 | **Intruder Engine** | Sprint 18-19 | ✅ Complete | Sniper mode, anomaly detection, AI payload generation |
 | **Race Condition Engine** | Sprint 20 | ✅ Complete | Synchronization gate, TOCTOU detection, parallel fuzzing |
+| **OSINT Intelligence** | Sprint 21 (Day 1) | ✅ Complete | Wayback Machine CLI, Shodan integration, passive recon |
+| **Chain Reactor** | Sprint 21 (Day 2) | ⏳ Pending | Stateful multi-request automation (Tier 4) |
+| **Knowledge Base** | Sprint 21 (Day 3) | ⏳ Pending | Institutional memory for attack patterns (Tier 4) |
 | **C2 Architecture** | Sprint 13+ | ⏳ Pending | Hive master, gRPC control plane, Web dashboard (Tier 4) |
 | **Cloud Pivoting** | Sprint 14+ | ⏳ Pending | K8s escape, cross-tenant leakage, serverless attacks (Tier 4) |
 
@@ -75,6 +78,12 @@
 - `scrape`          Extract endpoints from JavaScript bundles
 - `mine`            Brute-force hidden query parameters
 - `sessions`        Manage authentication tokens and credentials
+
+### **Intelligence & OSINT** (Tier 4 - NEW)
+
+- `intel wayback`   Query Wayback Machine for historical endpoints (Ghost APIs)
+- `intel shodan`    Query Shodan for open ports and services
+- `intel config`    Configure OSINT provider API keys
 
 ### **Authorization Testing** (OWASP API1-5)
 

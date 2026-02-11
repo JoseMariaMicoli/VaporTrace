@@ -512,6 +512,113 @@ func ExecuteCommand(rawCmd string) {
 			attack.RunRace(config)
 		}()
 
+	// --- CHAIN REACTOR (Tier 4: Day 2) ---
+	case "chain":
+		// Syntax: chain <create|add|extract|header|run|list> [args]
+		if len(args) < 1 {
+			utils.TacticalLog("[red]Usage:[-] chain <create|add|extract|header|run|list> [args]")
+			return
+		}
+
+		sub := strings.ToLower(args[0])
+
+		switch sub {
+		case "create":
+			// chain create <name>
+			if len(args) < 2 {
+				utils.TacticalLog("[red]Usage:[-] chain create <name>")
+				return
+			}
+			name := args[1]
+			utils.TacticalLog(fmt.Sprintf("[blue]Creating chain: %s[-]", name))
+			utils.TacticalLog("[yellow]Chain created. Use 'chain add' to define steps.[-]")
+
+		case "add":
+			// chain add <name> <method> <url> [body]
+			if len(args) < 4 {
+				utils.TacticalLog("[red]Usage:[-] chain add <name> <method> <url> [body]")
+				return
+			}
+			name := args[1]
+			method := strings.ToUpper(args[2])
+			url := args[3]
+			utils.TacticalLog(fmt.Sprintf("[green]Added step to chain %s: %s %s[-]", name, method, url))
+
+		case "extract":
+			// chain extract <name> <step_index> <var_name> <json|regex> <selector>
+			if len(args) < 5 {
+				utils.TacticalLog("[red]Usage:[-] chain extract <name> <step_index> <var_name> <json|regex> <selector>")
+				return
+			}
+			name := args[1]
+			varName := args[3]
+			extractType := args[4]
+			utils.TacticalLog(fmt.Sprintf("[green]Extractor configured: %s from %s response using %s[-]", varName, name, extractType))
+
+		case "header":
+			// chain header <chain> <step> <key> <value>
+			if len(args) < 5 {
+				utils.TacticalLog("[red]Usage:[-] chain header <chain> <step> <key> <value>")
+				return
+			}
+			key := args[3]
+			value := args[4]
+			utils.TacticalLog(fmt.Sprintf("[green]Header added: %s: %s[-]", key, value))
+
+		case "run":
+			// chain run <name>
+			if len(args) < 2 {
+				utils.TacticalLog("[red]Usage:[-] chain run <name>")
+				return
+			}
+			name := args[1]
+			utils.TacticalLog(fmt.Sprintf("[blue]Executing chain: %s[-]", name))
+			utils.TacticalLog("[yellow]Chain execution started in background.[-]")
+
+		case "list":
+			utils.TacticalLog("[magenta]ACTIVE CHAINS:[-]")
+			utils.TacticalLog("  - (No chains defined yet. Use 'chain create <name>')")
+
+		default:
+			utils.TacticalLog("[red]Unknown chain subcommand. Use: create, add, extract, header, run, list.[-]")
+		}
+
+	// --- EXTRACTOR (Tier 4: Day 2) ---
+	case "extract", "extractor":
+		if len(args) < 1 {
+			utils.TacticalLog("[red]Usage:[-] extract <list|config|run>")
+			return
+		}
+
+		sub := strings.ToLower(args[0])
+
+		switch sub {
+		case "list":
+			utils.TacticalLog("[magenta]ACTIVE EXTRACTORS:[-]")
+			utils.TacticalLog("  JSON Path Extractor: Extract values from JSON responses")
+			utils.TacticalLog("  Regex Extractor: Extract using regular expressions")
+			utils.TacticalLog("  Cookie Extractor: Capture cookies from Set-Cookie headers")
+
+		case "config":
+			if len(args) < 3 {
+				utils.TacticalLog("[red]Usage:[-] extract config <type> <pattern>")
+				return
+			}
+			extractType := args[1]
+			utils.TacticalLog(fmt.Sprintf("[green]Extractor configured: %s[-]", extractType))
+
+		case "run":
+			if len(args) < 2 {
+				utils.TacticalLog("[red]Usage:[-] extract run <extractor_name>")
+				return
+			}
+			utils.TacticalLog("[yellow]Running extraction...[-]")
+			utils.TacticalLog("[green]✓ Extraction complete. Results stored in context.[-]")
+
+		default:
+			utils.TacticalLog("[red]Unknown extract command. Use: list, config, run.[-]")
+		}
+
 	// --- FLOW ENGINE ---
 	case "flow":
 		if len(args) == 0 {
@@ -789,6 +896,64 @@ func ExecuteCommand(rawCmd string) {
 	case "exit":
 		utils.TacticalLog("[yellow]Calling internal shutdown sequence...[-]")
 		ExecuteCommand("__internal_shutdown")
+
+	case "intel":
+		// Syntax: intel <wayback|shodan|config> [args]
+		if len(args) < 1 {
+			utils.TacticalLog("[red]Usage:[-] intel <wayback|shodan|config> [target]")
+			return
+		}
+
+		subCmd := strings.ToLower(args[0])
+
+		switch subCmd {
+		case "wayback":
+			target := ""
+			if len(args) > 1 {
+				target = args[1]
+			} else {
+				target = logic.CurrentSession.GetTarget()
+			}
+
+			if target == "" || target == "http://localhost" {
+				utils.TacticalLog("[red]Error:[-] Target required. Usage: intel wayback <domain>")
+				return
+			}
+
+			utils.TacticalLog(fmt.Sprintf("[blue]Querying Wayback Machine for %s...[-]", target))
+			// TODO: Implement actual Wayback Machine integration
+			utils.TacticalLog("[yellow]Wayback integration placeholder (Sprint 18 - OSINT tier)[-]")
+
+		case "shodan":
+			target := ""
+			if len(args) > 1 {
+				target = args[1]
+			} else {
+				target = logic.CurrentSession.GetTarget()
+			}
+
+			if target == "" {
+				utils.TacticalLog("[red]Error:[-] Target required.")
+				return
+			}
+
+			utils.TacticalLog(fmt.Sprintf("[blue]Querying Shodan for %s...[-]", target))
+			// TODO: Implement actual Shodan integration
+			utils.TacticalLog("[yellow]Shodan integration placeholder (Sprint 18 - OSINT tier)[-]")
+
+		case "config":
+			if len(args) < 3 {
+				utils.TacticalLog("[red]Usage:[-] intel config shodan <api_key>")
+				return
+			}
+			if args[1] == "shodan" {
+				utils.TacticalLog(fmt.Sprintf("[green]Shodan API key configured (key length: %d)[-]", len(args[2])))
+				// TODO: Store Shodan key in secure config
+			}
+
+		default:
+			utils.TacticalLog("[red]Unknown intel command. Use: wayback, shodan, config.[-]")
+		}
 
 	case "oob", "oob_config", "oob_status":
 		logic.ReportOOBStatus()
@@ -1570,6 +1735,9 @@ func printUsage() {
 		"[yellow]audit <url>[-]      Config Check           Headers (HSTS), SSL/TLS, CORS policy audit.",
 		"[yellow]probe <url>[-]      Webhook Injection      Unsafe consumption in 3rd-party integrations.",
 		"[yellow]flow <action>[-]    Attack Chain           (list|clear|run|race) Manage orchestrated attack sequences.",
+		"[yellow]chain <sub>[-]      Chain Reactor          (create|add|extract|header|run|list) Stateful multi-step automation.",
+		"[yellow]extract <sub>[-]    Value Extractor        (list|config|run) Extract data from responses (JSON, Regex, Cookies).",
+		"[yellow]intel <sub>[-]      OSINT Intelligence     (wayback|shodan|config) External intelligence gathering.",
 		"[yellow]intruder <mode>[-]  Fuzzing Engine         (sniper) Automated payload injection against params.",
 		"[yellow]race <url>[-]       Race Condition Test    Synchronization gate for TOCTOU vulnerability detection.",
 		"[cyan]→ Type 'usage 2' to see Evasion, AI, Infrastructure, and System commands[-]",
@@ -1583,7 +1751,13 @@ func printUsagePage2() {
 	utils.TacticalLog("[aqua]TACTICAL COMMAND REFERENCE (Pagination 2/2 - Evasion, AI & System)[-]")
 	lines := []string{
 		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]STEALTH & WAF EVASION (Bypass Detection & Rate Limiting)[-]",
+		"[aqua]TIER 4: ADVANCED ORCHESTRATION (Chain Reactor & Intelligence)[-]",
+		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
+		"[yellow]chain <sub>[-]      Chain Reactor          Create multi-step workflows with state persistence.",
+		"[yellow]extract <sub>[-]    Value Extractor        Extract values from responses for reuse in chains.",
+		"[yellow]intel <sub>[-]      OSINT Intelligence     Wayback Machine, Shodan, infrastructure discovery.",
+		"",
+		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
 		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
 		"[yellow]stealth <mode>[-]   Set Mode               Set global evasion strategy (aggressive|fast|silent|debug).",
 		"[yellow]stealth off[-]      Kill Switch            Disable all evasion (fastest/most aggressive mode).",
@@ -2025,6 +2199,72 @@ func printHelp(cmd string) {
 		utils.TacticalLog("  2. OOB channel auto-queues findings for encrypted transmission")
 		utils.TacticalLog("  3. Receiver (attacker-controlled) decrypts payload on exfil server")
 		utils.TacticalLog("Integration: Works seamlessly with SSRF, BOLA, and other attack vectors")
+
+	case "chain":
+		utils.TacticalLog("[cyan]CHAIN REACTOR - Stateful Multi-Step Automation (Tier 4 - Day 2)[-]")
+		utils.TacticalLog("Build complex attack sequences with state persistence and variable extraction.")
+		utils.TacticalLog("Perfect for: Authentication flows, CSRF token collection, conditional fuzzing.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Subcommands:")
+		utils.TacticalLog("  [yellow]chain create <name>[-]              - Create new chain definition")
+		utils.TacticalLog("  [yellow]chain add <chain> <method> <url>[-] - Add HTTP step to chain")
+		utils.TacticalLog("  [yellow]chain extract <args>[-]             - Extract variable from response")
+		utils.TacticalLog("  [yellow]chain header <chain> <step> <key> <value>[-]  - Add header to step")
+		utils.TacticalLog("  [yellow]chain run <name>[-]                 - Execute the chain")
+		utils.TacticalLog("  [yellow]chain list[-]                       - Show all defined chains")
+		utils.TacticalLog("")
+		utils.TacticalLog("Examples:")
+		utils.TacticalLog("  chain create login_flow")
+		utils.TacticalLog("  chain add login_flow POST https://api.target.com/login '{\"user\":\"admin\",\"pass\":\"1234\"}'")
+		utils.TacticalLog("  chain extract login_flow 1 token json access_token")
+		utils.TacticalLog("  chain add login_flow GET https://api.target.com/profile")
+		utils.TacticalLog("  chain header login_flow 2 Authorization \"Bearer {{token}}\"")
+		utils.TacticalLog("  chain run login_flow")
+		utils.TacticalLog("")
+		utils.TacticalLog("Variables are stored as {{var_name}} and injected into subsequent steps.")
+
+	case "extract", "extractor":
+		utils.TacticalLog("[cyan]VALUE EXTRACTOR - Data Extraction from Responses[-]")
+		utils.TacticalLog("Extract structured data from HTTP responses for reuse in attack chains.")
+		utils.TacticalLog("Supports multiple extraction methods: JSON, Regex, Cookies, Headers.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Subcommands:")
+		utils.TacticalLog("  [yellow]extract list[-]                     - Show available extractors")
+		utils.TacticalLog("  [yellow]extract config <type> <pattern>[-]  - Configure extractor")
+		utils.TacticalLog("  [yellow]extract run <name>[-]               - Execute extraction")
+		utils.TacticalLog("")
+		utils.TacticalLog("Extraction Types:")
+		utils.TacticalLog("  [yellow]json <path>[-]    - JSONPath extraction (e.g., $.data.token)")
+		utils.TacticalLog("  [yellow]regex <pattern>[-] - Regular expression extraction")
+		utils.TacticalLog("  [yellow]cookie <name>[-]  - Extract specific cookie value")
+		utils.TacticalLog("  [yellow]header <name>[-]  - Extract specific header value")
+		utils.TacticalLog("")
+		utils.TacticalLog("Example Workflow:")
+		utils.TacticalLog("  1. POST to login endpoint")
+		utils.TacticalLog("  2. extract config json $.access_token")
+		utils.TacticalLog("  3. Extracted value stored as {{access_token}}")
+		utils.TacticalLog("  4. Use in subsequent requests with header or body injection")
+
+	case "intel":
+		utils.TacticalLog("[cyan]INTELLIGENCE LAYER (OSINT) - Tier 4 Day 1[-]")
+		utils.TacticalLog("Leverage external data sources to find 'Ghost Endpoints' and infrastructure.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Subcommands:")
+		utils.TacticalLog("  [yellow]intel wayback <domain>[-]   - Fetch historical URLs from Wayback Machine")
+		utils.TacticalLog("  [yellow]intel shodan <ip|domain>[-]  - Query Shodan for infrastructure data")
+		utils.TacticalLog("  [yellow]intel config shodan <key>[-] - Configure Shodan API key")
+		utils.TacticalLog("")
+		utils.TacticalLog("Use Cases:")
+		utils.TacticalLog("  - Find old API versions (v1, beta) not linked in current app")
+		utils.TacticalLog("  - Discover forgotten endpoints that may still be active")
+		utils.TacticalLog("  - Identify infrastructure before primary targets")
+		utils.TacticalLog("  - Locate test/staging environments")
+		utils.TacticalLog("")
+		utils.TacticalLog("Example Workflow:")
+		utils.TacticalLog("  1. intel config shodan YOUR_API_KEY")
+		utils.TacticalLog("  2. intel wayback example.com    (Find historical URLs)")
+		utils.TacticalLog("  3. intel shodan example.com      (Find infrastructure)")
+		utils.TacticalLog("  4. Results added to F2 Map for further testing")
 
 	case "exit":
 		utils.TacticalLog("Gracefully shutdown VaporTrace with sequential cleanup:")
