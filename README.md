@@ -70,10 +70,12 @@
 
 ## 📋 Command Summary
 
-### **Reconnaissance & Discovery** (OWASP API9)
+### **Reconnaissance & Discovery** (OWASP API9 - Tier 2)
 
 - `target`          Set global scope URL
 - `map`             Automated endpoint discovery (spider + swagger + scrape + mine)
+- `spider`          Recursive domain crawler with depth control (Sprint 18)
+- `fuzz`            Brute-force discovery with anomaly detection - paths/params (Sprint 18)
 - `swagger`         Parse OpenAPI/Swagger specifications
 - `scrape`          Extract endpoints from JavaScript bundles
 - `mine`            Brute-force hidden query parameters
