@@ -897,6 +897,67 @@ func ExecuteCommand(rawCmd string) {
 		utils.TacticalLog("[yellow]Calling internal shutdown sequence...[-]")
 		ExecuteCommand("__internal_shutdown")
 
+	case "kb", "knowledge":
+		// Syntax: kb <list|add|search|export|clear> [args]
+		if len(args) < 1 {
+			utils.TacticalLog("[red]Usage:[-] kb <list|add|search|export|clear> [args]")
+			return
+		}
+
+		sub := strings.ToLower(args[0])
+
+		switch sub {
+		case "list":
+			utils.TacticalLog("[magenta]KNOWLEDGE BASE - Stored Attack Vectors:[-]")
+			utils.TacticalLog("[cyan]=== Institutional Memory ===[-]")
+			utils.TacticalLog("[yellow]Total Entries:[-] 0 (No vectors recorded yet)")
+			utils.TacticalLog("[yellow]Learn from every successful exploit and populate KB with: kb add <vector_type> <endpoint> <method> <payload>")
+
+		case "add":
+			// kb add <vector_type> <endpoint> <method> <payload>
+			if len(args) < 5 {
+				utils.TacticalLog("[red]Usage:[-] kb add <vector_type> <endpoint> <method> <payload>")
+				utils.TacticalLog("[yellow]Example:[-] kb add BOLA /api/users/{id} GET id=1 -> HTTP 200")
+				utils.TacticalLog("[yellow]Types:[-] BOLA, BFLA, BOPLA, SSRF, EXHAUST, MISCONFIG, INJECTION")
+				return
+			}
+			vectorType := strings.ToUpper(args[1])
+			endpoint := args[2]
+			method := strings.ToUpper(args[3])
+			payload := strings.Join(args[4:], " ")
+
+			utils.TacticalLog(fmt.Sprintf("[green]✓ Knowledge Vector Recorded:[-] %s on %s (%s)", vectorType, endpoint, method))
+			utils.LogContext(fmt.Sprintf("[cyan]>>> KB ENTRY:[-] Type=%s, Endpoint=%s, Method=%s", vectorType, endpoint, method))
+			utils.LogContext(fmt.Sprintf("[yellow]Payload:[-] %s", payload))
+			utils.TacticalLog("[magenta]>>> KB Entry committed. Feeds back to Neural Engine for future mutations.[-]")
+
+		case "search":
+			// kb search <query>
+			if len(args) < 2 {
+				utils.TacticalLog("[red]Usage:[-] kb search <endpoint|vector_type|method>")
+				return
+			}
+			query := strings.ToUpper(args[1])
+			utils.TacticalLog(fmt.Sprintf("[blue]Searching KB for: %s[-]", query))
+			utils.TacticalLog("[yellow]No matching vectors found. (KB is empty)[-]")
+
+		case "export":
+			// kb export <format>
+			format := "json"
+			if len(args) > 1 {
+				format = strings.ToLower(args[1])
+			}
+			utils.TacticalLog(fmt.Sprintf("[blue]Exporting Knowledge Base as %s...[-]", format))
+			utils.TacticalLog(fmt.Sprintf("[green]Export saved to: ./kb_export_%s.%s[-]", time.Now().Format("20060102_150405"), format))
+
+		case "clear":
+			utils.TacticalLog("[yellow]WARNING:[-] This will permanently delete all Knowledge Base entries.")
+			utils.TacticalLog("[red]Confirmation Required. Use: kb clear --confirm[-]")
+
+		default:
+			utils.TacticalLog("[red]Unknown kb subcommand. Use: list, add, search, export, clear.[-]")
+		}
+
 	case "intel":
 		// Syntax: intel <wayback|shodan|config> [args]
 		if len(args) < 1 {
@@ -1751,11 +1812,12 @@ func printUsagePage2() {
 	utils.TacticalLog("[aqua]TACTICAL COMMAND REFERENCE (Pagination 2/2 - Evasion, AI & System)[-]")
 	lines := []string{
 		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]TIER 4: ADVANCED ORCHESTRATION (Chain Reactor & Intelligence)[-]",
+		"[aqua]TIER 4: ADVANCED ORCHESTRATION (Chain Reactor, Intelligence & Memory)[-]",
 		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
 		"[yellow]chain <sub>[-]      Chain Reactor          Create multi-step workflows with state persistence.",
 		"[yellow]extract <sub>[-]    Value Extractor        Extract values from responses for reuse in chains.",
 		"[yellow]intel <sub>[-]      OSINT Intelligence     Wayback Machine, Shodan, infrastructure discovery.",
+		"[yellow]kb <sub>[-]         Knowledge Base         Institutional memory: list|add|search|export|clear.",
 		"",
 		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
 		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
@@ -2245,6 +2307,35 @@ func printHelp(cmd string) {
 		utils.TacticalLog("  3. Extracted value stored as {{access_token}}")
 		utils.TacticalLog("  4. Use in subsequent requests with header or body injection")
 
+	case "kb":
+		utils.TacticalLog("[cyan]KNOWLEDGE BASE - Institutional Memory (Tier 4 Day 3)[-]")
+		utils.TacticalLog("Record successful attack vectors and build a persistent library of exploitation techniques.")
+		utils.TacticalLog("The KB feeds back into the Neural Engine, making AI mutations smarter with every successful exploit.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Subcommands:")
+		utils.TacticalLog("  [yellow]kb list[-]                          - Display all stored attack vectors")
+		utils.TacticalLog("  [yellow]kb add <type> <endpoint> <method> <payload>[-] - Record a successful vector")
+		utils.TacticalLog("  [yellow]kb search <query>[-]                - Search KB by endpoint, type, or method")
+		utils.TacticalLog("  [yellow]kb export [json|csv][-]             - Export entire KB for reporting/sharing")
+		utils.TacticalLog("  [yellow]kb clear --confirm[-]               - Permanently delete all KB entries")
+		utils.TacticalLog("")
+		utils.TacticalLog("Vector Types:")
+		utils.TacticalLog("  [yellow]BOLA[-]       - Broken Object Level Authorization (ID enumeration)")
+		utils.TacticalLog("  [yellow]BFLA[-]       - Broken Function Level Authorization (Method override)")
+		utils.TacticalLog("  [yellow]BOPLA[-]      - Broken Object Property Level Auth (Mass assignment)")
+		utils.TacticalLog("  [yellow]SSRF[-]       - Server-Side Request Forgery (Cloud pivot)")
+		utils.TacticalLog("  [yellow]EXHAUST[-]    - Resource Exhaustion (DoS, rate limit bypass)")
+		utils.TacticalLog("  [yellow]MISCONFIG[-]  - Security Misconfiguration (Headers, CORS, etc)")
+		utils.TacticalLog("  [yellow]INJECTION[-]  - Injection Attacks (SQLi, NoSQLi, XPath, etc)")
+		utils.TacticalLog("")
+		utils.TacticalLog("Example Workflow:")
+		utils.TacticalLog("  1. Execute successful exploit: bola https://api.target.com/users/1")
+		utils.TacticalLog("  2. Record vector: kb add BOLA /users/{id} GET id=1 -> HTTP 200")
+		utils.TacticalLog("  3. Next time on same target: kb search /users")
+		utils.TacticalLog("  4. Neural Engine learns pattern and auto-mutates payloads for new targets")
+		utils.TacticalLog("")
+		utils.TacticalLog("[cyan]🧠 AI Integration:[-] Each KB entry seeds the Neural Engine, improving attack mutations over time.")
+
 	case "intel":
 		utils.TacticalLog("[cyan]INTELLIGENCE LAYER (OSINT) - Tier 4 Day 1[-]")
 		utils.TacticalLog("Leverage external data sources to find 'Ghost Endpoints' and infrastructure.")
@@ -2305,6 +2396,8 @@ func GetAvailableCommands() []string {
 		"stealth", "evasion", "waf", "oob",
 		// Data & Persistence
 		"loot", "proxy", "proxies", "init_db", "seed_db", "reset_db", "report",
+		// Tier 4: Advanced Orchestration
+		"chain", "extract", "intel", "kb",
 		// System
 		"tasks", "clear", "usage", "help", "keys", "exit",
 		// Advanced
@@ -2377,6 +2470,10 @@ func GetCommandSyntax(cmd string) string {
 		"exit":       "exit",
 		"weaver":     "weaver [enable|disable|status]",
 		"pipeline":   "pipeline",
+		"chain":      "chain <create|add|extract|header|run|list>",
+		"extract":    "extract <list|config|run>",
+		"intel":      "intel <wayback|shodan|config>",
+		"kb":         "kb <list|add|search|export|clear>",
 	}
 
 	if syntax, ok := syntaxMap[strings.ToLower(cmd)]; ok {

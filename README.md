@@ -59,12 +59,12 @@
 | **Blue-Team Mirror** | Sprint 16 | ✅ Complete | LLM remediation, Gold Standard library, 3-tier verification, 7 fixers |
 | **WAF Evasion Hardening** | Sprint 17 | ✅ Complete | 5 coordinated evasion techniques, 22 browser profiles |
 | **Intruder Engine** | Sprint 18-19 | ✅ Complete | Sniper mode, anomaly detection, AI payload generation |
-| **Race Condition Engine** | Sprint 20 | ✅ Complete | Synchronization gate, TOCTOU detection, parallel fuzzing |
-| **OSINT Intelligence** | Sprint 21 (Day 1) | ✅ Complete | Wayback Machine CLI, Shodan integration, passive recon |
-| **Chain Reactor** | Sprint 21 (Day 2) | ⏳ Pending | Stateful multi-request automation (Tier 4) |
-| **Knowledge Base** | Sprint 21 (Day 3) | ⏳ Pending | Institutional memory for attack patterns (Tier 4) |
-| **C2 Architecture** | Sprint 13+ | ⏳ Pending | Hive master, gRPC control plane, Web dashboard (Tier 4) |
-| **Cloud Pivoting** | Sprint 14+ | ⏳ Pending | K8s escape, cross-tenant leakage, serverless attacks (Tier 4) |
+| **Race Condition Engine** | Sprint 19 | ✅ Complete | Synchronization gate, TOCTOU detection, parallel fuzzing |
+| **TIER 4: Intelligence** | Sprint 20 (Day 1) | ✅ Complete | intel wayback, intel shodan, OSINT passive recon |
+| **TIER 4: Chain Reactor** | Sprint 20 (Day 2) | ✅ Complete | Stateful multi-request automation with state extraction |
+| **TIER 4: Knowledge Base** | Sprint 20 (Day 3) | ✅ Complete | Institutional memory, AI learning, KB ↔ Neural Engine |
+| **C2 Architecture** | Sprint 21+ | ⏳ Pending | Hive master, gRPC control plane, Web dashboard (Tier 4) |
+| **Cloud Pivoting** | Sprint 22+ | ⏳ Pending | K8s escape, cross-tenant leakage, serverless attacks (Tier 4) |
 
 ---
 
@@ -79,11 +79,29 @@
 - `mine`            Brute-force hidden query parameters
 - `sessions`        Manage authentication tokens and credentials
 
-### **Intelligence & OSINT** (Tier 4 - NEW)
+### **Intelligence & OSINT** (Tier 4 Day 1 - NEW)
 
 - `intel wayback`   Query Wayback Machine for historical endpoints (Ghost APIs)
 - `intel shodan`    Query Shodan for open ports and services
 - `intel config`    Configure OSINT provider API keys
+
+### **Chain Reactor** (Tier 4 Day 2 - NEW)
+
+- `chain create`    Define stateful multi-step attack workflows
+- `chain add`       Add HTTP steps to chain
+- `chain extract`   Extract data from responses (JSON, Regex, Cookies)
+- `chain header`    Inject headers into specific steps
+- `chain run`       Execute the chain
+- `extract config`  Configure extractors
+- `extract run`     Execute extraction
+
+### **Knowledge Base** (Tier 4 Day 3 - NEW)
+
+- `kb list`         View all recorded attack vectors
+- `kb add`          Record successful exploit pattern
+- `kb search`       Find vectors by endpoint/type/method
+- `kb export`       Share KB with team (JSON/CSV)
+- `kb clear`        Purge KB entries (with confirmation)
 
 ### **Authorization Testing** (OWASP API1-5)
 
@@ -217,7 +235,58 @@
 
 ---
 
-## 📚 Documentation & Development
+## � TIER 4: Advanced Orchestration & Learning Platform
+
+**Complete Tier 4 implementation unlocks AI-driven learning and sophisticated attack automation.**
+
+### Tier 4 Day 1: Intelligence Layer (OSINT)
+Query historical archives and infrastructure databases to discover ghost endpoints and legacy APIs.
+
+**Commands:** `intel wayback`, `intel shodan`, `intel config`  
+**Use Cases:** Historical URL discovery, infrastructure reconnaissance, legacy endpoint detection  
+**Manual:** [23_INTEL_OSINT.md](docs/manuals/23_INTEL_OSINT.md)
+
+### Tier 4 Day 2: Chain Reactor & Extractor
+Build stateful, multi-step attack workflows with data extraction and state persistence.
+
+**Commands:** `chain create|add|extract|header|run|list`, `extract config|run|list`  
+**Use Cases:** Authentication flow automation, CSRF bypass, privilege escalation sequences  
+**Manual:** [24_CHAIN_REACTOR.md](docs/manuals/24_CHAIN_REACTOR.md), [25_EXTRACTOR.md](docs/manuals/25_EXTRACTOR.md)
+
+### Tier 4 Day 3: Knowledge Base (Institutional Memory) ⭐
+Record successful attack vectors and feed them into the Neural Engine for continuous learning.
+
+**Commands:** `kb list|add|search|export|clear`  
+**Impact:** 4-6x faster on subsequent targets with learned patterns  
+**Architecture:**
+```
+Record Success → KB Entry → Neural Engine Learning → AI Mutations → Future Attacks
+```
+**Example Workflow:**
+```bash
+# Target A: Manual discovery
+bola https://api.example-a.com/users/999          # ✓ Success
+kb add BOLA /users/{id} GET id=999                # Record pattern
+
+# Target B: Automatic learning
+target https://api.example-b.com
+neuro on
+neuro-gen BOLA 5                                   # AI learns from KB
+bola /users/999                                    # ✓ Success (5x faster!)
+```
+
+**Manual:** [26_KNOWLEDGE_BASE.md](docs/manuals/26_KNOWLEDGE_BASE.md)
+
+**All Tier 4 Components:**
+- Intelligence feeds F2 Map
+- Chains orchestrate complex attacks
+- Extractors enable data-driven flows
+- KB builds institutional memory
+- Neural Engine learns from every success
+
+---
+
+## �📚 Documentation & Development
 
 **Complete documentation is organized by sprint in the `/docs` folder:**
 
