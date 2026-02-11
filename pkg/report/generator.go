@@ -181,6 +181,11 @@ func writeRemediationTracker(f *os.File) {
 			action = "Remediate < 30 Days"
 		}
 
+		// Highlight Race Conditions as requiring architectural fixes
+		if strings.Contains(strings.ToLower(owasp), "race") || strings.Contains(strings.ToLower(owasp), "api6") {
+			action = "**ARCHITECTURAL FIX REQ**"
+		}
+
 		// Clean strings
 		owaspShort := strings.Split(owasp, ":")[0] // Just take API1, API2 etc
 

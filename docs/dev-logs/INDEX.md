@@ -15,6 +15,12 @@ VaporTrace is a Go-based API penetration testing framework with real-time TUI da
 
 ## Quick Navigation
 
+### Release & Status (Latest)
+- ⭐ [TIER_3_IMPLEMENTATION_SUMMARY.md](TIER_3_IMPLEMENTATION_SUMMARY.md) - **Tier 3 Complete Overview** (Feb 11, 2026) ✅ NEW
+- ⭐ [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) - **Tier 3 Checklist & Deployment Status** ✅ NEW
+- [Dev-Roadmap.md](Dev-Roadmap.md) - Strategic roadmap and upcoming work
+- [00_START_HERE.md](00_START_HERE.md) - Starting point for new developers
+
 ### Architecture & Design
 - [01_ARCHITECTURE.md](01_ARCHITECTURE.md) - System design, components, modules
 - [DIAGRAMS/](DIAGRAMS/) - ASCII flow diagrams and architecture visualizations
