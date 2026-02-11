@@ -258,6 +258,36 @@ func writeMethodology(f *os.File) {
 	f.WriteString("**End of Report**\n")
 }
 
+func writeKnowledgeBaseSection(f *os.File) {
+	if db.DB == nil {
+		return
+	}
+
+	f.WriteString("## 4. INSTITUTIONAL MEMORY (LEARNED VECTORS)\n")
+	f.WriteString("These payloads were confirmed successful during the engagement and have been added to the VaporTrace Knowledge Base for future retraining.\n\n")
+
+	f.WriteString("| TYPE | PAYLOAD | SUCCESS COUNT |\n")
+	f.WriteString("| :--- | :--- | :--- |\n")
+
+	rows, err := db.DB.Query("SELECT vuln_type, payload, success_count FROM attack_patterns ORDER BY success_count DESC LIMIT 20")
+	if err != nil {
+		f.WriteString("> KB Unavailable\n\n")
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var vType, payload string
+		var count int
+		rows.Scan(&vType, &payload, &count)
+
+		// Escape pipes for markdown table
+		safePayload := strings.ReplaceAll(payload, "|", "\\|")
+		f.WriteString(fmt.Sprintf("| %s | `%s` | %d |\n", vType, safePayload, count))
+	}
+	f.WriteString("\n---\n\n")
+}
+
 // ASCII Progress Bar generator
 func progressBar(count, total int) string {
 	if total == 0 {
