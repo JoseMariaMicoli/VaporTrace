@@ -162,7 +162,7 @@ var intruderCmd = &cobra.Command{
 }
 ```
 
-Day 1 DONE: 
+## Day 1 DONE: 
 
 This is an excellent architectural question. You are identifying the gap between **Tier 3 (The Muscle)** and **Tier 1 (The Brain)**.
 
@@ -271,4 +271,70 @@ We need to modify `pkg/engine/core.go` and `pkg/logic/neuro_engine.go` to "bridg
 *   **Current Status:** You have the **Standalone Engine**. It works manually via the CLI/TUI.
 *   **Next Step (Day 2):** We will wire the **Neural Engine** to automatically populate the **F5 Planner** with Intruder tasks, so you don't have to type the commands manually.
 
-**Shall I proceed with implementing Day 2 (AI Specialization & Integration)?**
+Day 2
+
+Available Keywords:
+
+    sqli : Auth bypass & error induction
+
+    xss : Script injection
+
+    numeric : Integer overflows & BOLA
+
+    traversal : LFI/Path Traversal
+
+2. The AI Workflow
+
+    Map the Target: map https://httpbin.org
+
+    Analyze: Run analyze command.
+
+    Review F5: Look for actions with Type INTRUDER.
+
+        Example: INTRUDER -> https://httpbin.org/get?id=1 -> id:numeric
+
+    Execute: Run commit.
+
+        The engine automatically spawns workers, runs the numeric list against id, and logs anomalies.
+
+3. Manual Override
+
+You can still use your own custom files whenever you want:
+
+intruder sniper http://target.com?p=val p ./my-custom-payloads.txt
+
+### 3. YOUR_ACTION_ITEMS.md (Updated)
+
+```markdown
+# Tier 3 Status Report
+
+## ✅ Completed (Day 1 & 2)
+- [x] **Intruder Engine:** Core fuzzing logic (Sniper mode).
+- [x] **CLI Command:** `intruder` integrated into TUI.
+- [x] **Internal Wordlists:** `sqli`, `xss`, `numeric`, `traversal` embedded.
+- [x] **AI Bridge:** AI now suggests Intruder attacks in the planner.
+- [x] **Execution Logic:** `commit` now fires Intruder tasks.
+
+## 🟡 Remaining (Day 3 & 4)
+- [ ] **Race Condition Engine:** Upgrade `flow race` with proper synchronization gates (`sync.Cond`).
+- [ ] **Reporting Integration:** Ensure `INTRUDER` findings (anomalies) are saved to `db` and exported in `report`.
+- [ ] **Advanced Modes:** Implement `BatteringRam` (optional, low priority).
+
+## 🚀 Recommendation
+Proceed to **Day 3: Race Conditions**. This is the final major "Logic" component before polishing the reporting.
+
+mplementation Handover
+
+You now have the code for Day 2.
+
+    Add pkg/attack/payloads.go.
+
+    Update pkg/attack/intruder.go (logic for internal lists).
+
+    Update pkg/ai/prompts.go (Fuzzing prompt).
+
+    Update pkg/engine/neuro_engine.go (Parsing logic).
+
+    Update pkg/engine/core.go (Execution logic).
+
+Run go build and you will have a fully integrated AI-driven Fuzzer.

@@ -27,8 +27,9 @@ const (
 // IntruderConfig holds the configuration for the attack session
 type IntruderConfig struct {
 	TargetURL    string
-	Param        string // The specific query parameter to fuzz
-	WordlistPath string
+	Param        string
+	WordlistPath string   // OPTION A: Load from file
+	PayloadList  []string // OPTION B: Use in-memory list (New for Day 2)
 	Concurrency  int
 	Mode         AttackMode
 }
@@ -45,14 +46,22 @@ type IntruderResult struct {
 
 // RunSniper executes a single-position fuzzing attack using a worker pool
 func RunSniper(config IntruderConfig) {
-	utils.TacticalLog(fmt.Sprintf("[magenta::b]INTRUDER SNIPER:[-] Targeting %s param '%s' with wordlist %s",
-		config.TargetURL, config.Param, config.WordlistPath))
+	var payloads []string
+	var err error
 
-	// 1. Load Payloads
-	payloads, err := loadWordlist(config.WordlistPath)
-	if err != nil {
-		utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Failed to load wordlist: %v", err))
-		return
+	// Determine payload source
+	if len(config.PayloadList) > 0 {
+		payloads = config.PayloadList
+		utils.TacticalLog(fmt.Sprintf("[magenta::b]INTRUDER:[-] Auto-Fuzzing %s param '%s' with %d built-in payloads",
+			config.TargetURL, config.Param, len(payloads)))
+	} else {
+		utils.TacticalLog(fmt.Sprintf("[magenta::b]INTRUDER:[-] File-Fuzzing %s param '%s' with %s",
+			config.TargetURL, config.Param, config.WordlistPath))
+		payloads, err = loadWordlist(config.WordlistPath)
+		if err != nil {
+			utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Failed to load wordlist: %v", err))
+			return
+		}
 	}
 	utils.TacticalLog(fmt.Sprintf("[blue]LOADED:[-] %d payloads ready.", len(payloads)))
 

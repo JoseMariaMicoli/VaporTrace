@@ -36,6 +36,9 @@ type TacticalAction struct {
 // ActionBuffer is the global staging area for the planner
 var ActionBuffer []TacticalAction
 
+// LastCapturedRequest stores the most recent HTTP request for fuzzing analysis
+var LastCapturedRequest string
+
 // getTarget helps commands inherit the global target if no argument is provided
 func getTarget(args []string) string {
 	if len(args) > 0 {
@@ -46,6 +49,16 @@ func getTarget(args []string) string {
 		return ""
 	}
 	return global
+}
+
+// GetLastCapturedRequest returns the most recent HTTP request dump for AI analysis
+func GetLastCapturedRequest() string {
+	return LastCapturedRequest
+}
+
+// StoreLastRequest stores a request for later fuzzing analysis
+func StoreLastRequest(reqDump string) {
+	LastCapturedRequest = reqDump
 }
 
 // ExecuteCommand parses raw input strings and routes them to the appropriate logic module.
@@ -1294,6 +1307,28 @@ func ComprehensiveAnalysis() []TacticalAction {
 				actions = append(actions, aiAction)
 			}
 		}
+
+		// === PHASE 6B: FUZZING RECOMMENDATIONS (AI-driven Intruder suggestions) ===
+		utils.TacticalLog("[magenta]ANALYSIS:[-] Fuzzing Analysis: Getting AI-recommended Intruder attacks...[-]")
+		// Get last captured request for analysis
+		if lastReq := GetLastCapturedRequest(); lastReq != "" {
+			fuzzActions := GlobalNeuroCore.AnalyzeForFuzzing(lastReq)
+			utils.TacticalLog(fmt.Sprintf("[magenta]ANALYSIS:[-] Fuzzing Pass: %d AI-recommended Intruder actions.[-]", len(fuzzActions)))
+
+			// Add fuzzing actions to buffer
+			for _, fuzzAction := range fuzzActions {
+				isDuplicate := false
+				for _, existing := range actions {
+					if existing.Type == "INTRUDER" && existing.Target == fuzzAction.Target && existing.Payload == fuzzAction.Payload {
+						isDuplicate = true
+						break
+					}
+				}
+				if !isDuplicate && len(actions) < 20 {
+					actions = append(actions, fuzzAction)
+				}
+			}
+		}
 	}
 
 	// Phase 7: Score and Sort by Confidence
@@ -1375,6 +1410,28 @@ func ExecuteStrategicPlan() {
 				req, _ := http.NewRequest("GET", a.Target, nil)
 				logic.SafeDo(req, false, "STRATEGY-LATERAL")
 				utils.LogContext(fmt.Sprintf("[green]✓ LATERAL COMPLETE:[-] %v", time.Since(startTime)))
+
+			case "INTRUDER":
+				utils.LogContext("[yellow]AI INTRUDER:[-] AI-recommended single-position fuzzing attack...")
+				// Payload format "param:category"
+				parts := strings.Split(a.Payload, ":")
+				if len(parts) == 2 {
+					param := parts[0]
+					category := parts[1]
+					// Get embedded payloads for this category
+					payloads := attack.GetInternalWordlist(category)
+					if len(payloads) > 0 {
+						config := attack.IntruderConfig{
+							TargetURL:   a.Target,
+							Param:       param,
+							PayloadList: payloads,
+							Concurrency: 3,
+							Mode:        attack.Sniper,
+						}
+						attack.RunSniper(config)
+						utils.LogContext(fmt.Sprintf("[green]✓ AI INTRUDER COMPLETE:[-] %s fuzzing on '%s' executed. %v", category, param, time.Since(startTime)))
+					}
+				}
 
 			default:
 				utils.LogContext("[yellow]GENERIC PROBE:[-] Testing endpoint...")

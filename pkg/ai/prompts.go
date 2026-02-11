@@ -152,3 +152,27 @@ You MUST return ONLY a valid JSON object. Do not wrap it in markdown or code blo
     "evidence": "string (The specific error message, behavior, or data observed)",
     "next_steps": "string (What to try next to confirm or exploit further)"
 }`
+
+// FuzzingRecommendationPrompt teaches the AI to identify Intruder targets
+const FuzzingRecommendationPrompt = `[RED TEAM FUZZING SELECTOR]
+Analyze this request for fuzzable parameters.
+
+REQUEST:
+%s
+
+You can recommend the "INTRUDER" engine for these categories:
+- "sqli" (if param interacts with DB)
+- "xss" (if param is reflected)
+- "numeric" (if param is an ID/Integer)
+- "traversal" (if param is a file path)
+
+OUTPUT FORMAT:
+Return 1 line per suggestion in this EXACT format:
+INTRUDER:<param_name>:<category>
+
+Example:
+INTRUDER:id:numeric
+INTRUDER:search:xss
+INTRUDER:file:traversal
+
+If no obvious fuzzing targets exist, return "NO_FUZZ".`
