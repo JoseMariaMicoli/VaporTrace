@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/attack"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/discovery"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
@@ -570,6 +571,44 @@ var SafeTransport = &http.Transport{
 			ctx := &logic.IntegrationContext{TargetURL: target, IntegrationType: iType}
 			go ctx.Probe()
 		}
+
+	case "intruder":
+		// Syntax: intruder sniper <url> <param> <wordlist>
+		if len(args) < 4 {
+			utils.TacticalLog("[red]Usage:[-] intruder sniper <url> <param> <wordlist>")
+			return
+		}
+
+		mode := strings.ToLower(args[0])
+		target := args[1]
+		param := args[2]
+		wordlist := args[3]
+
+		if mode != "sniper" {
+			utils.TacticalLog("[red]Error:[-] Currently only 'sniper' mode is supported.")
+			return
+		}
+
+		// Validate file existence before starting
+		if _, err := os.Stat(wordlist); os.IsNotExist(err) {
+			utils.TacticalLog(fmt.Sprintf("[red]Error:[-] Wordlist not found: %s", wordlist))
+			return
+		}
+
+		utils.TacticalLog(fmt.Sprintf("[aqua]INTRUDER:[-] Initializing Sniper attack on %s (param: %s)", target, param))
+
+		config := attack.IntruderConfig{
+			TargetURL:    target,
+			Param:        param,
+			WordlistPath: wordlist,
+			Concurrency:  logic.CurrentSession.Threads, // Use global thread setting
+			Mode:         attack.Sniper,
+		}
+
+		go func() {
+			attack.RunSniper(config)
+			utils.TacticalLog("[green]INTRUDER:[-] Session finished. Check logs/db for anomalies.")
+		}()
 
 	// --- FLOW ENGINE ---
 	case "flow":
@@ -1586,6 +1625,7 @@ func printUsage() {
 		"[yellow]probe <url>[-]      Webhook Injection      Unsafe consumption in 3rd-party integrations.",
 		"[yellow]flow <action>[-]    Attack Chain           (list|clear|run|race) Manage orchestrated attack sequences.",
 		"",
+		"[yellow]intruder <mode>[-]  Fuzzing Engine         (sniper) Automated payload injection against params.",
 		"[cyan]→ Type 'usage 2' to see Evasion, AI, Infrastructure, and System commands[-]",
 	}
 	for _, l := range lines {
@@ -1781,6 +1821,19 @@ func printHelp(cmd string) {
 	case "pipeline":
 		utils.TacticalLog("Analyzes discovered endpoints and auto-routes to appropriate attack engines.")
 		utils.TacticalLog("Orchestration: Patterns detected (ID-based) -> route to BOLA, BOPLA, etc.")
+
+	case "intruder":
+		utils.TacticalLog("[cyan]INTRUDER SNIPER - Automated Fuzzing Engine[-]")
+		utils.TacticalLog("Iterates through a wordlist, replacing a specific parameter value.")
+		utils.TacticalLog("Automatically detects anomalies by comparing against a baseline request.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Usage: intruder sniper <url> <param> <wordlist_path>")
+		utils.TacticalLog("Example: intruder sniper https://api.target.com/user?id=1 id ./payloads/sqli.txt")
+		utils.TacticalLog("")
+		utils.TacticalLog("Logic:")
+		utils.TacticalLog("  1. Baselines the target (normal request).")
+		utils.TacticalLog("  2. Injects payloads from wordlist.")
+		utils.TacticalLog("  3. Flags responses with status code changes or >10% length variation.")
 
 	case "weaver":
 		utils.TacticalLog("Deploys Ghost Weaver agent for OIDC token interception and data masking.")
@@ -2083,7 +2136,7 @@ func GetAvailableCommands() []string {
 		"target", "map", "spider", "swagger", "scrape", "mine", "fuzz",
 		"sessions", "pipeline",
 		// Exploitation
-		"bola", "bfla", "bopla", "ssrf", "exhaust", "audit", "probe", "flow",
+		"bola", "bfla", "bopla", "ssrf", "exhaust", "audit", "probe", "flow", "intruder",
 		// Neural Engine
 		"ask", "neuro", "neuro-gen", "test-neuro",
 		// Identity & Sessions

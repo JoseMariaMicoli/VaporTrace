@@ -92,7 +92,7 @@ var (
 		"tasks",
 		"ask",
 		"auth", "sessions", "map", "swagger", "scrape", "mine", "spider", "fuzz", "proxy", "proxies", "target", "pipeline",
-		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe",
+		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe", "intruder",
 		"weaver", "loot", "test-bola", "test-bopla", "test-bfla", "test-exhaust", "test-ssrf", "test-audit", "test-probe",
 		"neuro", "test-neuro", "neuro-gen",
 		"stealth", "stealth status", "stealth toggle", "stealth multiplier", "evasion", "waf detect", // Evasion
