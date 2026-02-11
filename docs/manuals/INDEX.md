@@ -28,6 +28,11 @@
 12. [Proxy & Network](12_PROXY_NETWORK.md) - Upstream proxies and traffic routing
 12a. [QUICK_START_RACE.md](QUICK_START_RACE.md) - Race Condition Testing (Tier 3) ⭐ NEW
 
+### ⭐ Tier 4: Advanced Orchestration (Sprint 20)
+23. [Intelligence Layer (OSINT)](23_INTEL_OSINT.md) - Wayback Machine, Shodan, external intelligence
+24. [Chain Reactor](24_CHAIN_REACTOR.md) - Multi-step stateful attack workflows
+25. [Value Extractor](25_EXTRACTOR.md) - Data extraction from responses (JSON, Regex, Cookies)
+
 ### 📊 Reporting & Analysis
 13. [Report Generation](13_REPORTING.md) - Export findings and generate reports
 14. [Dashboard Analytics](14_ANALYTICS.md) - Metrics and insights
@@ -115,6 +120,30 @@
 - Secret management
 - Credential usage
 - Export options
+
+### 🌐 "I want to find ghost endpoints with OSINT" (Tier 4 Day 1)
+**Read:** [23_INTEL_OSINT.md](23_INTEL_OSINT.md) ⭐ NEW
+- Wayback Machine historical URLs
+- Shodan infrastructure discovery
+- Legacy API version detection
+- Ghost endpoint findings
+- OSINT workflow integration
+
+### 🔗 "I want to orchestrate multi-step attacks" (Tier 4 Day 2)
+**Read:** [24_CHAIN_REACTOR.md](24_CHAIN_REACTOR.md) ⭐ NEW
+- Stateful attack chains
+- Variable extraction and injection
+- Authentication flow automation
+- CSRF bypass workflows
+- Privilege escalation sequences
+
+### 📊 "I want to extract data from responses" (Tier 4 Day 2)
+**Read:** [25_EXTRACTOR.md](25_EXTRACTOR.md) ⭐ NEW
+- JSON path extraction
+- Regular expression patterns
+- Cookie/Header extraction
+- Variable storage and reuse
+- Integration with chains
 
 ### 🏃 "I want to test for race conditions" (Tier 3)
 **Read:** [QUICK_START_RACE.md](QUICK_START_RACE.md) ⭐ NEW
