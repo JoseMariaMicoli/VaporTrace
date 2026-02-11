@@ -81,7 +81,7 @@ var (
 	knownCommands = []string{
 		"tasks", // NEW
 		"ask",
-		"auth", "sessions", "map", "swagger", "scrape", "mine", "proxy", "proxies", "target", "pipeline",
+		"auth", "sessions", "map", "swagger", "scrape", "mine", "spider", "fuzz", "proxy", "proxies", "target", "pipeline",
 		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe",
 		"weaver", "loot", "test-bola", "test-bopla", "test-bfla", "test-exhaust", "test-ssrf", "test-audit", "test-probe",
 		"neuro", "test-neuro", "neuro-gen",

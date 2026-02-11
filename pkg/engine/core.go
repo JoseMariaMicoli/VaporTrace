@@ -259,6 +259,44 @@ func ExecuteCommand(rawCmd string) {
 			utils.TacticalLog("[red]Error:[-] Usage: map <url> (or set global target first).")
 		}
 
+	case "spider":
+		target := getTarget(args)
+		depth := 2 // Default depth
+
+		if len(args) > 1 {
+			// Check for depth arg (simple parsing)
+			if d, err := strconv.Atoi(args[1]); err == nil {
+				depth = d
+			}
+		}
+
+		if target == "" {
+			utils.TacticalLog("[red]Usage:[-] spider <url> [depth] (or set global target)")
+		} else {
+			// Launch the fixed spider
+			discovery.StartSpider(target, depth)
+		}
+
+	case "fuzz":
+		// Usage: fuzz <url> [params|paths]
+		target := getTarget(args)
+		mode := "params"
+
+		if len(args) > 1 {
+			mode = args[1]
+		}
+
+		if target == "" {
+			utils.TacticalLog("[red]Usage:[-] fuzz <url> [params|paths]")
+			return
+		}
+
+		if mode == "paths" {
+			go discovery.FuzzPaths(target, nil) // nil = use built-in top list
+		} else {
+			go discovery.FuzzParams(target, nil) // nil = use built-in top list
+		}
+
 	case "pipeline":
 		utils.TacticalLog("[aqua]Initializing Industrialized Attack Pipeline...[-]")
 		go func() {
