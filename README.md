@@ -295,14 +295,23 @@ bola /users/999                                    # ✓ Success (5x faster!)
 - **[02_FIRST_RUN.md](docs/manuals/02_FIRST_RUN.md)** - Step-by-step 11-step walkthrough
 - **[03_UI_OVERVIEW.md](docs/manuals/03_UI_OVERVIEW.md)** - Dashboard tabs, layout, navigation, performance
 - **[04_STRATEGIC_PLANNING.md](docs/manuals/04_STRATEGIC_PLANNING.md)** - HITL workflow and tactical orchestration
+- **[05_RECONNAISSANCE.md](docs/manuals/05_RECONNAISSANCE.md)** - Discovery: spider, swagger, scrape, mine
+- **[06_EXPLOITATION.md](docs/manuals/06_EXPLOITATION.md)** - OWASP API Top 10 attack modules
+- **[07_AI_NEURO_ENGINE.md](docs/manuals/07_AI_NEURO_ENGINE.md)** - Neural engine configuration and usage
+- **[08_INTERCEPTOR_MITM.md](docs/manuals/08_INTERCEPTOR_MITM.md)** - Request interception and modification
+- **[23_INTEL_OSINT.md](docs/manuals/23_INTEL_OSINT.md)** - Wayback Machine, Shodan, OSINT (Tier 4 Day 1)
+- **[24_CHAIN_REACTOR.md](docs/manuals/24_CHAIN_REACTOR.md)** - Stateful multi-step workflows (Tier 4 Day 2)
+- **[25_EXTRACTOR.md](docs/manuals/25_EXTRACTOR.md)** - Data extraction from responses (Tier 4 Day 2)
+- **[26_KNOWLEDGE_BASE.md](docs/manuals/26_KNOWLEDGE_BASE.md)** - Institutional memory & AI learning (Tier 4 Day 3) ⭐
 - **[17_KEYBOARD_SHORTCUTS.md](docs/manuals/17_KEYBOARD_SHORTCUTS.md)** - All 19 hotkeys with examples
 - **[18_COMMAND_REFERENCE.md](docs/manuals/18_COMMAND_REFERENCE.md)** - 40+ commands with parameters and examples
-- **[INDEX.md](docs/manuals/INDEX.md)** - Navigation hub for all 20 user guides
+- **[INDEX.md](docs/manuals/INDEX.md)** - Navigation hub for all 26 user guides
 
 ### 🔧 Technical Documentation (docs/dev-logs/)
-- **[Dev-Roadmap.md](docs/dev-logs/Dev-Roadmap.md)** - Complete Sprint 1-16 roadmap with status (**START HERE**)
+- **[Dev-Roadmap.md](docs/dev-logs/Dev-Roadmap.md)** - Complete Sprint 1-20 roadmap with status (**START HERE**)
 - **[INDEX.md](docs/dev-logs/INDEX.md)** - Architecture overview and system design
-- **Sprint Folders:** Sprint-11/, Sprint-12/, Sprint-13/, Sprint-14/, Sprint-15/, Sprint-16/
+- **[Sprint-20/README.md](docs/dev-logs/Sprint-20/README.md)** - Tier 4 complete implementation (Intel, Chain, KB)
+- **Sprint Folders:** Sprint-11/, Sprint-12/, Sprint-13/, Sprint-14/, Sprint-15/, Sprint-16/, Sprint-17/, Sprint-20/
   - Each sprint contains completion reports, technical deep-dives, and delivery manifests
 
 ### 📊 Documentation Status
