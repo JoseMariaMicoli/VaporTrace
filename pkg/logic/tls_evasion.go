@@ -54,7 +54,7 @@ func (j *JA4Generator) GetClientHelloID() utls.ClientHelloID {
 	return utls.HelloRandomized
 }
 
-// Dial creates a camouflaged connection
+// Dial creates a camouflaged connection with HTTP/1.1 enforcement
 func (j *JA4Generator) Dial(network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{Timeout: 30 * time.Second}
 	rawConn, err := dialer.Dial(network, addr)
@@ -64,11 +64,19 @@ func (j *JA4Generator) Dial(network, addr string) (net.Conn, error) {
 
 	host, _, _ := net.SplitHostPort(addr)
 
-	// Create uTLS Client
-	uConn := utls.UClient(rawConn, &utls.Config{
+	// CRITICAL FIX: Force HTTP/1.1 in NextProtos
+	// Without this, uTLS mimics a modern browser and sends "h2" (HTTP/2) in ALPN.
+	// The server then replies with binary HTTP/2 frames.
+	// Since Go's http.Transport (when using a custom DialTLS) expects HTTP/1.1 stream by default,
+	// it crashes with "malformed HTTP response" when it sees the HTTP/2 preface.
+	uConfig := &utls.Config{
 		ServerName:         host,
 		InsecureSkipVerify: true, // Standard for Proxy/Offsec tools
-	}, j.GetClientHelloID())
+		NextProtos:         []string{"http/1.1"},
+	}
+
+	// Create uTLS Client
+	uConn := utls.UClient(rawConn, uConfig, j.GetClientHelloID())
 
 	if err := uConn.Handshake(); err != nil {
 		rawConn.Close()

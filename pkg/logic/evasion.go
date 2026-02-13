@@ -224,11 +224,10 @@ func SafeSleep(ctx context.Context, duration time.Duration, toggle *bool) bool {
 // === UI BRIDGE: STEALTH MODE PRESETS ===
 
 // SetStealthMode sets preset evasion configurations for quick UI activation
-// Modes: "Aggressive", "Fast", "Silent", "Ghost", "Debug"
+// Modes: "Aggressive", "Fast", "Silent", "Ghost", "Debug", "Off"
 func SetStealthMode(mode string) {
 	globalStealthConfig.mu.Lock()
-	// NOTE: We don't defer Unlock here because we need to unlock before calling InitializeRotaryClient
-	// to avoid potential deadlocks if InitializeRotaryClient reads config back.
+	// No defer unlock here, we handle it before re-init
 
 	switch strings.ToLower(mode) {
 	case "aggressive":
@@ -278,17 +277,29 @@ func SetStealthMode(mode string) {
 	case "debug":
 		globalStealthConfig.EnableJitter = false
 		globalStealthConfig.EnableThinkingTime = false
-		globalStealthConfig.EnableBackoff = true // FIXED: Keep backoff enabled even in debug to prevent pipeline failures
+		globalStealthConfig.EnableBackoff = true
 		globalStealthConfig.EnablePathObfuscation = false
 		globalStealthConfig.EnablePayloadEncoding = false
 		globalStealthConfig.EnableJA4Fingerprint = false
 		globalStealthConfig.GlobalEvasionMultiplier = 1.0
 		globalStealthConfig.Mode = "Debug"
-		utils.TacticalLog("[yellow::b]STEALTH:[-] Mode set to [yellow]DEBUG[-] (evasion disabled except backoff for pipeline stability)[-:-:-]")
+		utils.TacticalLog("[yellow::b]STEALTH:[-] Mode set to [yellow]DEBUG[-] (evasion disabled except backoff)[-:-:-]")
+
+	case "off":
+		// CRITICAL FIX: Ensure all flags AND JA4 are explicitly disabled
+		globalStealthConfig.EnableJitter = false
+		globalStealthConfig.EnableThinkingTime = false
+		globalStealthConfig.EnableBackoff = false
+		globalStealthConfig.EnablePathObfuscation = false
+		globalStealthConfig.EnablePayloadEncoding = false
+		globalStealthConfig.EnableJA4Fingerprint = false // Fix: Explicitly disable JA4
+		globalStealthConfig.GlobalEvasionMultiplier = 0.2
+		globalStealthConfig.Mode = "OFF"
+		utils.TacticalLog("[red::b]STEALTH:[-] Mode set to [red]OFF[-] (Raw speed, Standard Go TLS)[-:-:-]")
 
 	default:
 		globalStealthConfig.mu.Unlock()
-		utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Unknown stealth mode: %s. Use: aggressive|fast|silent|ghost|debug", mode))
+		utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Unknown stealth mode: %s. Use: aggressive|fast|silent|ghost|debug|off", mode))
 		return
 	}
 
