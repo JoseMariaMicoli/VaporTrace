@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
+	utls "github.com/refraction-networking/utls"
 )
 
 var detectedProxy *url.URL
@@ -236,9 +237,7 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 
 	// === CRITICAL FIX: CENTRALIZED VAULT STORAGE ===
 	// Store ALL traffic passing through the transport in the GlobalVault
-	// This ensures Tab 8 (History) is populated for every request type
 	go func() {
-		// Use a lightweight clone or the existing request for storage
 		GlobalVault.Add(req, resp, duration)
 	}()
 
@@ -297,6 +296,11 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 				utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Payload encoding applied: %s", contentEncoding))
 			}
 
+			// FIX: Update Content-Length to match transformed body size
+			newSize := int64(len(transformedBody))
+			req.ContentLength = newSize
+			req.Header.Set("Content-Length", fmt.Sprintf("%d", newSize))
+
 			req.Body = io.NopCloser(bytes.NewReader(transformedBody))
 			if len(transformedBody) != len(bodyBytes) {
 				utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Payload transformed (size: %d → %d bytes)", len(bodyBytes), len(transformedBody)))
@@ -316,23 +320,24 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 	ApplyEvasion(req)
 	req.Header.Set("X-VaporTrace-Module", module)
 
+	// FIX: Inject User-Agent into Context for JA4 generation
+	ua := req.Header.Get("User-Agent")
+	if ua != "" {
+		ctx := context.WithValue(req.Context(), "ua", ua)
+		req = req.WithContext(ctx)
+	}
+
 	if GlobalClient.Transport == nil {
 		utils.TacticalLog("[yellow]WARN:[-] GlobalClient.Transport is nil, initializing...")
 		InitializeRotaryClient()
 	}
 
-	// start := time.Now() <-- Removed, duration handled in RoundTrip
 	resp, err := GlobalClient.Do(req)
-	// duration := time.Since(start) <-- Removed
 
 	if err != nil {
 		utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Request failed: %v", err))
 		return resp, err
 	}
-
-	// TASK 4: TRAFFIC VAULT STORAGE
-	// REMOVED: GlobalVault.Add is now handled in RoundTrip to ensure full coverage
-	// and prevent duplicates.
 
 	utils.TacticalLog(fmt.Sprintf("[green]✓ RESPONSE:[-] %s %d", req.URL, resp.StatusCode))
 
@@ -359,7 +364,7 @@ func EnsureTransport() {
 }
 
 // InitializeRotaryClient sets up the HTTP client with the Tactical Middleware
-// CRITICAL FIX: Segregates TCP (DialContext) from TLS (DialTLSContext) to avoid breaking plain HTTP
+// CRITICAL FIX: Segregates TCP (DialContext) from TLS (DialTLSContext)
 func InitializeRotaryClient() {
 	if GlobalClient == nil {
 		GlobalClient = &http.Client{Timeout: 30 * time.Second}
@@ -370,68 +375,103 @@ func InitializeRotaryClient() {
 	enableJA4 := config.EnableJA4Fingerprint
 
 	// 1. Standard Network Dialer for TCP (handles HTTP, localhost, and TCP handshake)
-	// This restores functionality for non-HTTPS targets that were breaking under forced uTLS
 	netDialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
 
-	baseTransport := &http.Transport{
-		// Use standard dialer for the underlying connection
-		DialContext: netDialer.DialContext,
+	var baseTransport *http.Transport
 
-		// 2. Conditional TLS Logic
-		// If JA4 is enabled, we intercept the TLS handshake via DialTLSContext
-		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			if enableJA4 {
-				// == EVASION MODE ==
-				// Use uTLS to impersonate a browser's TLS fingerprint (Chrome/Safari)
-				// Note: We use a rotating UA or fixed one for the handshake generation
-				ua := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-				generator := NewJA4Generator(ua)
-				utils.TacticalLog(fmt.Sprintf("[magenta]JA4:[-] Negotiating TLS with uTLS fingerprint for %s", addr))
-				return generator.Dial(network, addr)
-			}
+	// 3. BRANCHING LOGIC: JA4 vs STANDARD
+	if enableJA4 {
+		// === JA4 EVASION MODE ===
+		baseTransport = &http.Transport{
+			DialContext: netDialer.DialContext,
+			// DISABLE KEEPALIVES for JA4 to force fresh fingerprint per request
+			DisableKeepAlives: true,
+			// CRITICAL: Disable Go's built-in HTTP/2 upgrade logic
+			ForceAttemptHTTP2: false,
+			// CRITICAL: Ensure Go doesn't expect H2 connection
+			TLSNextProto: make(map[string]func(string, *tls.Conn) http.RoundTripper),
 
-			// == STANDARD MODE ==
-			// Fallback to standard crypto/tls.
-			// Note: http.Transport.DialTLSContext, if defined, MUST return a handshake-completed connection.
-			// Standard behavior is to use DialContext + internal TLS.
-			// To emulate that while keeping this field defined, we manually dial TLS.
-			tlsDialer := tls.Dialer{
-				NetDialer: netDialer,
-				Config: &tls.Config{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// 1. Raw TCP
+				rawConn, err := netDialer.DialContext(ctx, network, addr)
+				if err != nil {
+					return nil, err
+				}
+
+				host, _, _ := net.SplitHostPort(addr)
+
+				// 2. Force HTTP/1.1 in uTLS to prevent binary frame crash
+				uConfig := &utls.Config{
+					ServerName:         host,
 					InsecureSkipVerify: true,
-					MinVersion:         tls.VersionTLS12,
-				},
-			}
-			return tlsDialer.DialContext(ctx, network, addr)
-		},
+					NextProtos:         []string{"http/1.1"}, // STRICT HTTP/1.1
+				}
 
-		Proxy: func(req *http.Request) (*url.URL, error) {
-			poolProxy := GetRandomProxy()
-			if poolProxy != "" {
-				u, _ := url.Parse(poolProxy)
-				return u, nil
-			}
-			if detectedProxy != nil {
-				return detectedProxy, nil
-			}
-			return nil, nil
-		},
-		MaxIdleConns:    100,
-		IdleConnTimeout: 90 * time.Second,
+				// 3. Get UA from Context
+				ua, ok := ctx.Value("ua").(string)
+				if !ok || ua == "" {
+					ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+				}
+
+				// 4. Fingerprint
+				generator := NewJA4Generator(ua)
+				utils.TacticalLog(fmt.Sprintf("[magenta]JA4:[-] Negotiating TLS (uTLS/H1) for %s", addr))
+
+				uConn := utls.UClient(rawConn, uConfig, generator.GetClientHelloID())
+
+				// 5. Handshake
+				if err := uConn.Handshake(); err != nil {
+					rawConn.Close()
+					return nil, fmt.Errorf("uTLS handshake failed: %v", err)
+				}
+
+				return uConn, nil
+			},
+			Proxy: func(req *http.Request) (*url.URL, error) {
+				poolProxy := GetRandomProxy()
+				if poolProxy != "" {
+					u, _ := url.Parse(poolProxy)
+					return u, nil
+				}
+				if detectedProxy != nil {
+					return detectedProxy, nil
+				}
+				return nil, nil
+			},
+		}
+		utils.TacticalLog("[green]✓ HTTP CLIENT:[-] Initialized. Mode: [magenta]JA4 Evasion (uTLS/H1)[-]")
+
+	} else {
+		// === STANDARD GO TLS MODE (Stealth Off) ===
+		baseTransport = &http.Transport{
+			DialContext: netDialer.DialContext,
+			// Standard TLS (HTTP/2 capable via internal upgrade)
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			// Keep-Alives allowed in standard mode for speed
+			DisableKeepAlives: false,
+			Proxy: func(req *http.Request) (*url.URL, error) {
+				poolProxy := GetRandomProxy()
+				if poolProxy != "" {
+					u, _ := url.Parse(poolProxy)
+					return u, nil
+				}
+				if detectedProxy != nil {
+					return detectedProxy, nil
+				}
+				return nil, nil
+			},
+			MaxIdleConns:    100,
+			IdleConnTimeout: 90 * time.Second,
+		}
+		utils.TacticalLog("[green]✓ HTTP CLIENT:[-] Initialized. Mode: [cyan]Standard Go TLS[-]")
 	}
 
 	tacticalTransport := &TacticalTransport{Base: baseTransport}
 	GlobalClient.Transport = tacticalTransport
 	utils.GlobalClient = GlobalClient
-
-	modeStatus := "Standard TLS"
-	if enableJA4 {
-		modeStatus = "JA4 Evasion (uTLS)"
-	}
-	utils.TacticalLog(fmt.Sprintf("[green]✓ HTTP CLIENT:[-] Initialized. Mode: [cyan]%s[-]", modeStatus))
 }
 
 // DetectAndSetProxy attempts to auto-discover local proxies
