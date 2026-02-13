@@ -37,7 +37,6 @@ func GetConfiguredProxy() string {
 }
 
 // GetTrafficHistory exports a snapshot of traffic for the Engine
-// This fixes: undefined: logic.GetTrafficHistory in engine/core.go
 func GetTrafficHistory() map[string]int {
 	trafficMu.RLock()
 	defer trafficMu.RUnlock()
@@ -139,7 +138,6 @@ var InterceptorActive bool = false
 var InterceptorChan = make(chan *InterceptorPayload)
 
 // InterceptorPayload contains the request to be edited and the channel to return the decision.
-// === SPRINT 11 FIX: Now carries RequestBodyBytes to ensure body is available to UI ===
 type InterceptorPayload struct {
 	Request          *http.Request
 	RequestBodyBytes []byte // EXPLICITLY CARRY BODY TO UI
@@ -153,45 +151,36 @@ type TacticalTransport struct {
 
 // RoundTrip executes the interceptor pipeline for EVERY request (Map, Scan, Exploit)
 func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// === SPRINT 11: CRITICAL FIX ===
-	// 0. CAPTURE BODY IMMEDIATELY (Before any sensor consumes it)
-	// This ensures the body is available to all downstream processors
+	// 0. CAPTURE BODY IMMEDIATELY
 	var requestBodyBytes []byte
 	if req.Body != nil {
 		bodyBytes, err := io.ReadAll(req.Body)
 		if err != nil {
 			utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Failed to read request body: %v", err))
-			// Still restore the body even if read failed
 			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		} else {
-			// Successfully captured - restore it immediately so it can be read by sensors
 			requestBodyBytes = bodyBytes
 			req.Body = io.NopCloser(bytes.NewBuffer(requestBodyBytes))
 		}
 	}
 
-	// === SPRINT 11.3 & 12: EVASION LAYER (Before Enrichment) ===
-	// Apply jitter to request timing (helps evade rate-limiting detection)
-	jitterDelay := ApplyJitter(100) // 100ms base with Gaussian variation
+	// EVASION LAYER (Before Enrichment)
+	jitterDelay := ApplyJitter(100)
 	time.Sleep(jitterDelay)
 
-	// NOTE: User-Agent rotation handled by ApplyEvasion() in discovery modules
-	// MimicTraffic is NOT called here to avoid overwriting rotating User-Agents
-
-	// 1. Content Aggregator: Contextual Enrichment (Phase 10.3)
+	// 1. Content Aggregator: Contextual Enrichment
 	EnrichCommandRequest(req)
 	TriggerCloudPivot(req.URL.String())
 
-	// 2. Tactical Interceptor Hook (Phase 10.4 - Hydra Audit Fix)
+	// 2. Tactical Interceptor Hook
 	if InterceptorActive {
 		respChan := make(chan *http.Request)
 
 		utils.TacticalLog(fmt.Sprintf("[red]INTERCEPT:[-] Pausing %s request to %s for Editor...", req.Method, req.URL.Path))
 
-		// === SPRINT 11 FIX: Pass captured body bytes to UI ===
 		InterceptorChan <- &InterceptorPayload{
 			Request:          req,
-			RequestBodyBytes: requestBodyBytes, // PASS BODY EXPLICITLY
+			RequestBodyBytes: requestBodyBytes,
 			ResponseChan:     respChan,
 		}
 
@@ -203,8 +192,6 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		}
 
 		req = modifiedReq
-		// === RE-RESTORE BODY AFTER INTERCEPTOR MODAL ===
-		// Ensure body is preserved through the modal interaction
 		if req.Body != nil {
 			bodyBytes, _ := io.ReadAll(req.Body)
 			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
@@ -212,16 +199,21 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		utils.TacticalLog("[green]RESUME:[-] Request modified and forwarded to wire.")
 	}
 
-	// 3. Capture Request Dump (Body is now guaranteed to be available)
+	// 3. Capture Request Dump
 	reqDump, _ := httputil.DumpRequestOut(req, true)
 
-	// 4. RE-RESTORE BODY ONE FINAL TIME before wire transmission
+	// 4. RE-RESTORE BODY ONE FINAL TIME
 	if len(requestBodyBytes) > 0 {
 		req.Body = io.NopCloser(bytes.NewBuffer(requestBodyBytes))
 	}
 
 	// 5. Execute via Base Transport (The Wire)
+	// CAPTURE START TIME
+	startTime := time.Now()
 	resp, err := t.Base.RoundTrip(req)
+	// CAPTURE DURATION
+	duration := time.Since(startTime)
+
 	if err != nil {
 		return nil, err
 	}
@@ -242,6 +234,14 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	resDump, _ := httputil.DumpResponse(resp, true)
 
+	// === CRITICAL FIX: CENTRALIZED VAULT STORAGE ===
+	// Store ALL traffic passing through the transport in the GlobalVault
+	// This ensures Tab 8 (History) is populated for every request type
+	go func() {
+		// Use a lightweight clone or the existing request for storage
+		GlobalVault.Add(req, resp, duration)
+	}()
+
 	// 6. Send to Traffic Logger
 	reqStr := string(reqDump)
 	resStr := string(resDump)
@@ -261,23 +261,23 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 }
 
 // SafeDo executes the request with Context Enrichment, Evasion, Interception, and Traffic Logging.
-// Integrates all WAF evasion techniques:
-// - Contextual thinking time based on request type
-// - Path obfuscation with cache-busters and parameters
-// - Payload encoding (gzip, deflate, whitespace randomization)
-// - Automatic rate-limit backoff with proxy/UA rotation
-// - HTTP/2 pseudo-header randomization
 func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error) {
+	// TASK 1: SCOPE HARD-ENFORCEMENT
+	if !GlobalScope.IsInScope(req.URL.String()) {
+		utils.TacticalLog(fmt.Sprintf("[yellow]SCOPE:[-] Blocked out-of-scope target: %s", req.URL.String()))
+		return nil, fmt.Errorf("Target Out of Scope")
+	}
+
 	utils.TacticalLog(fmt.Sprintf("[blue]REQUEST:[-] %s %s (module: %s)", req.Method, req.URL, module))
 
-	// === PRIORITY ALPHA: HTTP/2 PSEUDO-HEADER RANDOMIZATION (respects stealth toggle) ===
+	// === PRIORITY ALPHA: HTTP/2 PSEUDO-HEADER RANDOMIZATION ===
 	if globalStealthConfig.EnablePathObfuscation {
 		profile := GetHTTP2Profile(req.Header.Get("User-Agent"))
 		ApplyHTTP2Evasion(req, profile)
 		utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Applied HTTP/2 profile: %s", profile.Name))
 	}
 
-	// === PRIORITY BETA: PATH OBFUSCATION (respects stealth toggle) ===
+	// === PRIORITY BETA: PATH OBFUSCATION ===
 	if (req.Method == "GET" || req.Method == "POST") && globalStealthConfig.EnablePathObfuscation {
 		obfuscationStrategy := SelectObfuscationStrategy()
 		originalPath := req.URL.Path
@@ -285,7 +285,7 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 		utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Path obfuscation applied: %s → %s", originalPath, req.URL.Path))
 	}
 
-	// === PRIORITY EPSILON: PAYLOAD ENCODING (for POST/PUT bodies, respects encoding toggle) ===
+	// === PRIORITY EPSILON: PAYLOAD ENCODING ===
 	if (req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH") && globalStealthConfig.EnablePayloadEncoding {
 		if req.Body != nil {
 			bodyBytes, _ := io.ReadAll(req.Body)
@@ -304,8 +304,7 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 		}
 	}
 
-	// === PRIORITY GAMMA: CONTEXTUAL THINKING TIME (respects thinking time toggle) ===
-	// Apply behavioral delay before sending request
+	// === PRIORITY GAMMA: CONTEXTUAL THINKING TIME ===
 	if globalStealthConfig.EnableThinkingTime {
 		delay := ContextualThinkingTime(req.Method, req.URL.Path)
 		if delay > 0 {
@@ -322,19 +321,24 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 		InitializeRotaryClient()
 	}
 
+	// start := time.Now() <-- Removed, duration handled in RoundTrip
 	resp, err := GlobalClient.Do(req)
+	// duration := time.Since(start) <-- Removed
+
 	if err != nil {
 		utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Request failed: %v", err))
 		return resp, err
 	}
 
+	// TASK 4: TRAFFIC VAULT STORAGE
+	// REMOVED: GlobalVault.Add is now handled in RoundTrip to ensure full coverage
+	// and prevent duplicates.
+
 	utils.TacticalLog(fmt.Sprintf("[green]✓ RESPONSE:[-] %s %d", req.URL, resp.StatusCode))
 
 	// === PRIORITY DELTA: RATE-LIMIT BACKOFF ===
-	// Only treat 429, 403, 503 as rate limits - NOT 404 (legitimate not found)
 	if resp.StatusCode == 429 || resp.StatusCode == 403 || resp.StatusCode == 503 {
 		backoffDelay := HandleRateLimit(resp.StatusCode, resp.Header)
-		// Only apply backoff if EnableBackoff toggle is true
 		if backoffDelay > 0 && globalStealthConfig.EnableBackoff {
 			utils.TacticalLog(fmt.Sprintf("[red]BACKOFF:[-] Rate-limit triggered. Waiting %.0f seconds before retry...", backoffDelay.Seconds()))
 			time.Sleep(backoffDelay)
@@ -348,7 +352,6 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 }
 
 // EnsureTransport guarantees the GlobalClient has the TacticalTransport middleware.
-// This is called by discovery modules (swagger, scraper, miner) to ensure body capture works.
 func EnsureTransport() {
 	if GlobalClient.Transport == nil {
 		InitializeRotaryClient()
@@ -356,18 +359,55 @@ func EnsureTransport() {
 }
 
 // InitializeRotaryClient sets up the HTTP client with the Tactical Middleware
+// CRITICAL FIX: Segregates TCP (DialContext) from TLS (DialTLSContext) to avoid breaking plain HTTP
 func InitializeRotaryClient() {
 	if GlobalClient == nil {
 		GlobalClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
+	// Read stealth config safely
+	config := GetStealthConfig()
+	enableJA4 := config.EnableJA4Fingerprint
+
+	// 1. Standard Network Dialer for TCP (handles HTTP, localhost, and TCP handshake)
+	// This restores functionality for non-HTTPS targets that were breaking under forced uTLS
+	netDialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
 	baseTransport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		// Use standard dialer for both HTTP and HTTPS connections
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			dialer := &net.Dialer{Timeout: 30 * time.Second}
-			return dialer.DialContext(ctx, network, addr)
+		// Use standard dialer for the underlying connection
+		DialContext: netDialer.DialContext,
+
+		// 2. Conditional TLS Logic
+		// If JA4 is enabled, we intercept the TLS handshake via DialTLSContext
+		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if enableJA4 {
+				// == EVASION MODE ==
+				// Use uTLS to impersonate a browser's TLS fingerprint (Chrome/Safari)
+				// Note: We use a rotating UA or fixed one for the handshake generation
+				ua := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+				generator := NewJA4Generator(ua)
+				utils.TacticalLog(fmt.Sprintf("[magenta]JA4:[-] Negotiating TLS with uTLS fingerprint for %s", addr))
+				return generator.Dial(network, addr)
+			}
+
+			// == STANDARD MODE ==
+			// Fallback to standard crypto/tls.
+			// Note: http.Transport.DialTLSContext, if defined, MUST return a handshake-completed connection.
+			// Standard behavior is to use DialContext + internal TLS.
+			// To emulate that while keeping this field defined, we manually dial TLS.
+			tlsDialer := tls.Dialer{
+				NetDialer: netDialer,
+				Config: &tls.Config{
+					InsecureSkipVerify: true,
+					MinVersion:         tls.VersionTLS12,
+				},
+			}
+			return tlsDialer.DialContext(ctx, network, addr)
 		},
+
 		Proxy: func(req *http.Request) (*url.URL, error) {
 			poolProxy := GetRandomProxy()
 			if poolProxy != "" {
@@ -386,7 +426,12 @@ func InitializeRotaryClient() {
 	tacticalTransport := &TacticalTransport{Base: baseTransport}
 	GlobalClient.Transport = tacticalTransport
 	utils.GlobalClient = GlobalClient
-	utils.TacticalLog("[green]✓ HTTP CLIENT:[-] Initialized with standard transport (TLS evasion disabled)")
+
+	modeStatus := "Standard TLS"
+	if enableJA4 {
+		modeStatus = "JA4 Evasion (uTLS)"
+	}
+	utils.TacticalLog(fmt.Sprintf("[green]✓ HTTP CLIENT:[-] Initialized. Mode: [cyan]%s[-]", modeStatus))
 }
 
 // DetectAndSetProxy attempts to auto-discover local proxies

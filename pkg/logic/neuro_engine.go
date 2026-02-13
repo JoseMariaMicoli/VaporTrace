@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -221,9 +222,10 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 	utils.LogNeural("[white]Parameters detected in request. Processing payloads...[-]\n")
 	utils.TacticalLog("[cyan]>>> Ctrl+A: Traffic analysis started. Results will appear in F6 (Neuro tab)[-]")
 
-	// Safely truncate dumps to avoid token limit hangs
-	safeReq := truncateContext(reqDump, 1000) // Lowered token count further for 429 safety
-	safeRes := truncateContext(resDump, 1000)
+	// TASK 3: Context Sanitization
+	// Redact URLs in the dump that are out of scope to prevent LLM hallucinations
+	safeReq := n.redactOutOfScope(truncateContext(reqDump, 1000))
+	safeRes := n.redactOutOfScope(truncateContext(resDump, 1000))
 
 	// Async Execution with better error handling
 	go func() {
@@ -287,6 +289,19 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 			utils.LogNeural("[gray]Note: No exploitation vectors generated. Request may not contain exploitable parameters.[-]")
 		}
 	}()
+}
+
+// redactOutOfScope sanitizes inputs based on the GlobalScope manager
+func (n *NeuroEngine) redactOutOfScope(input string) string {
+	// Regex to find URLs
+	urlRegex := regexp.MustCompile(`https?://[a-zA-Z0-9.-]+(?:/[^\s]*)?`)
+
+	return urlRegex.ReplaceAllStringFunc(input, func(match string) string {
+		if !GlobalScope.IsInScope(match) {
+			return "[REDACTED_OUT_OF_SCOPE]"
+		}
+		return match
+	})
 }
 
 // PerformNeuroBrute implements the Fuzzing logic triggered by Ctrl+B

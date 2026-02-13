@@ -936,8 +936,11 @@ var SafeTransport = &http.Transport{
 			logic.SetGlobalMultiplier(val)
 			utils.TacticalLog(fmt.Sprintf("[cyan]Delay Multiplier:[-] %.1fx applied to all evasion timings", val))
 
-		case "aggressive", "fast", "silent", "debug":
+		case "aggressive", "fast", "silent", "ghost", "debug":
 			logic.SetStealthMode(subcommand)
+			// === FIX: Re-initialize client to apply TLS settings immediately ===
+			logic.InitializeRotaryClient()
+			// ===================================================================
 			status := logic.GetStealthStatus()
 			utils.TacticalLog(fmt.Sprintf("[green]Stealth Mode:[-] %s\n%s", subcommand, status))
 

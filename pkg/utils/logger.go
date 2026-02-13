@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
@@ -32,6 +33,19 @@ type TrafficPacket struct {
 }
 
 var TrafficChan = make(chan TrafficPacket, 100)
+
+// UI_Log_Buffer maintains the scrollback limit before sending to UI
+// Task 2 Part 2: Enforce Hard Cap of 1,000 lines.
+type LogBufferStruct struct {
+	mu    sync.Mutex
+	lines []string
+	cap   int
+}
+
+var GlobalLogBuffer = &LogBufferStruct{
+	lines: make([]string, 0),
+	cap:   1000,
+}
 
 // SetLoggerMode defines how outputs are rendered
 func SetLoggerMode(mode string) {
@@ -94,6 +108,7 @@ func LogNeural(msg string) {
 }
 
 // TacticalLog handles generic system messages
+// Modified to use GlobalLogBuffer for scrollback limit enforcement
 func TacticalLog(msg string) {
 	if UIMode == "TUI" {
 		cleanMsg := StripANSI(msg)
@@ -118,6 +133,15 @@ func TacticalLog(msg string) {
 		}
 
 		formatted := fmt.Sprintf("[gray][%s][-] %s%s[-]", timeStamp(), colorTag, cleanMsg)
+
+		// Enforce Scrollback Limit
+		GlobalLogBuffer.mu.Lock()
+		GlobalLogBuffer.lines = append(GlobalLogBuffer.lines, formatted)
+		if len(GlobalLogBuffer.lines) > GlobalLogBuffer.cap {
+			// Drop oldest
+			GlobalLogBuffer.lines = GlobalLogBuffer.lines[1:]
+		}
+		GlobalLogBuffer.mu.Unlock()
 
 		select {
 		case UI_Log_Chan <- formatted:
