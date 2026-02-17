@@ -1,3 +1,19 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under the Business Source License 1.1
+Change Date: 2033-02-17
+Change License: Apache-2.0
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 # VaporTrace Full Autonomy Evolution - Sprint 11.2-16.1 Implementation Summary
 
 ## Overview
