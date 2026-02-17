@@ -1,3 +1,19 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under the Business Source License 1.1
+Change Date: 2033-02-17
+Change License: Apache-2.0
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 # Sprint 12: Evasion V2 & Advanced Defense Bypass
 
 **Version:** v3.1-Hydra (Sprint 12 Complete)  
