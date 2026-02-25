@@ -24,6 +24,27 @@
 
 ---
 
+### **🛡️ MITRE ATT&CK Mapping (Full Suite)**
+
+VaporTrace operations are mapped across the full attack lifecycle to provide stakeholders with clear visibility into adversary emulation.
+
+| PHASE | TACTIC | TECHNIQUE | VAPORTRACE COMPONENT |
+| --- | --- | --- | --- |
+| **P1: Foundation** | Command and Control | T1105: Ingress Tool Transfer | `Burp Bridge / Proxy Config` |
+| **P2: Discovery** | Reconnaissance | T1595.002: Active Scanning | `map`, `swagger`, `mine` |
+| **P2: Discovery** | Reconnaissance | T1592: Victim Info | **`pipeline` (Endpoint Categorization)** |
+| **P3: Auth Logic** | **Privilege Escalation** | **T1548: Abuse Elevation** | **`bola --pipeline` (Mass Engine)** |
+| **P3: Auth Logic** | **Privilege Escalation** | **T1548.002: Mass Assignment** | **`bopla --pipeline` (Property Fuzzer)** |
+| **P3: Auth Logic** | Privilege Escalation | T1548: Abuse Elevation | `scan-bfla` (Verb Tampering) |
+| **P4: Injection** | Impact | T1499: Endpoint DoS | `resource-exhaustion (API4)` |
+| **P4: Injection** | Discovery | T1046: Network Service Discovery | `ssrf-tracker (API7)` |
+| **P5: Reporting** | Reporting | T1592: Victim Info | `persistence (SQLite) / report` |
+| **Standardization** | **Exfiltration** | **T1071.001: Web Protocols** | **`SafeDo` (Universal Mirroring)** |
+| **Standardization** | Credential Access | T1557: AiTM | **`X-VaporTrace-Signal`** |
+
+
+---
+
 ## 🖥️ The Tactical Shell: Persistence & Context
 
 The **VaporTrace Shell** is the core differentiator of this framework. Unlike standard one-shot CLI tools, the shell provides a **Persistent Security Context** required for complex logic testing.
@@ -73,19 +94,47 @@ To enter the interactive tactical mode, execute:
 * [x] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
 * [x] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
 
-### **Phase 5: Intelligence & Persistence [ACTIVE]**
+### **Phase 5: Intelligence & Persistence [STABLE]**
 
 * [x] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
 * [x] **Async Log Worker:** Non-blocking background commitments of tactical findings.
 * [x] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
 * [x] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
 
-### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [BACKLOG]**
+### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [UPCOMING]**
 
-* [ ] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
-* [ ] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
-* [ ] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
-* [ ] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
+* [ ] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
+* [ ] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
+* [ ] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
+
+### **Phase 7: Business Logic & Workflow Fuzzing [UPCOMING]**
+
+* [ ] **State-Machine Mapping:** Identifying logical order (e.g., Pay -> Download) and testing out-of-order execution.
+* [ ] **Race Condition Engine:** Multi-threaded "Turbo Intruder" style probes for currency/credit exploits.
+
+### **Phase 8: Post-Exploitation & Data Exfiltration [UPCOMING]**
+
+* [ ] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
+* [ ] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
+
+### **Phase 9: Engineering & Hardening [ACTIVE]**
+
+* [x] **9.1: Scraper Refinement:** Pre-compiled global regex for high-performance scraping.
+* [x] **9.1.1: Tactical UI:** Integrated spinners and real-time tables for immediate feedback.
+* [x] **9.2: Surgical BOLA:** Response Diffing engine (Baseline comparison) to eliminate False Positives.
+* [x] **9.3: Concurrency Engine:** High-speed worker pools with channel-based task distribution for massive enumeration.
+* [x] **9.4: Environment Sensing:** Auto-detection of Burp Suite/ZAP proxies with intelligent "Hit-Mirroring" and custom X-Header signaling.
+* [x] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
+* [x] **9.6: Universal Proxy Integration:** Refactored `SafeDo` to support multi-module mirroring with `isHit` tactical signaling.
+* [x] **9.7: BOLA Concurrency Engine:** Successfully upgraded the surgical BOLA probe to a high-speed, multi-threaded mass scanner using the Phase 9.3 Worker Pool.
+* [x] **9.8: Industrialized BOPLA (Mass Assignment):** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
+* [x] **9.9: Industrialized BFLA (Functional Logic):** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
+* [x] **9.10: Universal Concurrency (Generic Executor):** Standardize all commands (`mine`, `exhaust`, etc.) under a single `GenericExecutor` for code efficiency.
+
+### **Phase 10: The Vanguard (Future)**
+
+* [ ] **AI-Driven Fuzzing:** Context-aware payload generation using local LLM integration.
+* [ ] **Auto-Exploit PoC:** Standalone script generation for verified vulnerabilities.
 
 ---
 
@@ -115,6 +164,7 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `mine` | Fuzz for hidden parameters (debug, admin, etc.) | `mine <url> /users` |
 | `proxy` | Route all tactical traffic through Burp Suite | `proxy http://127.0.0.1:8080` |
 | `proxy off` | Disable the interceptor and go direct | `proxy off` |
+| `pipeline` | Analyzes global discovery to categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
 | **Logic Exploitation** |  |  |
 | `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
 | `bopla` | Execute Mass Assignment / BOPLA fuzzing (API3) | `bopla <url> '{"id":1}'` |
@@ -140,17 +190,7 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 
 ---
 
-### Final Patch Checklist
-
-To ensure the commands above function as expected:
-
-1. **Global Client:** Ensure `pkg/logic/context.go` and `pkg/discovery/discovery.go` both export `GlobalClient`.
-2. **Removal of Local Clients:** In your uploaded files (e.g., `bola.go`, `exhaustion.go`), ensure you have removed the `client := &http.Client{...}` blocks so they default to the global proxied client.
-3. **UI Bridge:** Ensure your `shell.go` switch-case triggers these functions.
-
-Would you like me to generate the **Phase 5 Intelligence** logic to handle the `report` generation from the database?
-
-### 3. Tactical Workflow Example
+### 3. Tactical Workflow Example (BOPLA / API3)
 
 Capture your tokens from a proxy and pivot:
 
@@ -171,19 +211,21 @@ vapor@trace:~$ bola [https://api.target.com/v1/user/profile](https://api.target.
 
 ---
 
-## 📑 Tactical Incident Response (IR) Template
+### **📑 Tactical Incident Response (IR) Template**
 
-Use this unified template to document findings across the VaporTrace tactical phases:
+Use this unified template to document findings across the VaporTrace tactical phases. Note the new **Mirroring** section for P9.6.
 
 > **[VAPOR-TRACE-SECURITY-ADVISORY]**
 > **FINDING ID:** VT-{{YEAR}}-{{ID}}
 > **STRATEGIC PHASE:** {{Phase_1_to_5}}
 > **DATABASE ID:** {{DB_Session_ID}}
 > **TARGET ENDPOINT:** `{{target_url}}`
-> **OWASP API TOP 10:** {{OWASP_Category}} (e.g., API4:2023 Resource Exhaustion)
+> **OWASP API TOP 10:** {{OWASP_Category}} (e.g., API1:2023 BOLA)
 > **TECHNICAL ANALYSIS:**
 > * **Reconnaissance (P2):** Discovered via version walking / shadow API mining.
+> * **Tactical Pipeline (P9.5):** Categorized as {{Engine_Type}} based on route heuristics.
 > * **Authorization Context (P3):** Identity swap performed between Attacker and Victim tokens.
+> * **Mirroring (P9.6):** Request captured in proxy history via `X-VaporTrace-Signal`.
 > * **Injection/Consumption (P4):** Logic used to trigger SSRF or Resource Exhaustion.
 > * **Persistence (P5):** All tactical logs committed to SQLite for debrief.
 > 
@@ -191,20 +233,15 @@ Use this unified template to document findings across the VaporTrace tactical ph
 > **REPRODUCTION LOG:**
 > ```bash
 > vapor@trace:~$ {{executed_command}}
+> [MIRROR] Confirmed hit via {{Module}} mirrored to proxy.
 > [RESULT] {{server_response_code}} | {{latency_ms}}ms
 > 
 > ```
 > 
 > 
+> **IMPACT:** {{Data_Exfiltration / Service_Instability / Privilege_Escalation}}
+> **REMEDIATION:** {{Engineering_Action_Plan}}
 
-> ```
-> 
-> **IMPACT:** {{Data\_Exfiltration / Service\_Instability / Privilege\_Escalation}}
-> **REMEDIATION:** {{Engineering\_Action\_Plan}}
-> 
-> ```
-> 
-> 
 
 ---
 

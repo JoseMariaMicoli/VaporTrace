@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"strconv"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/discovery"
@@ -75,6 +76,7 @@ func (s *Shell) Start() {
 		readline.PcItem("mine"),
 		readline.PcItem("scrape"),
 		readline.PcItem("swagger"),
+		readline.PcItem("pipeline"),
 		readline.PcItem("proxy"), 
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
@@ -202,6 +204,19 @@ func (s *Shell) handleCommand(command string, args []string) {
 			pterm.Info.Println("Usage: help <command>")
 		}
 
+	case "pipeline":
+		concurrency := logic.CurrentSession.Threads
+		if len(args) > 1 {
+			if c, err := strconv.Atoi(args[1]); err == nil {
+				concurrency = c
+			}
+		}
+		
+		pterm.DefaultHeader.WithFullWidth(false).WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("PIPELINE: Industrialized Execution")
+		logic.AnalyzeDiscovery()
+		pterm.Info.Println("Starting automated engine sequence via Pipeline...")
+		logic.RunPipeline(concurrency)
+
 	case "clear", "cls", "splash":
 		s.RenderBanner()
 
@@ -328,7 +343,52 @@ func (s *Shell) handleCommand(command string, args []string) {
 		}
 
 	case "map":
-		pterm.Info.Println("Executing Phase 2: Mapping Logic sequence...")
+		if len(args) < 2 {
+			pterm.Error.Println("Usage: map -u <url> OR map -j <js_url>")
+			return 
+		}
+
+		var sURL, jURL string
+		for i, arg := range args {
+			if arg == "-u" && i+1 < len(args) { sURL = args[i+1] }
+			if arg == "-j" && i+1 < len(args) { jURL = args[i+1] }
+		}
+
+		pterm.DefaultSection.Println("Phase 2: Intelligence Mapping")
+		var foundEndpoints []string
+
+		if jURL != "" {
+			spinner, _ := pterm.DefaultSpinner.Start("Scraping JS Bundle: " + jURL)
+			endpoints, err := discovery.ExtractJSPaths(jURL, "") 
+			if err != nil {
+				spinner.Fail("Scrape failed: " + err.Error())
+			} else if len(endpoints) == 0 {
+				spinner.Warning("No API patterns found in JS.")
+			} else {
+				spinner.Success(fmt.Sprintf("Harvested %d routes", len(endpoints)))
+				foundEndpoints = append(foundEndpoints, endpoints...)
+				tableData := pterm.TableData{{"TYPE", "EXTRACTED PATH"}}
+				for _, e := range endpoints {
+					tableData = append(tableData, []string{"JS_ROUTE", e})
+				}
+				pterm.DefaultTable.WithHasHeader().WithData(tableData).WithBoxed().Render()
+			}
+		}
+
+		if sURL != "" {
+			spinner, _ := pterm.DefaultSpinner.Start("Analyzing Swagger Spec...")
+			endpoints, err := discovery.ParseSwagger(sURL, "")
+			if err != nil {
+				spinner.Fail("Swagger parse failed")
+			} else {
+				spinner.Success(fmt.Sprintf("Found %d documented endpoints", len(endpoints)))
+				foundEndpoints = append(foundEndpoints, endpoints...)
+			}
+		}
+
+		if len(foundEndpoints) > 0 {
+			pterm.Success.Printf("Mapping complete. %d total endpoints stored in session.\n", len(foundEndpoints))
+		}
 
 	case "audit":
 		if len(args) < 1 {
@@ -344,9 +404,7 @@ func (s *Shell) handleCommand(command string, args []string) {
 			return
 		}
 		iType := "generic"
-		if len(args) > 1 {
-			iType = args[1]
-		}
+		if len(args) > 1 { iType = args[1] }
 		probe := &logic.IntegrationContext{TargetURL: args[0], IntegrationType: iType}
 		probe.Probe()
 
@@ -363,7 +421,6 @@ func (s *Shell) handleCommand(command string, args []string) {
 	case "exhaust":
 		if len(args) < 2 {
 			pterm.Info.Println("Usage: exhaust <url> <parameter>")
-			pterm.Info.Println("Example: exhaust https://api.target.com/v1/users limit")
 			return
 		}
 		probe := &logic.ExhaustionContext{TargetURL: args[0], ParamName: args[1]}
@@ -378,7 +435,7 @@ func (s *Shell) handleCommand(command string, args []string) {
 		probe.Probe()
 
 	case "test-ssrf":
-		pterm.Info.Println("Simulating SSRF against httpbin (External Redirect Test)...")
+		pterm.Info.Println("Simulating SSRF against httpbin...")
 		test := &logic.SSRFContext{
 			TargetURL: "https://httpbin.org/redirect-to",
 			ParamName: "url",
@@ -392,52 +449,92 @@ func (s *Shell) handleCommand(command string, args []string) {
 		test.FuzzPagination()
 
 	case "bola":
-		if len(args) < 2 {
-			pterm.Info.Println("Usage: bola <url> <victim_id>")
+		isPipeline := false
+		for _, arg := range args {
+			if arg == "--pipeline" || arg == "-p" { isPipeline = true }
+		}
+
+		if isPipeline {
+			ctx := &logic.BOLAContext{BaseURL: logic.CurrentSession.TargetURL}
+			idList := []string{"1", "2", "3", "101", "102"} 
+			ctx.MassProbe(idList, logic.CurrentSession.Threads) 
 			return
 		}
-		probe := &logic.BOLAContext{
-			BaseURL:  args[0],
-			VictimID: args[1],
+
+		if len(args) < 2 {
+			pterm.Error.Println("Usage: bola -u <url> -v <victim_id> [-a <attacker_id>] OR bola --pipeline")
+			return
 		}
-		probe.Probe()
+
+		ctx := &logic.BOLAContext{}
+		for i := 0; i < len(args); i++ {
+			switch args[i] {
+			case "-u":
+				if i+1 < len(args) { ctx.BaseURL = args[i+1] }
+			case "-v":
+				if i+1 < len(args) { ctx.VictimID = args[i+1] }
+			case "-a":
+				if i+1 < len(args) { ctx.AttackerID = args[i+1] }
+			}
+		}
+		ctx.ProbeSilent()
+
+	case "scan-bola":
+		if len(args) < 4 {
+			pterm.Error.Println("Usage: scan-bola -u <url> -r <start-end> -t <threads>")
+			break
+		}
+
+		var urlStr, idRange string
+		threads := logic.CurrentSession.Threads
+		for i := 0; i < len(args); i++ {
+			switch args[i] {
+			case "-u":
+				if i+1 < len(args) { urlStr = args[i+1] }
+			case "-r":
+				if i+1 < len(args) { idRange = args[i+1] }
+			case "-t":
+				if i+1 < len(args) { fmt.Sscanf(args[i+1], "%d", &threads) }
+			}
+		}
+
+		var start, end int
+		fmt.Sscanf(idRange, "%d-%d", &start, &end)
+		var ids []string
+		for i := start; i <= end; i++ {
+			ids = append(ids, fmt.Sprintf("%d", i))
+		}
+
+		ctx := &logic.BOLAContext{BaseURL: urlStr}
+		ctx.MassProbe(ids, threads)
 
 	case "bopla":
-		if len(args) < 2 {
-			pterm.Info.Println("Usage: bopla <url> <base_json>")
-			pterm.Info.Println("Example: bopla https://api.com/v1/user '{\"name\":\"john\"}'")
+		if len(args) > 0 && (args[0] == "--pipeline" || args[0] == "-p") {
+			logic.ExecuteMassBOPLA(logic.CurrentSession.Threads)
 			return
 		}
-		jsonStr := strings.Join(args[1:], " ")
-		probe := &logic.BOPLAContext{
-			TargetURL: args[0],
-			Method:    "PATCH",
-			BaseJSON:  jsonStr,
-		}
-		probe.Fuzz()
+		pterm.Error.Println("Usage: bopla --pipeline")
 
 	case "test-bopla":
-		pterm.DefaultHeader.WithFullWidth(false).Println("BOPLA Logic Test Sequence")
-		pterm.Info.Println("Simulating Mass Assignment against httpbin reflection...")
+		pterm.Info.Println("Simulating Mass Assignment against httpbin...")
 		test := &logic.BOPLAContext{
 			TargetURL: "https://httpbin.org/patch",
 			Method:    "PATCH",
-			BaseJSON:  `{"username": "vapor_user", "email": "vapor@trace.local"}`,
+			BaseJSON:  `{"username": "vapor_user"}`,
 		}
-		test.Fuzz()
+		test.RunFuzzer(1)
 
 	case "bfla":
-		if len(args) < 1 {
-			pterm.Info.Println("Usage: bfla <url>")
+		if len(args) > 0 && (args[0] == "--pipeline" || args[0] == "-p") {
+			logic.ExecuteMassBFLA(logic.CurrentSession.Threads)
 			return
 		}
-		probe := &logic.BFLAContext{TargetURL: args[0]}
-		probe.Probe()
+		pterm.Error.Println("Usage: bfla --pipeline")
 
 	case "test-bfla":
 		pterm.Info.Println("Simulating Verb Tampering against httpbin...")
-		test := &logic.BFLAContext{TargetURL: "https://httpbin.org/anything"}
-		test.Probe()
+		ctx := &logic.BFLAContext{TargetURL: "https://httpbin.org/anything"}
+		ctx.MassProbe(1)
 
 	case "auth":
 		if len(args) < 2 {
@@ -446,36 +543,26 @@ func (s *Shell) handleCommand(command string, args []string) {
 		}
 		if args[0] == "attacker" {
 			logic.CurrentSession.AttackerToken = args[1]
-			pterm.Success.Println("Attacker token updated in session store.")
 		} else {
 			logic.CurrentSession.VictimToken = args[1]
-			pterm.Success.Println("Victim token updated in session store.")
 		}
+		pterm.Success.Printf("%s token updated in session store.\n", args[0])
 
 	case "sessions":
 		pterm.DefaultTable.WithData(pterm.TableData{
 			{"ROLE", "TOKEN SNAPSHOT"},
-			{"VICTIM (User A)", logic.CurrentSession.VictimToken},
-			{"ATTACKER (User B)", logic.CurrentSession.AttackerToken},
+			{"VICTIM", logic.CurrentSession.VictimToken},
+			{"ATTACKER", logic.CurrentSession.AttackerToken},
 		}).WithBoxed().Render()
 
 	case "test-bola":
-		pterm.DefaultHeader.WithFullWidth(false).Println("BOLA Logic Test Sequence")
-		pterm.Info.Println("TEST 1: Simulating Vulnerable Endpoint (Expect VULN)")
+		pterm.Info.Println("Diagnostic BOLA test against httpbin...")
 		vuln := &logic.BOLAContext{
 			BaseURL:       "https://httpbin.org/anything",
-			VictimID:      "user_777_private_data",
-			AttackerToken: "evil_token_v3",
+			VictimID:      "private_id_777",
+			AttackerToken: logic.CurrentSession.AttackerToken,
 		}
-		vuln.Probe()
-		fmt.Println(strings.Repeat("-", 30))
-		pterm.Info.Println("TEST 2: Simulating Secure Endpoint (Expect SECURE)")
-		secure := &logic.BOLAContext{
-			BaseURL:       "https://httpbin.org/status/403",
-			VictimID:      "",
-			AttackerToken: "evil_token_v3",
-		}
-		secure.Probe()
+		vuln.ProbeSilent()
 
 	default:
 		pterm.Error.Printf("Unknown tactical command: %s\n", command)
@@ -492,6 +579,7 @@ func (s *Shell) ShowUsage() {
 		{"swagger", "Parse OpenAPI/Swagger docs for routes", "swagger <url>"},
 		{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 		{"scrape", "Extract API paths from JS files", "scrape <url>"},
+		{"pipeline", "Analyze discovery data for BOLA/BFLA/BOPLA targets"},
 		{"auth", "Set identity tokens", "auth attacker <token>"},
 		{"sessions", "View active tokens", "sessions"},
 		{"bola", "Phase 3 BOLA test", "bola <url> <id>"},
@@ -566,6 +654,20 @@ func (s *Shell) ShowHelp(cmd string) {
 		pterm.Println("Parses Swagger/OpenAPI specs and probes for hidden shadow versions (API9).")
 	case "mine":
 		pterm.Println("Fuzzes discovered endpoints for hidden administrative or debug parameters.")
+	case "pipeline":
+		pterm.Bold.Println("COMMAND: pipeline")
+		pterm.Println("DESCRIPTION:")
+		pterm.Println("The Pipeline engine analyzes all endpoints stored in the Global Tactical Store")
+		pterm.Println("(populated by 'map' or 'swagger' commands). It uses heuristic regex to")
+		pterm.Println("categorize routes as potential BOLA, BFLA, or BOPLA targets.")
+		pterm.Println("\nOPERATION:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "ID Detection: Finds {id} or UUIDs for BOLA testing."},
+			{Level: 0, Text: "Verb Mapping: Prepares all routes for BFLA method shuffling."},
+			{Level: 0, Text: "Write Detection: Flags POST/PUT routes for BOPLA/Mass-Assignment."},
+		}}.Render()
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("pipeline")
 	case "bola":
 		pterm.Println("Attempts Broken Object Level Authorization (API1) by swapping identity tokens across resource IDs.")
 	case "test-bola":
