@@ -20,8 +20,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "VaporTrace",
@@ -56,4 +54,3 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&Proxy, "proxy", "p", "", "Proxy URL (e.g., http://127.0.0.1:8080)")
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "Enable verbose output")
 }
-

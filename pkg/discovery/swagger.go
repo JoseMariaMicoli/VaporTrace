@@ -160,7 +160,7 @@ func fetchAndParse(url string) ([]string, error) {
 	req, _ := http.NewRequest("GET", url, nil)
 	logic.ApplyEvasion(req) // Apply rotating User-Agent
 	req.Header.Set("Accept", "application/json, */*")
-	
+
 	utils.TacticalLog(fmt.Sprintf("[cyan]SWAGGER:[-] About to make request to %s", url))
 
 	resp, err := client.Do(req)

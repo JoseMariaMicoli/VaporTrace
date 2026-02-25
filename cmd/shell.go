@@ -15,8 +15,8 @@ You may NOT:
 package cmd
 
 import (
-	"github.com/spf13/cobra"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/ui"
+	"github.com/spf13/cobra"
 )
 
 var shellCmd = &cobra.Command{

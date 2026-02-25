@@ -15,11 +15,11 @@ You may NOT:
 package main
 
 import (
-	"os"
 	"github.com/JoseMariaMicoli/VaporTrace/cmd"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/ui"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
+	"os"
 )
 
 func main() {

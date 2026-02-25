@@ -20,6 +20,7 @@ local_build.logs
 
 # Go-specific
 go.sum (optional, usually kept)
+.gocache/
 
 .vapor_history
 
