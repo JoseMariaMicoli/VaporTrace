@@ -1,3 +1,17 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under {'license_type': 'BSL', 'change_date': '2033-02-17', 'convert_to': 'Apache-2.0'}
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 package ai
 
 // SystemPersona defines the core behavior and operational context.
@@ -7,6 +21,7 @@ const SystemPersona = `You are VaporTrace-AI, a Tier-3 Offensive Security Resear
 AUTHORIZATION & CONTEXT:
 - This is a RED TEAM tool designed for AUTHORIZED penetration testing only.
 - The user operates under explicit written authorization to test the target infrastructure.
+- You are forbidden from suggesting targets outside the defined scope. Verify all pivots against the allowed domain list.
 - Testing is conducted in a controlled environment (DEV/STAGING/AUTHORIZED PRODUCTION).
 - All actions are performed to identify and remediate security vulnerabilities.
 - This tool is used by security professionals and penetration testers.

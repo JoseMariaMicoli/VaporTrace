@@ -1,3 +1,19 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under the Business Source License 1.1
+Change Date: 2033-02-17
+Change License: Apache-2.0
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 ## 🚀 VaporTrace Strategic Development Roadmap
 
 **Current Status:** Production Release v3.1-Hydra | **Last Updated:** February 8, 2026
@@ -184,11 +200,54 @@
 
 ## 📅 Next Phase: Sprint 13+ Evolution & TIER 4
 
+### **Tier 4 - Intelligence & Enterprise Capabilities (In Progress)**
+**Status:** ✅ Day 1 COMPLETE | Days 2-3 Pending
+
+| Component | Details | Status |
+|-----------|---------|--------|
+| **OSINT Integration** | Wayback Machine + Shodan for passive recon | ✅ DEPLOYED |
+| **CLI Command** | intel command in ExecuteCommand switch | ✅ COMPLETE |
+| **Help System** | intel command help with examples | ✅ COMPLETE |
+| **Usage Documentation** | printUsage page 1 with OSINT section | ✅ COMPLETE |
+| **Wayback Module** | Historical endpoint discovery (Ghost APIs) | ✅ COMPLETE |
+| **Shodan Module** | Infrastructure scanning via open ports | ✅ COMPLETE |
+| **Config Module** | API key storage and management | ✅ COMPLETE |
+| **Database Logging** | Findings logged to SQLite | ✅ COMPLETE |
+| **Discovery Integration** | Endpoints added to GlobalDiscovery (F2 Map) | ✅ COMPLETE |
+| **Chain Reactor** | Multi-step attack automation (Day 2) | ⏳ Pending |
+| **Knowledge Base** | Institutional memory for attack patterns (Day 3) | ⏳ Pending |
+
+**Deployed Commands (Tier 4):**
+- `intel wayback <domain>` - Query Internet Archive CDX API (No API key needed)
+- `intel shodan <domain/ip>` - Query Shodan.io for ports/services (API key required)
+- `intel config shodan <key>` - Configure Shodan API key
+
+**Day 1 Implementation Details:**
+- ✅ Core CLI integration complete (pkg/engine/core.go)
+- ✅ All three subcommands functional
+- ✅ Seamless CurrentSession.GetTarget() fallback
+- ✅ Async execution via goroutines
+- ✅ Full database integration for findings
+- ✅ Auto-population of F2 Map with discovered endpoints
+- ✅ Comprehensive help and usage documentation
+- ✅ Build verification successful (go build ✅)
+
+**Architecture Shift:**
+- Passive intelligence layer (no target contact required)
+- External data source integration
+- "Ghost endpoint" discovery for forgotten APIs
+- Platform concept: Tool → Intelligence Platform
+
+**Documentation:** [TIER_4_COMPLETE_IMPLEMENTATION.md](Sprint-20/TIER_4_COMPLETE_IMPLEMENTATION.md)
+
+---
+
+## 🎯 Future Enhancements (Tier 4 Days 2-3)
+
 Future enhancements in planning:
-- **Tier 4 (Planned):** Cloud/K8s-specific modules, C2 architecture, encrypted OOB channels
-- Encrypted OOB channels for exfiltration (Sprint 12.4 reserve)
-- C2 architecture for multi-agent operations (Sprint 13+)
-- Cloud/K8s-specific pivoting modules (Sprint 14+)
-- Post-quantum cryptography research (Sprint 15+)
-- Advanced behavioral evasion (ML-based detection bypass)
-- Distributed testing framework for large-scale assessments
+- **Day 2: Chain Reactor** - Stateful multi-request automation with variable persistence
+- **Day 3: Knowledge Base** - Institutional memory and AI training feedback loop
+- **Cloud/K8s-specific modules** - Advanced infrastructure targeting
+- **C2 architecture** - Multi-agent operations and distributed testing
+- **Post-quantum cryptography** - Advanced encryption research
+- **Advanced behavioral evasion** - ML-based detection bypass

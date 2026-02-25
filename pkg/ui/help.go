@@ -1,3 +1,17 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under {'license_type': 'BSL', 'change_date': '2033-02-17', 'convert_to': 'Apache-2.0'}
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 package ui
 
 import (
@@ -22,13 +36,15 @@ func ShowHelpModal(app *tview.Application, pages *tview.Pages) {
 	}
 
 	data := [][]string{
-		{"Ctrl + H", "Global", "Show this keybindings popup (press Esc to close)"},
+		{"Ctrl + H", "Global", "Show this keybindings popup (Esc to close)"},
 		{"Ctrl + I", "Global", "Toggle Interceptor (On/Off)"},
-		{"Ctrl + F", "Modal", "Forward packet to network"},
-		{"Ctrl + D", "Modal", "Drop packet"},
+		{"Ctrl + F", "Global", "Toggle Fullscreen Mode (Focus Main Tab)"},
+		{"Ctrl + O", "Global", "Open Scope Configuration Modal"},
+		{"Ctrl + A", "F4 Tab", "Analyze: Send snapshot to AI Brain"},
 		{"Ctrl + B", "Modal", "Neuro Brute: Gen payloads for current field"},
 		{"Ctrl + S", "Modal", "Sync: Save to Loot DB"},
-		{"Ctrl + A", "F4 Tab", "Analyze: Send snapshot to AI Brain"},
+		{"Ctrl + F", "Modal", "Forward packet (Interceptor)"},
+		{"Ctrl + D", "Modal", "Drop packet (Interceptor)"},
 		{"F1", "Global", "LOGS tab - Tactical feed & system messages"},
 		{"F2", "Global", "MAP tab - Discovered endpoints"},
 		{"F3", "Global", "LOOT tab - Captured secrets"},
@@ -36,9 +52,9 @@ func ShowHelpModal(app *tview.Application, pages *tview.Pages) {
 		{"F5", "Global", "PLAN tab - Strategic actions"},
 		{"F6", "Global", "NEURO tab - AI engine output"},
 		{"F7", "Global", "REPORT tab - Findings export"},
-		{"Page Up", "F1 Tab", "Scroll up in logs"},
-		{"Page Down", "F1 Tab", "Scroll down in logs"},
-		{"Ctrl + W", "F7 Tab", "Save report to disk"},
+		{"F8", "Global", "HISTORY tab - Traffic Vault"},
+		{"Page Up/Down", "F1 Tab", "Scroll through logs"},
+		{"Ctrl + W/S", "F7 Tab", "Save report to disk"},
 		{"Ctrl + X", "F7 Tab", "Delete session"},
 		{"Esc", "Global", "Exit VaporTrace"},
 	}

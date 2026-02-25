@@ -1,3 +1,19 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under the Business Source License 1.1
+Change Date: 2033-02-17
+Change License: Apache-2.0
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 # VaporTrace Technical Architecture & Deep Dive
 
 **Document:** dev-logs/INDEX.md  
@@ -16,8 +32,9 @@ VaporTrace is a Go-based API penetration testing framework with real-time TUI da
 ## Quick Navigation
 
 ### Release & Status (Latest)
-- ⭐ [TIER_3_IMPLEMENTATION_SUMMARY.md](TIER_3_IMPLEMENTATION_SUMMARY.md) - **Tier 3 Complete Overview** (Feb 11, 2026) ✅ NEW
-- ⭐ [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) - **Tier 3 Checklist & Deployment Status** ✅ NEW
+- ⭐ [Sprint-20/README.md](Sprint-20/README.md) - **Tier 4: Intelligence, Chain Reactor, Extractor** (Feb 11, 2026) ✅ NEW
+- ⭐ [TIER_3_IMPLEMENTATION_SUMMARY.md](TIER_3_IMPLEMENTATION_SUMMARY.md) - **Tier 3 Complete Overview** (Feb 11, 2026) ✅
+- ⭐ [YOUR_ACTION_ITEMS.md](YOUR_ACTION_ITEMS.md) - **Tier 3 Checklist & Deployment Status** ✅
 - [Dev-Roadmap.md](Dev-Roadmap.md) - Strategic roadmap and upcoming work
 - [00_START_HERE.md](00_START_HERE.md) - Starting point for new developers
 
