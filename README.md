@@ -6,7 +6,6 @@
        \/ \__,_| .__/\___/|_|      |_||_|  \__,_|\___\___|
                |_|      [ API INFRASTRUCTURE TRACER ]
 ```
-
 **VaporTrace** is a high-performance Red Team framework engineered in Go for surgical reconnaissance and exploitation of API architectures. It specializes in uncovering "Shadow APIs," analyzing authorization logic (BOLA/BFLA), and mapping the entire attack surface of modern REST/Microservice environments.
 
 ---
@@ -39,6 +38,9 @@ VaporTrace operations are mapped across the full attack lifecycle to provide sta
 | **P4: Injection** | Impact | T1499: Endpoint DoS | `resource-exhaustion (API4)` |
 | **P4: Injection** | Discovery | T1046: Network Service Discovery | `ssrf-tracker (API7)` |
 | **P5: Reporting** | Reporting | T1592: Victim Info | `persistence (SQLite) / report` |
+| **P8: Exfiltration** | **Exfiltration** | **T1041: Exfiltration Over C2** | **`weaver` (Ghost-Weaver)** |
+| **P8: Discovery** | **Credential Access** | **T1552.001: Files/Env** | **`loot` (Discovery Vault)** |
+| **P8: Discovery** | **Credential Access** | **T1552.005: Cloud Provider** | **`TriggerCloudPivot`** |
 | **Standardization** | **Exfiltration** | **T1071.001: Web Protocols** | **`SafeDo` (Universal Mirroring)** |
 | **Standardization** | Credential Access | T1557: AiTM | **`X-VaporTrace-Signal`** |
 
@@ -49,16 +51,19 @@ VaporTrace operations are mapped across the full attack lifecycle to provide sta
 
 The **VaporTrace Shell** is the core differentiator of this framework. Unlike standard one-shot CLI tools, the shell provides a **Persistent Security Context** required for complex logic testing.
 
-### Strategic Use Case: The "Auth Pivot"
-In modern API pentesting, most vulnerabilities aren't found in a single request, but in the **logical relationship** between two accounts. 
+### Strategic Use Case: The "Ghost-Weaver" Pivot
+
+In modern API pentesting, most vulnerabilities aren't found in a single request, but in the **logical relationship** between two accounts and background persistence.
 
 * **Identity Management:** The shell maintains a global state for `Attacker` and `Victim` tokens. You configure them once, and the engine automatically handles the "Identity Swap" during probes.
-* **Speed:** No need to re-type complex JWTs or headers for every command.
+* **Background Sovereignty:** The `weaver` command spawns a background agent that monitors for OIDC tokens and exfiltrates discovered loot via AES-256-GCM encrypted channels.
+* **NHPP Evasion:** Every exfiltrated packet is masked as a `[WARN] Deprecated dependency` log to bypass basic automated traffic analysis.
 * **Real-time Triage:** Integrated `pterm` tables provide immediate feedback on whether a request was blocked (403), missing (404), or successfully leaked (200 OK).
 
 To enter the interactive tactical mode, execute:
 ```bash
 ./VaporTrace shell
+
 
 ```
 
@@ -101,23 +106,27 @@ To enter the interactive tactical mode, execute:
 * [x] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
 * [x] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
 
-### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [UPCOMING]**
+### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [STABLE]**
 
-* [ ] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
-* [ ] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
-* [ ] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
+* [x] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
+* [x] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
+* [x] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
 
-### **Phase 7: Business Logic & Workflow Fuzzing [UPCOMING]**
+### **Phase 7: Business Logic & Workflow Fuzzing [STABLE]**
 
-* [ ] **State-Machine Mapping:** Identifying logical order (e.g., Pay -> Download) and testing out-of-order execution.
-* [ ] **Race Condition Engine:** Multi-threaded "Turbo Intruder" style probes for currency/credit exploits.
+* [x] **Flow Engine Implementation** Command suite, recording, and replay
+* [x] **State-Machine Mapping** Logical order enforcement & out-of-order testing
+* [x] **Race Condition Engine** Multi-threaded "Turbo Intruder" probes
 
-### **Phase 8: Post-Exploitation & Data Exfiltration [UPCOMING]**
+### **Phase 8: Post-Exploitation & Data Exfiltration [ACTIVE]**
 
-* [ ] **Automated PII Scanner:** Scanning response bodies for sensitive data (Credit Cards, SSN, JWTs).
-* [ ] **Secret Leaks:** Automatic detection of Cloud Keys (AWS/Azure) in verbose error messages.
+* [x] **8.1: Discovery Vault:** Real-time regex-based scanning of all response bodies for secrets (Credit Cards, SSN, JWTs).
+* [x] **8.2: Cloud Pivot Engine:** Automatic interception of requests to IMDS (169.254.169.254) for credential harvesting.
+* [x] **8.3: Ghost-Weaver Agent:** Background process for OIDC interception and encrypted exfiltration.
+* [x] **8.4: NHPP Evasion:** Masking tactical data as legitimate-looking "Deprecated Dependency" system logs.
+* [x] **Automated OOB validation** for discovered API tokens and infrastructure leaks.
 
-### **Phase 9: Engineering & Hardening [ACTIVE]**
+### **Phase 9: Engineering & Hardening [STABLE]**
 
 * [x] **9.1: Scraper Refinement:** Pre-compiled global regex for high-performance scraping.
 * [x] **9.1.1: Tactical UI:** Integrated spinners and real-time tables for immediate feedback.
@@ -130,6 +139,7 @@ To enter the interactive tactical mode, execute:
 * [x] **9.8: Industrialized BOPLA (Mass Assignment):** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
 * [x] **9.9: Industrialized BFLA (Functional Logic):** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
 * [x] **9.10: Universal Concurrency (Generic Executor):** Standardize all commands (`mine`, `exhaust`, etc.) under a single `GenericExecutor` for code efficiency.
+* [x] **9.11: Ghost Masquerade:** Process renaming to `kworker_system_auth` for stealth operations.
 
 ### **Phase 10: The Vanguard (Future)**
 
@@ -145,6 +155,7 @@ To enter the interactive tactical mode, execute:
 ```bash
 go mod tidy
 go build -o VaporTrace
+
 
 ```
 
@@ -164,8 +175,16 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `mine` | Fuzz for hidden parameters (debug, admin, etc.) | `mine <url> /users` |
 | `proxy` | Route all tactical traffic through Burp Suite | `proxy http://127.0.0.1:8080` |
 | `proxy off` | Disable the interceptor and go direct | `proxy off` |
-| `pipeline` | Analyzes global discovery to categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
+| `proxies load <f>` | Ingests proxy list for IP rotation | `proxies load list.txt` |
+| `proxies reset` | Flushes pool (Returns to Direct/Burp mode) | `proxies reset` |
+| `target <url>` | Locks base URL for automated pipeline | `target https://api.target.com` |
+| `pipeline` | Categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
 | **Logic Exploitation** |  |  |
+| `flow add` | Record business logic sequence (Interactive) | `flow add` |
+| `flow run` | Replay sequence with variable injection | `flow run` |
+| `flow step` | Tests prerequisite bypasses. | `flow step <id>` |
+| `flow race` | High-concurrency synchronized TOCTOU attack. | `flow race <id> <threads>` |
+| `flow clear` | Reset flow variables. | `flow clear` |
 | `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
 | `bopla` | Execute Mass Assignment / BOPLA fuzzing (API3) | `bopla <url> '{"id":1}'` |
 | `bfla` | Execute Method Shuffling / Verb Tampering (API5) | `bfla <url>` |
@@ -173,6 +192,10 @@ Launch the shell with `./VaporTrace shell` and use the following tactics:
 | `ssrf` | Execute Phase 4.2 SSRF Tracking (API7) | `ssrf <url> <param> <cb>` |
 | `audit` | Execute Phase 4.3 Security Misconfig Audit (API8) | `audit <url>` |
 | `probe` | Execute Phase 4.4 Integration Probe (API10) | `probe <url> stripe` |
+| **Data & Exfiltration** |  |  |
+| `weaver <int>` | Deploy Ghost-Weaver background agent with exfil interval | `weaver 60` |
+| `loot list` | View all discovered secrets (AWS Keys, JWTs, IPs) | `loot list` |
+| `loot clear` | Purge the in-memory discovery vault | `loot clear` |
 | **Logic Verification** |  |  |
 | `test-bola` | Run BOLA logic verification against httpbin | `test-bola` |
 | `test-bopla` | Verify BOPLA/Mass-Assignment injection engine | `test-bopla` |
@@ -201,11 +224,10 @@ Capture your tokens from a proxy and pivot:
 # 2. Set the Attacker Context
 vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
 
-# 3. Set the Victim Context
-vapor@trace:~$ auth victim eyJhbGciOiJIUzI1...
+# 3. Target a user-settings endpoint with a base JSON object
+# The engine will attempt to inject 'is_admin', 'role', etc.
+vapor@trace:~$ bopla [https://api.target.com/v1/user/me](https://api.target.com/v1/user/me) '{"name":"vapor"}'
 
-# 4. Perform the Logic Probe
-vapor@trace:~$ bola [https://api.target.com/v1/user/profile](https://api.target.com/v1/user/profile) 501
 
 ```
 
@@ -217,7 +239,7 @@ Use this unified template to document findings across the VaporTrace tactical ph
 
 > **[VAPOR-TRACE-SECURITY-ADVISORY]**
 > **FINDING ID:** VT-{{YEAR}}-{{ID}}
-> **STRATEGIC PHASE:** {{Phase_1_to_5}}
+> **STRATEGIC PHASE:** {{Phase_1_to_8}}
 > **DATABASE ID:** {{DB_Session_ID}}
 > **TARGET ENDPOINT:** `{{target_url}}`
 > **OWASP API TOP 10:** {{OWASP_Category}} (e.g., API1:2023 BOLA)
@@ -225,23 +247,29 @@ Use this unified template to document findings across the VaporTrace tactical ph
 > * **Reconnaissance (P2):** Discovered via version walking / shadow API mining.
 > * **Tactical Pipeline (P9.5):** Categorized as {{Engine_Type}} based on route heuristics.
 > * **Authorization Context (P3):** Identity swap performed between Attacker and Victim tokens.
+> * **Exfiltration (P8.3):** Verified via Ghost-Weaver masked encryption.
 > * **Mirroring (P9.6):** Request captured in proxy history via `X-VaporTrace-Signal`.
 > * **Injection/Consumption (P4):** Logic used to trigger SSRF or Resource Exhaustion.
 > * **Persistence (P5):** All tactical logs committed to SQLite for debrief.
-> 
-> 
+>  
+>  
 > **REPRODUCTION LOG:**
+> 
+> 
+
 > ```bash
 > vapor@trace:~$ {{executed_command}}
 > [MIRROR] Confirmed hit via {{Module}} mirrored to proxy.
 > [RESULT] {{server_response_code}} | {{latency_ms}}ms
+>  
 > 
 > ```
 > 
 > 
+>  
+>  
 > **IMPACT:** {{Data_Exfiltration / Service_Instability / Privilege_Escalation}}
 > **REMEDIATION:** {{Engineering_Action_Plan}}
-
 
 ---
 

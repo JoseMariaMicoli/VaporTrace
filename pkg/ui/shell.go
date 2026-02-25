@@ -34,12 +34,17 @@ func NewShell() *Shell {
 func (s *Shell) RenderBanner() {
 	fmt.Print("\033[H\033[2J") // Clear screen
 
-	// Using a "Deep Sea/Cyan" theme for a more sophisticated look
-	pterm.DefaultHeader.
-		WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).
-		WithTextStyle(pterm.NewStyle(pterm.FgBlack, pterm.Bold)).
-		WithMargin(10).
-		Println("VaporTrace | Surgical API Exploitation Suite")
+	// Match the ASCII Art from README.md
+	bannerStyle := pterm.NewStyle(pterm.FgCyan, pterm.Bold)
+	bannerStyle.Println(`
+    __  __                         _____                    
+    \ \ / /___  _ __  ___  _ __   |_   _| __ __ _  ___ ___ 
+     \ V // _ ` + "`" + `| '_ \/ _ \| '__|    | || '__/ _` + "`" + `|/ __/ _ \
+      \  / (_| | |_)  (_) | |       | || | | (_| | (_|  __/
+       \/ \__,_| .__/\___/|_|       |_||_|  \__,_|\___\___|
+               |_|      [ Surgical API Exploitation Suite]`)
+
+	pterm.Println(pterm.Cyan("────────────────────────────────────────────────────────────"))
 
 	statusColor := pterm.FgLightGreen
 	statusText := "● SYSTEM ONLINE"
@@ -51,18 +56,20 @@ func (s *Shell) RenderBanner() {
 
 	// Check if proxy is active for the UI
 	gateway := "DIRECT"
-	if os.Getenv("HTTP_PROXY") != "" {
+	if len(logic.ProxyPool) > 0 {
+		gateway = fmt.Sprintf("ROTATING (%d IPs)", len(logic.ProxyPool))
+	} else if os.Getenv("HTTP_PROXY") != "" {
 		gateway = "http://127.0.0.1:8080 (BURP)"
 	}
 
-	// Stylized Table using a sleeker box style
+	// Stylized Table using the logic from your shell.go
 	pterm.DefaultTable.WithData(pterm.TableData{
 		{"UPSTREAM GATEWAY", "LOGIC ENGINE", "BUILD VERSION"},
-		{gateway, statusColor.Sprintf(statusText), "v2.0.1-stable"},
+		{pterm.LightBlue(gateway), statusColor.Sprintf(statusText), pterm.LightMagenta("v3.1-Flash")},
 	}).WithBoxed().Render()
 
 	pterm.Printf("\n%s Use 'usage' for tactics or 'help' for manuals.\n\n",
-		pterm.LightBlue("»"))
+		pterm.Cyan("»"))
 }
 
 // Start launches the interactive tactical loop with Auto-Completion
@@ -72,12 +79,31 @@ func (s *Shell) Start() {
 	completer := readline.NewPrefixCompleter(
 		readline.PcItem("init_db"),
 		readline.PcItem("reset_db"),
+		readline.PcItem("target"),
 		readline.PcItem("map"),
 		readline.PcItem("mine"),
 		readline.PcItem("scrape"),
 		readline.PcItem("swagger"),
 		readline.PcItem("pipeline"),
-		readline.PcItem("proxy"), 
+		readline.PcItem("weaver"),
+		readline.PcItem("proxy"),
+		readline.PcItem("proxies",        // <--- Ensure comma here
+			readline.PcItem("load"),  // <--- Ensure comma here
+			readline.PcItem("reset"), // <--- Ensure comma here
+		),
+		readline.PcItem("flow",
+		readline.PcItem("loot"),
+	        readline.PcItem("add"),
+	        readline.PcItem("run"),
+	        readline.PcItem("list"),
+	        readline.PcItem("step"),
+	        readline.PcItem("race"),
+	        readline.PcItem("clear"),
+	    ),
+	    readline.PcItem("loot",
+		    readline.PcItem("list"),
+		    readline.PcItem("clear"),
+		),
 		readline.PcItem("bola"),
 		readline.PcItem("bopla"),
 		readline.PcItem("bfla"),
@@ -156,6 +182,187 @@ func (s *Shell) Start() {
 
 func (s *Shell) handleCommand(command string, args []string) {
 	switch command {
+	// --- PHASE 8.3/10: GHOST-WEAVER INTEGRATION ---
+	case "weaver":
+		if len(args) < 1 {
+			pterm.Error.Println("Usage: weaver <interval_s> [master_key]")
+			break // Corrected: Exit the switch case to return to the loop
+		}
+		
+		// Parse execution interval
+		intervalSec, err := strconv.Atoi(args[0])
+		if err != nil {
+			pterm.Error.Println("Invalid interval. Please provide an integer (seconds).")
+			break // Corrected: Exit the switch case
+		}
+
+		// Synchronize Master Key with Ghost-Pipeline standards
+		key := logic.MasterKey
+		if len(args) > 1 {
+			key = args[1]
+			logic.MasterKey = key 
+		}
+
+		config := logic.WeaverConfig{
+			Interval: time.Duration(intervalSec) * time.Second,
+			Active:   true,
+		}
+		
+		// Initialize non-blocking background interceptor and masquerader
+		go logic.StartGhostWeaver(config)
+		
+		pterm.Success.WithPrefix(pterm.Prefix{Text: "GHOST", Style: pterm.NewStyle(pterm.FgBlack, pterm.BgCyan)}).
+			Printfln("Ghost-Weaver deployed. Interval: %ds. Masking: AES-256-GCM.", intervalSec)
+	case "loot":
+		if len(args) < 1 {
+			pterm.Info.Println("Usage: loot list | loot clear")
+			return
+		}
+
+		subCmd := args[0]
+		switch subCmd {
+		case "list":
+			pterm.DefaultHeader.WithFullWidth(false).
+				WithBackgroundStyle(pterm.NewStyle(pterm.BgLightBlue)).
+				Println("DISCOVERY VAULT")
+
+			if len(logic.Vault) == 0 {
+				pterm.Warning.Println("No sensitive data recovered yet.")
+			} else {
+				for _, f := range logic.Vault {
+					pterm.Info.Printfln("[%s] %s (Source: %s)",
+						pterm.Yellow(f.Type),
+						f.Value,
+						pterm.Gray(f.Source))
+				}
+			}
+
+		case "clear":
+			logic.Vault = []logic.Finding{}
+			pterm.Success.Println("Vault purged.")
+
+		default:
+			pterm.Error.Printfln("Unknown sub-command: %s", subCmd)
+		}
+
+	case "flow":
+		if len(args) < 1 {
+			pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("TACTICAL FLOW ENGINE")
+			pterm.Info.Println("Phase 7.1/7.2: State-Machine & Sequence Analysis")
+			fmt.Println("\nAvailable Subcommands:")
+			fmt.Println("  add   - Record a new step (Interactive)")
+			fmt.Println("  run   - Execute the current sequence")
+			fmt.Println("  list  - View the recorded sequence and context")
+			fmt.Println("  step  - [Phase 7.2] Execute a single step (Out-of-order test)")
+			fmt.Println("  clear - Purge the current flow and captured context")
+			return
+		}
+
+		switch args[0] {
+		case "add":
+			pterm.DefaultSection.Println("Flow Step Recorder")
+			name, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Step Name").Show()
+			method, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Method (GET/POST/PUT)").Show()
+			
+			rawURL, _ := pterm.DefaultInteractiveTextInput.
+				WithDefaultText("Target URL").
+				WithDefaultValue(logic.CurrentSession.TargetURL).
+				Show()
+				
+			rawBody, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Body (Use {{var}} for variables)").Show()
+			extract, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("JSON Path to Extract (optional)").Show()
+
+			// Sanitization for Phase 6.3 ANSI Safety
+			cleanURL := utils.StripANSI(rawURL)
+			cleanBody := utils.StripANSI(rawBody)
+			cleanExtract := utils.StripANSI(extract)
+
+			logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
+				Name:        name,
+				Method:      strings.ToUpper(method),
+				URL:         strings.TrimSpace(cleanURL),
+				Body:        strings.TrimSpace(cleanBody),
+				ExtractPath: strings.TrimSpace(cleanExtract),
+			})
+			pterm.Success.Printfln("Step '%s' added to sequence.", name)
+
+		case "run":
+			logic.RunFlow()
+
+		case "list":
+			pterm.DefaultSection.Println("Current Tactical Flow")
+			if len(logic.ActiveFlow) == 0 {
+				pterm.Warning.Println("Queue is empty.")
+				return
+			}
+			for i, s := range logic.ActiveFlow {
+				pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+					{Level: 0, Text: pterm.Cyan(fmt.Sprintf("[%d] %s", i+1, s.Name))},
+					{Level: 1, Text: pterm.Gray(fmt.Sprintf("%s %s", s.Method, s.URL))},
+				}}.Render()
+			}
+
+		case "step":
+			// Phase 7.2: Out-of-order State Machine Test
+			if len(args) < 2 {
+				pterm.Error.Println("Usage: flow step <id>")
+				return
+			}
+			id, err := strconv.Atoi(args[1])
+			if err != nil {
+				pterm.Error.Println("Invalid step ID.")
+				return
+			}
+			logic.RunStep(id - 1)
+		case "race":
+			if len(args) < 3 {
+				pterm.Info.Println("Usage: flow race <step_id> <threads>")
+				return
+			}
+			id, _ := strconv.Atoi(args[1])
+			threads, _ := strconv.Atoi(args[2])
+			logic.RunRace(id-1, threads)
+
+		case "clear":
+			logic.ActiveFlow = []logic.FlowStep{}
+			logic.FlowContext = make(map[string]string) // Reset State-Machine memory
+			pterm.Success.Println("Flow and State Context purged.")
+
+		default:
+			pterm.Error.Printfln("Unknown flow command: %s", args[0])
+		}
+
+	case "target":
+		if len(args) < 1 {
+			pterm.Error.Println("Usage: target <url> (e.g., target https://api.target.com)")
+			return
+		}
+		// Normalize and set the target in the global logic store
+		targetURL := args[0]
+		if !strings.HasPrefix(targetURL, "http") {
+			targetURL = "https://" + targetURL
+		}
+		logic.CurrentSession.TargetURL = targetURL
+		pterm.Success.Printfln("Target locked: %s", targetURL)
+
+	case "proxies":
+		if len(args) < 1 {
+			pterm.Info.Println("Usage: proxies load <file> | proxies reset")
+			return
+		}
+		if args[0] == "load" && len(args) == 2 {
+			err := logic.LoadProxiesFromFile(args[1])
+			if err == nil {
+				logic.InitializeRotaryClient()
+			}
+		} else if args[0] == "reset" {
+			logic.ProxyPool = []string{}
+			logic.InitializeRotaryClient()
+			pterm.Success.Println("Proxy pool purged. Identity returned to default (Direct/Burp).")
+		} else {
+			pterm.Warning.Println("Invalid subcommand. Use 'load <file>' or 'reset'.")
+		}
+
 	case "proxy":
 		if len(args) < 1 {
 			pterm.Info.Println("Usage: proxy <url> (e.g., proxy http://127.0.0.1:8080)")
@@ -195,7 +402,13 @@ func (s *Shell) handleCommand(command string, args []string) {
 			Println("Mission Intelligence has been successfully exported.")
 
 	case "usage":
-		s.ShowUsage()
+		if len(args) > 0 && args[0] == "loot" {
+			pterm.DefaultHeader.WithFullWidth(false).Println("PHASE 8.1: PII SCANNER")
+			pterm.Println("Automatically scans all incoming HTTP traffic for secrets.")
+			pterm.Println("Currently monitoring: AWS Keys, JWTs, Credit Cards, Emails, and Slack Tokens.")
+		} else {
+			s.ShowUsage()
+		}
 
 	case "help":
 		if len(args) > 0 {
@@ -403,8 +616,22 @@ func (s *Shell) handleCommand(command string, args []string) {
 			pterm.Info.Println("Usage: probe <url> [type]")
 			return
 		}
+
 		iType := "generic"
-		if len(args) > 1 { iType = args[1] }
+		if len(args) > 1 {
+			iType = args[1]
+		}
+
+		// CRITICAL FIX: Append to 'ActiveFlow' so 'flow run' can see it
+		logic.ActiveFlow = append(logic.ActiveFlow, logic.FlowStep{
+			Name:   fmt.Sprintf("Probe-%s", iType),
+			Method: "GET", 
+			URL:    args[0],
+			Body:   "",
+		})
+		
+		pterm.Success.Printfln("Task added to Tactical Queue (Flow): [%s] %s", pterm.Cyan(iType), args[0])
+
 		probe := &logic.IntegrationContext{TargetURL: args[0], IntegrationType: iType}
 		probe.Probe()
 
@@ -558,8 +785,8 @@ func (s *Shell) handleCommand(command string, args []string) {
 	case "test-bola":
 		pterm.Info.Println("Diagnostic BOLA test against httpbin...")
 		vuln := &logic.BOLAContext{
-			BaseURL:       "https://httpbin.org/anything",
-			VictimID:      "private_id_777",
+			BaseURL:        "https://httpbin.org/anything",
+			VictimID:       "private_id_777",
 			AttackerToken: logic.CurrentSession.AttackerToken,
 		}
 		vuln.ProbeSilent()
@@ -576,6 +803,11 @@ func (s *Shell) ShowUsage() {
 		{"init_db", "Initialize SQLite Persistence", "init_db"},
 		{"reset_db", "Wipe local mission data (Purge)", "reset_db"},
 		{"proxy", "Toggle Burp Suite Proxy (8080)", "proxy on"},
+		{"proxies load", "Load IP rotation pool from text file", "proxies load p.txt"},
+		{"proxies reset", "Clear pool and return to direct mode", "proxies reset"},
+		{"flow", "Record and replay multi-step business logic", "flow add"},
+		{"loot", "[Phase 8.1] View/Clear captured PII and Secrets", "loot list"},
+		{"weaver <i> [k]", "Deploy OIDC interceptor & masquerader (Phase 8.3)"},
 		{"swagger", "Parse OpenAPI/Swagger docs for routes", "swagger <url>"},
 		{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 		{"scrape", "Extract API paths from JS files", "scrape <url>"},
@@ -623,7 +855,16 @@ func (s *Shell) ShowHelp(cmd string) {
 			{Level: 0, Text: "I/O Mode: Asynchronous Non-blocking (Goroutine Worker)"},
 			{Level: 0, Text: "Default File: ./vaportrace.db"},
 		}}.Render()
-
+	case "proxies":
+		pterm.Bold.Println("PHASE 6.2: IP ROTATION & EVASION")
+		pterm.Println("Distributes requests across a pool of HTTP/SOCKS5 proxies to bypass rate-limits.")
+		pterm.Println("\nCOMMANDS:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "load <file> : Ingests a line-separated list of proxy URLs."},
+			{Level: 0, Text: "reset        : Wipes the pool. VaporTrace will fall back to Burp or Direct."},
+		}}.Render()
+		pterm.Println("\nFILE FORMAT:")
+		pterm.Cyan("http://user:pass@host:port\nsocks5://host:port")
 	case "reset_db":
 		pterm.Bold.Println("DESCRIPTION:")
 		pterm.Println("Safely purges the mission database and metadata.")
@@ -638,6 +879,7 @@ func (s *Shell) ShowHelp(cmd string) {
 			{"swagger", "Map API surface via OpenAPI/Swagger docs", "swagger <url>"},
 			{"mine", "Fuzz for hidden query parameters", "mine <url> <endpoint>"},
 			{"scrape", "Extract API paths from JS source", "scrape <url>"},
+			{"flow", "Business Logic sequencing engine", "flow <add|run|list|clear>"},
 		}
 		for _, item := range helpItems {
 			pterm.DefaultBulletList.WithItems([]pterm.BulletListItem{
@@ -645,6 +887,62 @@ func (s *Shell) ShowHelp(cmd string) {
 				{Level: 1, Text: pterm.Gray("Usage: ") + item[2]},
 			}).Render()
 		}
+	case "loot":
+	    pterm.DefaultHeader.WithFullWidth(false).Println("PHASE 8.3: DISCOVERY VAULT & CLOUD PIVOT")
+	    pterm.Bold.Println("DESCRIPTION:")
+	    pterm.Println("Manages the storage of detected secrets and handles tactical exfiltration.")
+	    pterm.Println("High-value findings are encrypted using AES-256-GCM (Ghost-Pipeline Standard).")
+	    
+	    pterm.Bold.Println("\nAUTOMATED CLOUD PIVOT:")
+	    pterm.Println("Upon detection of 169.254.169.254, the engine spawns an IMDSv2 prober in the background.")
+
+	    pterm.Bold.Println("\nCOMMANDS:")
+	    pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+	        {Level: 0, Text: pterm.Cyan("list") + "  : Displays the table of captured secrets, tokens, and PII."},
+	        {Level: 0, Text: pterm.Cyan("clear") + " : Purges the Vault from current session memory."},
+	    }}.Render()
+
+	    pterm.Bold.Println("\nSTEALTH SIGNATURE:")
+	    pterm.Warning.Println("Deprecated dependency 'net/v1.0.4' (Camouflaged AES Payload)")
+	case "weaver":
+		pterm.DefaultHeader.WithFullWidth(false).WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println("COMMAND: weaver")
+		pterm.Bold.Println("DESCRIPTION:")
+		pterm.Println("Deploys a background OIDC interceptor and process masquerader (kworker_system_auth).")
+		pterm.Println("\nOPERATION:")
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "Interception: Polls environment for ACTIONS_ID_TOKEN_REQUEST_URL (GitHub/OIDC)."},
+			{Level: 0, Text: "Evasion: Masks process as 'kworker_system_auth' to blend into Linux process lists."},
+			{Level: 0, Text: "Exfiltration: Encrypts loot with AES-256-GCM and emits as benign [WARN] build logs."},
+		}}.Render()
+		pterm.Println("\nUSAGE:")
+		pterm.Cyan("weaver <interval_seconds> [optional_master_key]")
+	case "flow":
+		pterm.DefaultHeader.WithFullWidth(false).Println("USAGE: TACTICAL FLOWS")
+		pterm.Println("VaporTrace mimics complex user journeys to find Business Logic flaws.")
+
+		fmt.Println(pterm.Bold.Sprint("\nVariable Chaining (Phase 7.1):"))
+		pterm.Println("Capture values using GJSON paths. Example: 'data.user.id'")
+		pterm.Println("Inject them in later steps using: {{data.user.id}}")
+
+		fmt.Println(pterm.Bold.Sprint("\nState-Machine Mapping (Phase 7.2):"))
+		pterm.Println("Use 'flow step <id>' to execute a sensitive action (like /download)")
+		pterm.Println("without the prerequisite steps (like /pay).")
+
+		fmt.Println(pterm.Bold.Sprint("\nRace Condition Engine (Phase 7.3):"))
+		pterm.Println("Use 'flow race <id> <threads>' to fire synchronized requests.")
+		pterm.Println("Attempts to exploit TOCTOU flaws (e.g., double-spending).")
+
+		fmt.Println(pterm.Bold.Sprint("\nCommands:"))
+		pterm.BulletListPrinter{Items: []pterm.BulletListItem{
+			{Level: 0, Text: "flow add   : Interactive step recording"},
+			{Level: 0, Text: "flow run   : Full sequence execution"},
+			{Level: 0, Text: "flow step  : Targeted out-of-order execution"},
+			{Level: 0, Text: "flow race  : Synchronized high-concurrency probe"},
+			{Level: 0, Text: "flow list  : View sequence and variables"},
+			{Level: 0, Text: "flow clear : Clear flow and state memory"},
+		}}.Render()
+
+    // DELETED: case "usage" block (It was causing the error and is not needed here)
 
 	case "auth":
 		pterm.Println("Configures identity contexts (JWT/Cookies) for cross-account authorization testing.")
