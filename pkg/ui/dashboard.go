@@ -23,7 +23,9 @@ import (
 	"sync"
 	"time"
 
+	db "github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/engine"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -75,9 +77,10 @@ var (
 	resView      *tview.TextView
 
 	// Tab 5: Context Aggregator Components
-	ctxFlex    *tview.Flex
-	ctxSummary *tview.TextView
-	ctxLogView *tview.TextView
+	ctxFlex      *tview.Flex
+	ctxSummary   *tview.TextView
+	ctxLogView   *tview.TextView
+	plannerTable *tview.Table
 
 	// Tab 6: Neuro Engine Components
 	neuroView *tview.TextView

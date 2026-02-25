@@ -1,0 +1,83 @@
+name: Dev CI (Lint + Build)
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+concurrency:
+  group: dev-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+
+  lint-build:
+    name: Dev Lint, Vet, Test, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify go.mod/go.sum are tidy
+        shell: bash
+        run: |
+          set -euo pipefail
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Check formatting (gofmt)
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNFORMATTED="$(gofmt -l . | grep -v '^vendor/' || true)"
+          if [[ -n "${UNFORMATTED}" ]]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "${UNFORMATTED}"
+            exit 1
+          fi
+
+      - name: Lint (golangci-lint)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Vulnerability scan (govulncheck)
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: go build -v ./...

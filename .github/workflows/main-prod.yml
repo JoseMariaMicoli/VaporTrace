@@ -1,0 +1,106 @@
+name: Main/Prod Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: main-prod-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  prod-quality-gate:
+    name: Prod Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify go.mod/go.sum are tidy
+        shell: bash
+        run: |
+          set -euo pipefail
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Check formatting (gofmt)
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNFORMATTED="$(gofmt -l . | grep -v '^vendor/' || true)"
+          if [[ -n "${UNFORMATTED}" ]]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "${UNFORMATTED}"
+            exit 1
+          fi
+
+      - name: Lint (golangci-lint)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Vulnerability scan (govulncheck)
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Test (race detector)
+        run: go test -race ./...
+
+      - name: Build
+        run: go build -v ./...
+
+  prod-artifact:
+    name: Build Linux Artifact
+    runs-on: ubuntu-latest
+    needs: prod-quality-gate
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build release binary
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          go build -trimpath -ldflags="-s -w" -o dist/vaportrace-linux-amd64 ./main.go
+          tar -czf dist/vaportrace-linux-amd64.tar.gz -C dist vaportrace-linux-amd64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaportrace-linux-amd64
+          path: dist/vaportrace-linux-amd64.tar.gz
