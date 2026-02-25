@@ -1013,4 +1013,5 @@ func (s *Shell) ShowHelp(cmd string) {
 	default:
 		pterm.Error.Printf("No manual entry for %s\n", cmd)
 	}
+
 }

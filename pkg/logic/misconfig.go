@@ -13,6 +13,8 @@ type MisconfigContext struct {
 }
 
 func (m *MisconfigContext) Audit() {
+	EnsureTransport()
+
 	utils.TacticalLog(fmt.Sprintf("[blue]API8 Audit: Scanning %s for Security Misconfigurations...[-]", m.TargetURL))
 
 	req, _ := http.NewRequest("GET", m.TargetURL, nil)

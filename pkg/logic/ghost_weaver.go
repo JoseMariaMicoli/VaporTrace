@@ -13,7 +13,6 @@ import (
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
-	"github.com/pterm/pterm"
 )
 
 // MasterKey is the global Ghost-Pipeline encryption key
@@ -28,7 +27,7 @@ type WeaverConfig struct {
 
 // StartGhostWeaver initializes the background OIDC interception.
 func StartGhostWeaver(conf WeaverConfig) {
-	pterm.Info.WithPrefix(pterm.Prefix{Text: "VANGUARD"}).Println("Initializing Ghost-Weaver background agent...")
+	utils.TacticalLog("[magenta]VANGUARD:[-] Initializing Ghost-Weaver background agent...")
 
 	// Masquerade process
 	masqueradeAsKworker()

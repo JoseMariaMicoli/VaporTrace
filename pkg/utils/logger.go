@@ -23,7 +23,10 @@ func SetLoggerMode(mode string) {
 // EscapeTview sanitizes strings to prevent tview from interpreting brackets as color tags.
 // This fixes the UI freezing issue when logging JSON or Arrays.
 func EscapeTview(text string) string {
-	return strings.ReplaceAll(text, "[", "[[")
+	text = StripANSI(text)
+	text = strings.ReplaceAll(text, "[", "[[")
+	text = strings.ReplaceAll(text, "]", "]]")
+	return text
 }
 
 // TacticalLog handles generic system messages
