@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"net/http"
+
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 

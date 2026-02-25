@@ -98,7 +98,25 @@ func GenerateMissionDebrief() {
 	pterm.Success.Printf("Tactical report generated: %s\n", fileName)
 }
 
-func redactValue(val string) string {
-	if len(val) <= 8 { return "****" }
-	return val[:4] + "...." + val[len(val)-4:]
+func getSeverityIcon(score float64) string {
+	if score >= 9.0 {
+		return "🔴"
+	} // Critical
+	if score >= 7.0 {
+		return "🟠"
+	} // High
+	if score >= 4.0 {
+		return "🟡"
+	} // Medium
+	return "🔵" // Low
+}
+
+// In your reporting logic package
+func GetCurrentReportMarkdown() string {
+	// This should mirror the logic used in writeTechnicalDetails
+	var md string
+	md += "# VAPORTRACE MISSION DEBRIEF\n"
+	md += "## 3. TECHNICAL FINDINGS\n"
+	// ... logic to query DB and build table ...
+	return md
 }
