@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url" // Added for robust URL parsing
@@ -21,12 +20,7 @@ var testLimits = []string{"100", "1000", "10000", "50000", "1000000"}
 func (e *ExhaustionContext) FuzzPagination() {
 	pterm.DefaultHeader.WithFullWidth(false).Println("API4: Resource Exhaustion - Pagination Fuzzer")
 
-	client := &http.Client{
-		Timeout: 20 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
+	// PATCH: Removed local client definition
 
 	for _, val := range testLimits {
 		// Robust URL Construction
@@ -50,7 +44,8 @@ func (e *ExhaustionContext) FuzzPagination() {
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", CurrentSession.AttackerToken))
 		}
 
-		resp, err := client.Do(req)
+		// PATCH: Using GlobalClient
+		resp, err := GlobalClient.Do(req)
 		duration := time.Since(start)
 
 		if err != nil {

@@ -1,10 +1,8 @@
 package logic
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
@@ -25,12 +23,7 @@ func (b *BFLAContext) Probe() {
 		pterm.Warning.Println("No Attacker Token found. Probing without Authorization header (Testing baseline)...")
 	}
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
+	// PATCH: Removed local client definition
 
 	for _, method := range bflaMethods {
 		pterm.Info.Printf("Testing Method Shuffling: [%s] -> %s\n", method, b.TargetURL)
@@ -40,7 +33,8 @@ func (b *BFLAContext) Probe() {
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", activeToken))
 		}
 
-		resp, err := client.Do(req)
+		// PATCH: Using GlobalClient
+		resp, err := GlobalClient.Do(req)
 		if err != nil {
 			pterm.Error.Printf("Connection error for %s: %v\n", method, err)
 			continue

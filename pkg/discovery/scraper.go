@@ -4,15 +4,13 @@ import (
 	"io"
 	"regexp"
 
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils" // Import Central Utils
 )
 
 func ExtractJSPaths(url string, proxy string) ([]string, error) {
-	client, err := utils.GetClient(proxy)
-	if err != nil {
-		return nil, err
-	}
+	// PATCH: Use GlobalClient
+	client := utils.GlobalClient
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -30,7 +28,7 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 		path := m[1 : len(m)-1]
 		cleaned = append(cleaned, path)
 
-		// PERSISTENCE HOOK: Log extracted JS path
+		// PERSISTENCE HOOK
 		db.LogQueue <- db.Finding{
 			Phase:   "PHASE II: DISCOVERY",
 			Target:  url,

@@ -1,11 +1,9 @@
 package logic
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
@@ -20,16 +18,15 @@ type SSRFContext struct {
 func (s *SSRFContext) Probe() {
 	pterm.DefaultHeader.WithFullWidth(false).Println("API7: Server-Side Request Forgery Tracker")
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		// We do NOT follow redirects automatically to detect if the API 
-		// is acting as a proxy or just a redirector.
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
+	// PATCH: Create a shallow copy of the GlobalClient.
+	// This inherits the Transport (Proxy settings) from GlobalClient
+	// but allows us to set a custom CheckRedirect policy for SSRF only.
+	client := *GlobalClient
+	
+	// We do NOT follow redirects automatically to detect if the API 
+	// is acting as a proxy or just a redirector.
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 
 	payloads := []string{
