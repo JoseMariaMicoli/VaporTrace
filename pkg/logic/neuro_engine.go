@@ -102,6 +102,33 @@ func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 		n.Primary.Configure(apiKey, model, endpoint)
 		utils.TacticalLog("[green]NEURO:[-] OpenAI Cloud Selected.")
 
+	case "groq":
+		if model == "" {
+			model = "llama-3.1-8b-instant"
+		}
+		if endpoint == "" {
+			endpoint = "https://api.groq.com/openai/v1/chat/completions"
+		}
+		n.Primary = &ai.OpenAIClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
+		utils.TacticalLog(fmt.Sprintf("[green]NEURO:[-] Groq Selected (%s).", model))
+
+	case "grok", "xai", "x.ai":
+		if model == "" {
+			model = "grok-3-latest"
+		}
+		// Backward-compat for old docs/commands that still reference Grok 2 aliases.
+		if strings.HasPrefix(strings.ToLower(model), "grok-2") {
+			utils.TacticalLog(fmt.Sprintf("[yellow]NEURO:[-] Model alias '%s' is deprecated. Auto-mapping to grok-3-latest.", model))
+			model = "grok-3-latest"
+		}
+		if endpoint == "" {
+			endpoint = "https://api.x.ai/v1/chat/completions"
+		}
+		n.Primary = &ai.OpenAIClient{}
+		n.Primary.Configure(apiKey, model, endpoint)
+		utils.TacticalLog(fmt.Sprintf("[green]NEURO:[-] xAI Grok Selected (%s).", model))
+
 	case "google", "gemini":
 		if model == "" {
 			// Using the stable alias to avoid beta quota issues in LATAM regions
