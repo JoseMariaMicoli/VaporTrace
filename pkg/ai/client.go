@@ -169,7 +169,13 @@ func (o *OpenAIClient) Analyze(input string) (string, error) {
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("openai error (%d): %s", resp.StatusCode, string(body))
+		provider := "openai-compatible"
+		if strings.Contains(o.Endpoint, "api.x.ai") {
+			provider = "xai-grok"
+		} else if strings.Contains(o.Endpoint, "api.groq.com") {
+			provider = "groq"
+		}
+		return "", fmt.Errorf("%s error (%d): %s", provider, resp.StatusCode, string(body))
 	}
 
 	var result OpenAIResponse
