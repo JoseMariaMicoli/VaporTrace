@@ -2,7 +2,6 @@ package logic
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"time"
@@ -19,12 +18,7 @@ type IntegrationContext struct {
 func (i *IntegrationContext) Probe() {
 	pterm.DefaultHeader.WithFullWidth(false).Println("API10: Unsafe Consumption / Integration Probe")
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
+	// PATCH: Removed local client definition
 
 	// Payload list: Simulating common third-party webhook structures
 	payloads := map[string]string{
@@ -44,7 +38,9 @@ func (i *IntegrationContext) Probe() {
 		req.Header.Set("User-Agent", fmt.Sprintf("VaporTrace-%s-Scanner", i.IntegrationType))
 
 		start := time.Now()
-		resp, err := client.Do(req)
+		
+		// PATCH: Using GlobalClient
+		resp, err := GlobalClient.Do(req)
 		duration := time.Since(start)
 
 		if err != nil {
