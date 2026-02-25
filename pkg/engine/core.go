@@ -49,6 +49,14 @@ type TacticalAction struct {
 
 // ActionBuffer is the global staging area for the planner
 var ActionBuffer []TacticalAction
+var exitHook = func() { os.Exit(0) }
+
+// SetExitHook allows UI mode to stop the app cleanly instead of hard os.Exit().
+func SetExitHook(fn func()) {
+	if fn != nil {
+		exitHook = fn
+	}
+}
 
 // LastCapturedRequest stores the most recent HTTP request for fuzzing analysis
 var LastCapturedRequest string
@@ -907,7 +915,7 @@ func ExecuteCommand(rawCmd string) {
 			utils.TacticalLog("[green]✔[-] Agents Purged.")
 			utils.TacticalLog("[red::b]SYSTEM HALTED. GOODBYE.[-:-:-]")
 			time.Sleep(1200 * time.Millisecond)
-			os.Exit(0)
+			exitHook()
 		}()
 
 	case "exit":
