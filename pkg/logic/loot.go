@@ -10,7 +10,6 @@ import (
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
-	"github.com/pterm/pterm"
 )
 
 type Finding struct {
@@ -106,7 +105,7 @@ func ScanForLoot(body string, url string) {
 }
 
 func ExecutePivot(target string, source string) {
-	pterm.Info.WithPrefix(pterm.Prefix{Text: "PIVOT"}).Printfln("Initiating lateral harvest on %s", target)
+	utils.TacticalLog("[cyan]PIVOT:[-] Initiating lateral harvest on " + target)
 
 	client := &http.Client{Timeout: 5 * time.Second}
 

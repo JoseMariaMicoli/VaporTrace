@@ -23,6 +23,8 @@ var (
 )
 
 func ExtractJSPaths(url string, proxy string) ([]string, error) {
+	logic.EnsureTransport()
+
 	client := logic.GlobalClient
 
 	resp, err := client.Get(url)

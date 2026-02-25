@@ -1,32 +1,36 @@
-\`\`\`
+```
      __  __                         _____                    
     \ \ / /___  _ __  ___  _ __   |_   _| __ __ _  ___ ___ 
      \ V // _ `| '_ \/ _ \| '__|    | || '__/ _` |/ __/ _ \
       \  / (_| | |_)  (_) | |       | || | | (_| | (_|  __/
        \/ \__,_| .__/\___/|_|       |_||_|  \__,_|\___\___|
                |_|      [ Surgical API Exploitation Suite ]
-\`\`\`
+```
 
 # VaporTrace v3.1-Hydra
 
 **Enterprise-Grade API Security Testing Platform**
 
-![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go) ![License](https://img.shields.io/badge/License-Custom-red?style=flat-square) ![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square) ![OWASP](https://img.shields.io/badge/OWASP-API%20Top%2010-blue?style=flat-square) ![MITRE](https://img.shields.io/badge/MITRE-ATT%26CK-orange?style=flat-square) ![NIST](https://img.shields.io/badge/NIST-CSF%20v2.0-purple?style=flat-square)
+![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square) ![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square) ![OWASP](https://img.shields.io/badge/OWASP-API%20Top%2010-blue?style=flat-square) ![MITRE](https://img.shields.io/badge/MITRE-ATT%26CK-orange?style=flat-square) ![NIST](https://img.shields.io/badge/NIST-CSF%20v2.0-purple?style=flat-square) ![Autonomy](https://img.shields.io/badge/Autonomy-Full-red?style=flat-square) ![AI](https://img.shields.io/badge/AI-LLM%20Driven-ff69b4?style=flat-square)
+
+**Status:** ✅ Production Ready | **Released:** February 2026 | **Sprints Complete:** 1-11, 16 | **Development:** Sprint 12+
 
 ---
 
 ## 🎯 Executive Summary
 
-**VaporTrace** is a surgical API exploitation and risk intelligence platform engineered for **penetration testers**, **red teams**, and **security researchers**. It automates the discovery, analysis, and exploitation of OWASP API Top 10 vulnerabilities with human-in-the-loop orchestration and neural engine-driven payload generation.
+**VaporTrace** is a surgical API exploitation and risk intelligence platform engineered for **penetration testers**, **red teams**, and **security researchers**. It automates the discovery, analysis, and exploitation of OWASP API Top 10 vulnerabilities with full autonomy orchestration and neural engine-driven payload generation.
 
-### Key Capabilities
+### 🚀 Key Capabilities (v3.1-Hydra)
 
+- **Fully Autonomous Exploitation** - ProcessChain() with precondition validation and automated chaining
 - **Automated API discovery** - Endpoint mapping, shadow API detection, parameter fuzzing
-- **Authorization testing** - BOLA, BFLA, BOPLA, SSRF, exhaustion, misconfig, webhook injection
-- **AI-powered payloads** - Neural engine with cloud (Groq) + local (Mistral) hybrid architecture
-- **Tactical TUI dashboard** - 7-tab real-time monitoring with 19 keyboard shortcuts
+- **Authorization testing** - BOLA, BFLA, BOPLA, SSRF, exhaustion, misconfig, webhook injection (all 10 OWASP APIs)
+- **AI-powered payloads** - Neural engine with cloud (Groq) + local (Ollama) hybrid architecture
+- **Blue-Team Mirror** - LLM-driven remediation suggestions with Gold Standard snippet library and verification system
+- **Tactical TUI dashboard** - 7-tab real-time monitoring with 19 keyboard shortcuts and F-key navigation
 - **Compliance reporting** - NIST CSF v2.0, MITRE ATT&CK, OWASP API Top 10, CVSS scoring
-- **Enterprise features** - Multi-operator coordination, mission vault (SQLite), evasion techniques
+- **Enterprise features** - Multi-operator coordination, mission vault (SQLite), advanced evasion techniques
 
 ---
 
@@ -44,61 +48,83 @@
 
 ---
 
-## ⚡ Core Modules
+## 📊 Development Status
+
+| Component | Phase | Status | Details |
+|-----------|-------|--------|---------|
+| **Core Engine** | Sprint 1-9 | ✅ Complete | BOLA, BFLA, BOPLA, SSRF, Exhaustion, Misconfig, Integration (all 10 OWASP APIs) |
+| **TUI Dashboard** | Sprint 10 | ✅ Complete | Hydra multi-pane, 7 tabs, F-key navigation, real-time monitoring |
+| **Full Autonomy** | Sprint 11 | ✅ Complete | ProcessChain(), AI chaining, DDI, race-condition fixes |
+| **Blue-Team Mirror** | Sprint 16 | ✅ Complete | LLM remediation, Gold Standard library, 3-tier verification, 7 fixers |
+| **Evasion V2** | Sprint 12 | 🔄 In Dev | Traffic shaping (✅), Jitter (✅), TLS fingerprinting (⏳) |
+| **C2 Architecture** | Sprint 13 | ⏳ Planned | Hive master, gRPC control plane, Web dashboard |
+| **Cloud Pivoting** | Sprint 14 | ⏳ Planned | K8s escape, cross-tenant leakage, serverless attacks |
+
+---
 
 ### **Reconnaissance & Discovery** (OWASP API9)
-\`\`\`
-target          Set global scope URL
-map             Automated endpoint discovery (spider + swagger + scrape + mine)
-swagger         Parse OpenAPI/Swagger specifications
-scrape          Extract endpoints from JavaScript bundles
-mine            Brute-force hidden query parameters
-sessions        Manage authentication tokens and credentials
-\`\`\`
+
+- `target`          Set global scope URL
+- `map`             Automated endpoint discovery (spider + swagger + scrape + mine)
+- `swagger`         Parse OpenAPI/Swagger specifications
+- `scrape`          Extract endpoints from JavaScript bundles
+- `mine`            Brute-force hidden query parameters
+- `sessions`        Manage authentication tokens and credentials
 
 ### **Authorization Testing** (OWASP API1-5)
-\`\`\`
-bola            Broken Object Level Authorization (ID enumeration)
-bfla            Broken Function Level Authorization (privilege escalation)
-bopla           Broken Object Property Authorization (mass assignment)
-flow            Orchestrate multi-step attack chains
-\`\`\`
+
+- `bola`            Broken Object Level Authorization (ID enumeration)
+- `bfla`            Broken Function Level Authorization (privilege escalation)
+- `bopla`           Broken Object Property Authorization (mass assignment)
+- `flow`            Orchestrate multi-step attack chains
 
 ### **Infrastructure & Data Testing** (OWASP API4, API7, API8, API10)
-\`\`\`
-exhaust         Resource exhaustion & DoS testing
-ssrf            Server-side request forgery (cloud metadata)
-audit           Security configuration auditing
-probe           Webhook & third-party integration testing
-\`\`\`
+
+- `exhaust`         Resource exhaustion & DoS testing
+- `ssrf`            Server-side request forgery (cloud metadata)
+- `audit`           Security configuration auditing
+- `probe`           Webhook & third-party integration testing
 
 ### **Tactical Planning** (HITL Orchestration)
-\`\`\`
-analyze         AI-driven tactical plan generation
-list-plan       Review pending tactical actions
-edit <id>       Override AI payloads
-drop <id>       Mark action to skip execution
-commit          Execute all pending actions
-\`\`\`
+
+- `analyze`         AI-driven tactical plan generation
+- `list-plan`       Review pending tactical actions
+- `edit` <id>       Override AI payloads
+- `drop` <id>       Mark action to skip execution
+- `commit`          Execute all pending actions
+
+### **Autonomous Orchestration** (Full Autonomy - Sprint 11)
+
+- `ProcessChain()`           Execute pre-validated autonomous attack chains
+- `PreCondition`             Automatic prerequisite checking (loot-driven)
+- `ChainID`                  Link related exploitation actions
+- `ProcessExploitResult()`   Auto-generate follow-up exploits from captured data
+- Automatic loot-to-action mapping (K8s tokens → lateral movement)
+
+### **Blue-Team Mirror & Remediation** (Sprint 16 - LLM Safety)
+
+- `SuggestFix()`             AI-driven remediation code suggestions
+- **7 Vulnerability Fixers:** BOLA, BFLA, SSRF, JWT, SQL Injection, BOPLA, Cloud Config
+- **Gold Standard Library:** Pre-audited, production-ready code snippets
+- **3-Tier Verification:** GOLD_STANDARD → VERIFIED → UNVERIFIED
+- **Hallucination Prevention:** LLM safety gates and static analysis pre-filters
 
 ### **AI & Neural Engine**
-\`\`\`
-neuro on        Activate neural engine (LLM payloads)
-neuro off       Disable AI mutations
-neuro-gen <n>   Generate n alternative payloads
-test-neuro      Test AI provider connectivity
-ask <prompt>    Direct LLM query
-\`\`\`
+
+- `neuro on`        Activate neural engine (LLM payloads)
+- `neuro off`       Disable AI mutations
+- `neuro-gen` <n>   Generate n alternative payloads
+- `test-neuro`      Test AI provider connectivity
+- `ask` <prompt>    Direct LLM query
 
 ### **Infrastructure & Reporting**
-\`\`\`
-proxy           Set upstream proxy
-proxies load    Load rotating proxy list
-report          Generate findings report (Markdown/PDF)
-loot            Manage captured secrets and credentials
-init_db         Initialize mission database
-reset_db        Clear all mission data
-\`\`\`
+
+- `proxy`           Set upstream proxy
+- `proxies load`    Load rotating proxy list
+- `report`          Generate findings report (Markdown/PDF)
+- `loot`            Manage captured secrets and credentials
+- `init_db`         Initialize mission database
+- `reset_db`        Clear all mission data
 
 **For complete command documentation, see:** [Command Reference](docs/manuals/18_COMMAND_REFERENCE.md)
 
@@ -146,38 +172,59 @@ reset_db        Clear all mission data
 
 ---
 
-## 📚 Documentation
+## 📚 Documentation & Development
 
-**Complete documentation is located in the \`/docs\` folder:**
+**Complete documentation is organized by sprint in the `/docs` folder:**
 
-### User Guides (docs/manuals/)
-- **[Installation & Setup](docs/manuals/01_INSTALLATION_SETUP.md)** - Installation methods, dependencies, configuration
-- **[First Run Tutorial](docs/manuals/02_FIRST_RUN.md)** - Step-by-step 11-step walkthrough
-- **[UI Dashboard Guide](docs/manuals/03_UI_OVERVIEW.md)** - Tabs, layout, navigation, performance
-- **[Strategic Planning](docs/manuals/04_STRATEGIC_PLANNING.md)** - HITL workflow and orchestration
-- **[Keyboard Shortcuts](docs/manuals/17_KEYBOARD_SHORTCUTS.md)** - All 19 hotkeys with examples
-- **[Command Reference](docs/manuals/18_COMMAND_REFERENCE.md)** - 40+ commands with parameters and examples
-- **[Master Index](docs/manuals/INDEX.md)** - Navigation hub for all 20 user guides
+### 📖 User Manuals (docs/manuals/)
+- **[01_INSTALLATION_SETUP.md](docs/manuals/01_INSTALLATION_SETUP.md)** - Installation methods, dependencies, configuration
+- **[02_FIRST_RUN.md](docs/manuals/02_FIRST_RUN.md)** - Step-by-step 11-step walkthrough
+- **[03_UI_OVERVIEW.md](docs/manuals/03_UI_OVERVIEW.md)** - Dashboard tabs, layout, navigation, performance
+- **[04_STRATEGIC_PLANNING.md](docs/manuals/04_STRATEGIC_PLANNING.md)** - HITL workflow and tactical orchestration
+- **[17_KEYBOARD_SHORTCUTS.md](docs/manuals/17_KEYBOARD_SHORTCUTS.md)** - All 19 hotkeys with examples
+- **[18_COMMAND_REFERENCE.md](docs/manuals/18_COMMAND_REFERENCE.md)** - 40+ commands with parameters and examples
+- **[INDEX.md](docs/manuals/INDEX.md)** - Navigation hub for all 20 user guides
 
-### Technical Documentation (docs/dev-logs/)
-- **[Architecture Overview](docs/dev-logs/INDEX.md)** - System design, layers, data flows
-- **[Documentation Status](docs/DOCUMENTATION_STATUS.md)** - Completion tracker
+### 🔧 Technical Documentation (docs/dev-logs/)
+- **[Dev-Roadmap.md](docs/dev-logs/Dev-Roadmap.md)** - Complete Sprint 1-16 roadmap with status (**START HERE**)
+- **[INDEX.md](docs/dev-logs/INDEX.md)** - Architecture overview and system design
+- **Sprint Folders:** Sprint-11/, Sprint-12/, Sprint-13/, Sprint-14/, Sprint-15/, Sprint-16/
+  - Each sprint contains completion reports, technical deep-dives, and delivery manifests
 
-### Quick Start
-1. **New users:** Start with [First Run Tutorial](docs/manuals/02_FIRST_RUN.md)
-2. **Dashboard help:** See [UI Dashboard Guide](docs/manuals/03_UI_OVERVIEW.md)
-3. **Attack planning:** See [Strategic Planning](docs/manuals/04_STRATEGIC_PLANNING.md)
-4. **Commands:** See [Command Reference](docs/manuals/18_COMMAND_REFERENCE.md)
-5. **Hotkeys:** See [Keyboard Shortcuts](docs/manuals/17_KEYBOARD_SHORTCUTS.md)
+### 📊 Documentation Status
+- **[DOCUMENTATION_STATUS.md](docs/DOCUMENTATION_STATUS.md)** - Completion tracker for all manuals
+- **[Dev-Roadmap.md](docs/dev-logs/Dev-Roadmap.md)** - Development roadmap with full sprint breakdown
 
-**This README covers architecture and overview. For complete operational details, refer to the documentation in \`/docs\`.**
+### 🚀 Quick Start by Role
+
+**🎯 For New Users:**
+1. [First Run Tutorial](docs/manuals/02_FIRST_RUN.md) - Get running in 11 steps
+2. [UI Dashboard Guide](docs/manuals/03_UI_OVERVIEW.md) - Understand the interface
+3. [Strategic Planning](docs/manuals/04_STRATEGIC_PLANNING.md) - Learn HITL workflow
+
+**🔍 For Security Researchers:**
+1. [Dev-Roadmap.md](docs/dev-logs/Dev-Roadmap.md) - Architecture and sprint progress
+2. [Architecture Overview](docs/dev-logs/INDEX.md) - Technical details
+3. Sprint folders - Specific implementation details
+
+**🎮 For Operators:**
+1. [Command Reference](docs/manuals/18_COMMAND_REFERENCE.md) - All 40+ commands
+2. [Keyboard Shortcuts](docs/manuals/17_KEYBOARD_SHORTCUTS.md) - Hotkey reference
+3. [Strategic Planning](docs/manuals/04_STRATEGIC_PLANNING.md) - Tactical orchestration
 
 ---
 
-## 🚀 Installation
+## 🚀 Installation & Quick Start
+
+### Prerequisites
+- **Go 1.21+**
+- **Linux/macOS** (Windows via WSL)
+- **Git**
+- **SQLite3** (usually pre-installed)
 
 ### Quick Start
-\`\`\`bash
+
+```bash
 # Clone repository
 git clone https://github.com/JoseMariaMicoli/VaporTrace.git
 cd VaporTrace
@@ -186,17 +233,91 @@ cd VaporTrace
 go mod tidy
 
 # Build binary
-go build -o VaporTrace main.go
+go build -o vaportrace ./cmd/
 
-# Run
-./VaporTrace
-\`\`\`
+# Run with TUI dashboard
+./vaportrace
 
-**For detailed installation guide, see:** [Installation & Setup](docs/manuals/01_INSTALLATION_SETUP.md)
+# Or run with legacy shell
+./vaportrace --shell
+```
+
+**For detailed installation guide with Docker and dependency troubleshooting, see:** [Installation & Setup](docs/manuals/01_INSTALLATION_SETUP.md)
+
+### First Run
+```bash
+./vaportrace                 # Launches Hydra TUI dashboard
+target https://api.example.com   # Set target
+map                          # Auto-discover endpoints
+bola                         # Test BOLA vulnerability
+report                       # Generate findings report
+```
+
+**For complete walkthrough with expected outputs, see:** [First Run Tutorial](docs/manuals/02_FIRST_RUN.md)
 
 ---
 
-## 🎯 Use Cases
+## ✨ Complete Feature Matrix
+
+### 🎯 Discovery & Reconnaissance (Sprint 2)
+- ✅ Swagger/OpenAPI parsing (v2 & v3)
+- ✅ JavaScript endpoint extraction (regex-based)
+- ✅ Endpoint version detection
+- ✅ Parameter fuzzing (query, header, body)
+- ✅ Shadow API detection
+- ✅ Session management and authentication
+
+### 🔐 Authorization Testing (Sprints 3-5)
+- ✅ BOLA - Broken Object Level Authorization with response diffing
+- ✅ BFLA - Broken Function Level Authorization via method tampering
+- ✅ BOPLA - Broken Object Property Authorization with mass assignment
+- ✅ Multi-threaded mass scanning (GenericExecutor)
+- ✅ State-machine driven testing
+
+### 💥 Injection & Exhaustion (Sprint 4)
+- ✅ SSRF with cloud metadata detection (IMDS/169.254.169.254)
+- ✅ Resource exhaustion probing
+- ✅ Security misconfig auditing (CORS, headers)
+- ✅ Webhook injection testing
+- ✅ Third-party API consumption testing
+
+### 🤖 AI & Autonomy (Sprints 10-11, 16)
+- ✅ AI-driven tactical planning
+- ✅ LLM payload generation (Groq + Ollama hybrid)
+- ✅ Autonomous chain execution (ProcessChain with preconditions)
+- ✅ Automatic exploitation result analysis
+- ✅ Loot-driven lateral movement chains
+- ✅ Blue-team remediation suggestions (7 fixers)
+- ✅ LLM hallucination prevention (Gold Standard library)
+
+### 🛡️ Evasion & Anonymity (Sprint 6, 12)
+- ✅ Header randomization (User-Agent rotation)
+- ✅ JA3 fingerprint spoofing
+- ✅ IP rotation (SOCKS5/HTTP proxy)
+- ✅ Gaussian jitter for timing obfuscation
+- ✅ Process name masquerading
+- ✅ Traffic mimicry (6 browser profiles)
+- ⏳ TLS fingerprinting (Sprint 12.2 planned)
+
+### 📊 Reporting & Compliance (Sprint 5, 9)
+- ✅ NIST CSF v2.0 mapping
+- ✅ MITRE ATT&CK T-code tagging
+- ✅ OWASP API Top 10 classification
+- ✅ CVSS v3.1/4.0 scoring
+- ✅ Markdown/PDF report generation
+- ✅ Database persistence (SQLite)
+- ✅ Audit logging
+
+### 🎮 User Interface (Sprint 10)
+- ✅ Multi-pane TUI dashboard (Hydra)
+- ✅ 7 realtime tabs (LOGS, MAP, LOOT, ANALYSIS, PLAN, NEURO, SETTINGS)
+- ✅ F1-F7 tab switching
+- ✅ Modal interceptor (F2)
+- ✅ Command auto-completion
+- ✅ 19 keyboard shortcuts
+- ✅ Real-time progress indicators
+
+---
 
 ### **Security Teams**
 - Automated API security testing in SDLC
@@ -240,29 +361,41 @@ VaporTrace includes built-in evasion for modern defensive environments:
 ## 🏗️ Architecture
 
 ### 6-Layer System Design
-\`\`\`
-┌─────────────────────────────────────────┐
-│ 1. Tactical UI (rivo/tview)            │ Real-time dashboard
-├─────────────────────────────────────────┤
-│ 2. Command Engine                      │ 40+ commands, orchestration
-├─────────────────────────────────────────┤
-│ 3. Execution Engine                    │ Module coordination, concurrency
-├─────────────────────────────────────────┤
-│ 4. Exploitation Modules                │ BOLA, BFLA, BOPLA, SSRF, etc.
-├─────────────────────────────────────────┤
-│ 5. Networking Layer                    │ HTTP, proxy, TLS hardening
-├─────────────────────────────────────────┤
-│ 6. Persistence & AI                    │ SQLite, Groq/Ollama, reporting
-└─────────────────────────────────────────┘
-\`\`\`
+```mermaid
+graph TD
+    A["1. Tactical UI"] --> B["2. Command Engine"]
+    B --> C["3. Execution Engine"]
+    C --> D["4. Exploitation Modules"]
+    D --> E["5. Networking Layer"]
+    E --> F["6. Persistence & AI"]
+    
+    A -."rivo/tview".-> A2[" "]
+    B -."40+ commands".-> B2[" "]
+    C -."Concurrency".-> C2[" "]
+    D -."BOLA/BFLA/BOPLA/SSRF".-> D2[" "]
+    E -."HTTP/HTTPS/SOCKS5".-> E2[" "]
+    F -."SQLite/Groq/Ollama".-> F2[" "]
+    
+    style A2 fill:none,stroke:none
+    style B2 fill:none,stroke:none
+    style C2 fill:none,stroke:none
+    style D2 fill:none,stroke:none
+    style E2 fill:none,stroke:none
+    style F2 fill:none,stroke:none
+```
 
 ### Data Flow
-1. **Discovery** → Endpoints discovered → Stored in database
-2. **Analysis** → AI examines endpoints → Generates tactical plan
-3. **Planning** → Human reviews plan → Edits/approves actions
-4. **Execution** → Actions executed → Findings captured
-5. **Reporting** → Results → Framework-mapped report
-
+```mermaid
+graph LR
+    A[Target URL] --> B[Discovery]
+    B --> C[(Endpoints DB)]
+    C --> D{AI Analysis}
+    D -->|Approved| E[Execution]
+    D -->|Rejected| F[Review]
+    F --> D
+    E --> G[Findings]
+    G --> H[Reporting]
+```
 ### AI & Neural Engine
 - **Primary Provider:** Groq (fast cloud LLM)
 - **Fallback Provider:** Mistral via Ollama (local, private)
@@ -294,11 +427,12 @@ VaporTrace includes built-in evasion for modern defensive environments:
 
 ## 📄 License
 
-Custom License - See LICENSE file
+MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
 **VaporTrace** — Surgical API Exploitation Platform  
-**Version:** 3.1.2-Hydra | **Status:** Production Ready
+**Version:** 3.1.2-Hydra | **Status:** Production Ready  
+**Author:** José María Micoli
 
 For complete documentation, see [docs/manuals/INDEX.md](docs/manuals/INDEX.md)

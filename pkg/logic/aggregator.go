@@ -101,3 +101,48 @@ func EnrichCommandRequest(req *http.Request) {
 		utils.LogContext(fmt.Sprintf("[magenta]INJECTION >>[-] Applied credentials to [white]%s[-]", req.URL.Path))
 	}
 }
+
+// GetAttackSurfaceSummary generates the real-time status for Tab 5
+func GetAttackSurfaceSummary() string {
+	GlobalDiscovery.mu.RLock()
+	totalEndpoints := len(GlobalDiscovery.Inventory)
+	GlobalDiscovery.mu.RUnlock()
+
+	totalFindings := 0
+	vulnCount := 0
+	if db.DB != nil {
+		db.DB.QueryRow("SELECT COUNT(*) FROM findings").Scan(&totalFindings)
+		db.DB.QueryRow("SELECT COUNT(*) FROM findings WHERE status = 'VULNERABLE' OR status = 'CRITICAL'").Scan(&vulnCount)
+	}
+
+	posture := "[green]SECURE"
+	if vulnCount > 0 {
+		posture = "[yellow]DEGRADED"
+	}
+	if vulnCount > 5 {
+		posture = "[red]CRITICAL"
+	}
+
+	target := CurrentSession.GetTarget()
+	if target == "" {
+		target = "No Target Locked"
+	}
+
+	summary := fmt.Sprintf(`[white]TARGET SCOPE:        [cyan]%s
+[white]DISCOVERED ROUTES:   [blue]%d
+[white]TOTAL FINDINGS:      [yellow]%d
+[white]CONFIRMED VULNS:     [red]%d
+[white]SECURITY POSTURE:    %s
+[white]ACTIVE THREADS:      [green]%d
+[white]PROXY STATUS:        [magenta]%s`,
+		target,
+		totalEndpoints,
+		totalFindings,
+		vulnCount,
+		posture,
+		CurrentSession.Threads,
+		GetConfiguredProxy(),
+	)
+
+	return summary
+}
