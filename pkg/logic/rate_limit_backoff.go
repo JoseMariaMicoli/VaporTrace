@@ -36,8 +36,9 @@ func HandleRateLimit(statusCode int, responseHeaders map[string][]string) time.D
 	globalRateLimitState.mu.Lock()
 	defer globalRateLimitState.mu.Unlock()
 
-	// Detect rate limit or WAF challenge
-	if statusCode == 429 || (statusCode >= 400 && statusCode < 430) {
+	// Detect rate limit or WAF challenge (429, 403, 503)
+	// DO NOT treat 404 as rate limit - it's a legitimate "not found" error
+	if statusCode == 429 || statusCode == 403 || statusCode == 503 {
 		globalRateLimitState.RateLimitCount++
 		globalRateLimitState.LastRateLimit = time.Now()
 

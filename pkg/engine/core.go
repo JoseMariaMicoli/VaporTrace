@@ -86,7 +86,7 @@ func ExecuteCommand(rawCmd string) {
 
 		// 2. Neural Engine Status
 		neuroStatus := "[red]OFFLINE"
-		if logic.GlobalNeuro.Active {
+		if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active {
 			neuroStatus = "[green]ACTIVE (Hybrid Mode)[-]"
 		}
 		utils.TacticalLog(fmt.Sprintf(" [white]Neural Engine:     [-] %s", neuroStatus))
@@ -119,12 +119,13 @@ func ExecuteCommand(rawCmd string) {
 		utils.TacticalLog(fmt.Sprintf("[blue]USER ASK:[-] %s", question))
 
 		go func() {
-			if !logic.GlobalNeuro.Active {
+			neuro := logic.GetGlobalNeuro()
+			if !neuro.Active {
 				utils.TacticalLog("[yellow]NEURO:[-] Engine inactive. Auto-starting Hybrid mode...")
-				logic.GlobalNeuro.Configure("hybrid", "", "", "")
+				neuro.Configure("hybrid", "", "", "")
 			}
 			utils.LogNeural(fmt.Sprintf("[gray]>>> USER QUERY: %s[-]", question))
-			resp, err := logic.GlobalNeuro.ExecuteQuery(question)
+			resp, err := neuro.ExecuteQuery(question)
 			if err != nil {
 				utils.TacticalLog(fmt.Sprintf("[red]NEURO ERROR:[-] %v", err))
 				return
@@ -152,18 +153,22 @@ func ExecuteCommand(rawCmd string) {
 			if len(args) > 4 {
 				endpoint = args[4]
 			}
-			logic.GlobalNeuro.Configure(provider, apiKey, model, endpoint)
+			neuro := logic.GetGlobalNeuro()
+			neuro.Configure(provider, apiKey, model, endpoint)
 		} else if args[0] == "on" {
-			logic.GlobalNeuro.Active = true
+			neuro := logic.GetGlobalNeuro()
+			neuro.Active = true
 			utils.TacticalLog("[green]Neural Engine Activated.[-]")
 		} else if args[0] == "off" {
-			logic.GlobalNeuro.Active = false
+			neuro := logic.GetGlobalNeuro()
+			neuro.Active = false
 			utils.TacticalLog("[yellow]Neural Engine Deactivated.[-]")
 		}
 
 	case "test-neuro":
 		utils.TacticalLog("[blue]Testing Neural Engine Connectivity...[-]")
-		logic.GlobalNeuro.TestConnectivity()
+		neuro := logic.GetGlobalNeuro()
+		neuro.TestConnectivity()
 
 	case "neuro-gen":
 		if len(args) < 2 {
@@ -171,7 +176,11 @@ func ExecuteCommand(rawCmd string) {
 			return
 		}
 		count, _ := strconv.Atoi(args[1])
-		logic.GlobalNeuro.GenerateAttackVectors(args[0], count)
+		if neuro := logic.GetGlobalNeuro(); neuro != nil {
+			neuro.GenerateAttackVectors(args[0], count)
+		} else {
+			utils.TacticalLog("[red]Error: Neuro engine not initialized")
+		}
 
 	// --- IDENTITY & SESSION ---
 	case "auth":
@@ -640,14 +649,15 @@ func ExecuteCommand(rawCmd string) {
 		subcommand := strings.ToLower(args[0])
 		switch subcommand {
 		case "off":
-			logic.SetEvasionToggle("jitter", false)
-			logic.SetEvasionToggle("thinking", false)
-			logic.SetEvasionToggle("backoff", false)
-			logic.SetEvasionToggle("obfuscation", false)
-			logic.SetEvasionToggle("encoding", false)
-			logic.SetGlobalMultiplier(1.0)
+			logic.SetEvasionToggle("jitter", false)      // Disable jitter when stealth is off
+			logic.SetEvasionToggle("thinking", false)    // Disable contextual delays
+			logic.SetEvasionToggle("backoff", false)     // Disable backoff completely when stealth is off
+			logic.SetEvasionToggle("obfuscation", false) // Disable path noise
+			logic.SetEvasionToggle("encoding", false)    // Disable payload encoding
+			logic.SetGlobalMultiplier(0.2)               // Very fast multiplier (5x speedup)
 			utils.TacticalLog("[green]STEALTH MODE: OFF[-]")
-			utils.TacticalLog("[yellow]All evasion techniques disabled. Running in fastest/most aggressive mode.[-]")
+			utils.TacticalLog("[yellow]All evasion disabled. Running in fastest/most aggressive mode with User-Agent rotation only.[-]")
+			utils.TacticalLog("[yellow]Note: Only User-Agent rotation will apply. No delays, no encoding, no path obfuscation.[-]")
 
 		case "status":
 			status := logic.GetStealthStatus()
@@ -755,15 +765,8 @@ func ExecuteCommand(rawCmd string) {
 			utils.TacticalLog(fmt.Sprintf("[red]Unknown technique:[-] %s", technique))
 		}
 
-	case "waf_detect", "waf detect":
-		utils.TacticalLog("[magenta]WAF DETECTION ENGINE:[-]")
-		utils.TacticalLog("[yellow]Status:[-] [cyan]ACTIVE")
-		utils.TacticalLog("[yellow]Monitored Patterns:[-]")
-		utils.TacticalLog("  [blue]•[-] Rate Limits (429)")
-		utils.TacticalLog("  [blue]•[-] WAF Blocks (403)")
-		utils.TacticalLog("  [blue]•[-] Honeypots (Custom Redirects)")
-		utils.TacticalLog("  [blue]•[-] Signature-based Injection (500 errors)")
-		utils.TacticalLog("[yellow]Evasion Recommendation:[-] Enable 'stealth silent' mode for WAF-protected targets")
+	case "waf", "waf_detect", "waf detect":
+		logic.ReportWAFDetection()
 
 	case "__internal_shutdown":
 		go func() {
@@ -786,6 +789,9 @@ func ExecuteCommand(rawCmd string) {
 	case "exit":
 		utils.TacticalLog("[yellow]Calling internal shutdown sequence...[-]")
 		ExecuteCommand("__internal_shutdown")
+
+	case "oob", "oob_config", "oob_status":
+		logic.ReportOOBStatus()
 
 	default:
 		if strings.HasPrefix(verb, "test-") {
@@ -858,7 +864,7 @@ func AggregateDataSilo() *DataSilo {
 			VictimToken:        logic.CurrentSession.VictimToken,
 			ProxyActive:        logic.GetConfiguredProxy(),
 			ProxyPoolSize:      len(logic.ProxyPool),
-			NeuroEngineActive:  logic.GlobalNeuro.Active,
+			NeuroEngineActive:  func() bool { neuro := logic.GetGlobalNeuro(); return neuro != nil && neuro.Active }(),
 			ContextAggregating: logic.GlobalAggregator.Active,
 		},
 		F2_Discovery: DiscoveryData{
@@ -1172,7 +1178,7 @@ func ComprehensiveAnalysis() []TacticalAction {
 	actions = append(actions, stateActions...)
 
 	// === PHASE 6: NEURAL PASS (if enabled) ===
-	if logic.GlobalNeuro.Active {
+	if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active {
 		utils.TacticalLog("[magenta]ANALYSIS:[-] Neural Pass: Engaging AI for contextual analysis...[-]")
 		aiActions := GlobalNeuroCore.ComprehensiveAnalysis(endpoints, logic.GetLootSummary(), silo.F4_Traffic.StatusCodeMap)
 		utils.TacticalLog(fmt.Sprintf("[magenta]ANALYSIS:[-] Neural Pass: %d AI-generated actions.[-]", len(aiActions)))
@@ -1978,18 +1984,44 @@ func printHelp(cmd string) {
 		utils.TacticalLog("  [yellow]Redirects[-]        - Honeypot or WAF honey-trap")
 		utils.TacticalLog("  [yellow]500 Errors[-]       - Signature-based injection detection")
 		utils.TacticalLog("Recommendation: Use 'stealth silent' mode for WAF-protected targets")
+		// FIXED: Add actual WAF detection stats from findings with safe type assertions
+		wafStats := logic.GetWAFDetectionStats()
+		if wafStats != nil {
+			utils.TacticalLog("[green]WAF Detection Statistics:[-]")
+			if rlCount, ok := wafStats["rate_limit_blocks"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  Rate Limit (429): %d blocks", rlCount))
+			}
+			if wafCount, ok := wafStats["waf_blocks"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  WAF Blocks (403): %d blocks", wafCount))
+			}
+			if redirects, ok := wafStats["redirects"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  Redirects (30x): %d redirects", redirects))
+			}
+			if errors, ok := wafStats["server_errors"].(int); ok {
+				utils.TacticalLog(fmt.Sprintf("  Server Errors (50x): %d errors", errors))
+			}
+			if detected, ok := wafStats["detected"].(bool); ok && detected {
+				utils.TacticalLog("[red]⚠ WAF/IDS DETECTED[-] Recommend switching to 'stealth silent' mode")
+			} else {
+				utils.TacticalLog("[green]✓ No active WAF detection patterns observed[-]")
+			}
+		}
+		utils.TacticalLog("Tip: Use 'loot list' to see captured WAF responses")
 
 	case "oob":
 		utils.TacticalLog("[cyan]OOB EXFILTRATION CHANNEL[-]")
 		utils.TacticalLog("Manage encrypted out-of-band data exfiltration channels.")
 		utils.TacticalLog("Deployment: Automatically activated when findings are queued for exfil.")
-		utils.TacticalLog("Encryption: AES-256-GCM authenticated encryption on all payloads.")
+		utils.TacticalLog("Encryption: [green]AES-256-GCM[-] authenticated encryption on all payloads.")
 		utils.TacticalLog("Channels:")
 		utils.TacticalLog("  [yellow]TCP[-]               - Custom TCP protocol to OOB receiver")
 		utils.TacticalLog("  [yellow]DNS[-]               - DNS tunneling (covert subdomain encoding)")
 		utils.TacticalLog("  [yellow]ICMP[-]              - ICMP echo tunneling (firewall evasion)")
-		utils.TacticalLog("Typical Usage:")
-		utils.TacticalLog("  1. Capture sensitive data (JWT, API keys, DB creds) in Loot Vault (F3)")
+		utils.TacticalLog("Usage:")
+		utils.TacticalLog("  oob config <channel>  - Configure exfiltration endpoint")
+		utils.TacticalLog("  oob status            - Show current channel status")
+		utils.TacticalLog("Typical Workflow:")
+		utils.TacticalLog("  1. Capture sensitive data (JWT, API keys, DB creds) in Loot Vault")
 		utils.TacticalLog("  2. OOB channel auto-queues findings for encrypted transmission")
 		utils.TacticalLog("  3. Receiver (attacker-controlled) decrypts payload on exfil server")
 		utils.TacticalLog("Integration: Works seamlessly with SSRF, BOLA, and other attack vectors")

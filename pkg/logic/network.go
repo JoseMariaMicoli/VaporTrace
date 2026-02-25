@@ -270,21 +270,23 @@ func (t *TacticalTransport) RoundTrip(req *http.Request) (*http.Response, error)
 func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error) {
 	utils.TacticalLog(fmt.Sprintf("[blue]REQUEST:[-] %s %s (module: %s)", req.Method, req.URL, module))
 
-	// === PRIORITY ALPHA: HTTP/2 PSEUDO-HEADER RANDOMIZATION ===
-	profile := GetHTTP2Profile(req.Header.Get("User-Agent"))
-	ApplyHTTP2Evasion(req, profile)
-	utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Applied HTTP/2 profile: %s", profile.Name))
+	// === PRIORITY ALPHA: HTTP/2 PSEUDO-HEADER RANDOMIZATION (respects stealth toggle) ===
+	if globalStealthConfig.EnablePathObfuscation {
+		profile := GetHTTP2Profile(req.Header.Get("User-Agent"))
+		ApplyHTTP2Evasion(req, profile)
+		utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Applied HTTP/2 profile: %s", profile.Name))
+	}
 
-	// === PRIORITY BETA: PATH OBFUSCATION ===
-	if req.Method == "GET" || req.Method == "POST" {
+	// === PRIORITY BETA: PATH OBFUSCATION (respects stealth toggle) ===
+	if (req.Method == "GET" || req.Method == "POST") && globalStealthConfig.EnablePathObfuscation {
 		obfuscationStrategy := SelectObfuscationStrategy()
 		originalPath := req.URL.Path
 		req.URL.Path = ObfuscatePath(originalPath, obfuscationStrategy)
 		utils.TacticalLog(fmt.Sprintf("[cyan]EVASION:[-] Path obfuscation applied: %s → %s", originalPath, req.URL.Path))
 	}
 
-	// === PRIORITY EPSILON: PAYLOAD ENCODING (for POST/PUT bodies) ===
-	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
+	// === PRIORITY EPSILON: PAYLOAD ENCODING (for POST/PUT bodies, respects encoding toggle) ===
+	if (req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH") && globalStealthConfig.EnablePayloadEncoding {
 		if req.Body != nil {
 			bodyBytes, _ := io.ReadAll(req.Body)
 			encodingTechnique := SelectRandomEncoding()
@@ -302,12 +304,14 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 		}
 	}
 
-	// === PRIORITY GAMMA: CONTEXTUAL THINKING TIME ===
+	// === PRIORITY GAMMA: CONTEXTUAL THINKING TIME (respects thinking time toggle) ===
 	// Apply behavioral delay before sending request
-	delay := ContextualThinkingTime(req.Method, req.URL.Path)
-	if delay > 0 {
-		utils.TacticalLog(fmt.Sprintf("[cyan]BEHAVIOR:[-] Contextual thinking time: %dms", delay.Milliseconds()))
-		time.Sleep(delay)
+	if globalStealthConfig.EnableThinkingTime {
+		delay := ContextualThinkingTime(req.Method, req.URL.Path)
+		if delay > 0 {
+			utils.TacticalLog(fmt.Sprintf("[cyan]BEHAVIOR:[-] Contextual thinking time: %dms", delay.Milliseconds()))
+			time.Sleep(delay)
+		}
 	}
 
 	ApplyEvasion(req)
@@ -327,12 +331,16 @@ func SafeDo(req *http.Request, isHit bool, module string) (*http.Response, error
 	utils.TacticalLog(fmt.Sprintf("[green]✓ RESPONSE:[-] %s %d", req.URL, resp.StatusCode))
 
 	// === PRIORITY DELTA: RATE-LIMIT BACKOFF ===
-	if resp.StatusCode == 429 || (resp.StatusCode >= 400 && resp.StatusCode <= 430) {
+	// Only treat 429, 403, 503 as rate limits - NOT 404 (legitimate not found)
+	if resp.StatusCode == 429 || resp.StatusCode == 403 || resp.StatusCode == 503 {
 		backoffDelay := HandleRateLimit(resp.StatusCode, resp.Header)
-		if backoffDelay > 0 {
+		// Only apply backoff if EnableBackoff toggle is true
+		if backoffDelay > 0 && globalStealthConfig.EnableBackoff {
 			utils.TacticalLog(fmt.Sprintf("[red]BACKOFF:[-] Rate-limit triggered. Waiting %.0f seconds before retry...", backoffDelay.Seconds()))
 			time.Sleep(backoffDelay)
 			utils.TacticalLog("[green]✓ BACKOFF:[-] Cooldown expired. Resuming operations with rotated identity.")
+		} else if !globalStealthConfig.EnableBackoff {
+			utils.TacticalLog("[yellow]⚠ RATE-LIMIT:[-] 4xx-5xx detected but backoff disabled (stealth mode off)")
 		}
 	}
 

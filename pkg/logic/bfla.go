@@ -32,7 +32,7 @@ func ExecuteMassBFLA(concurrency int) {
 	}
 
 	for _, path := range targets {
-		ctx := &BFLAContext{TargetURL: CurrentSession.TargetURL + path}
+		ctx := &BFLAContext{TargetURL: utils.JoinURL(CurrentSession.TargetURL, path)}
 		ctx.MassProbe(concurrency)
 	}
 	utils.TacticalLog("[green::b]BFLA Engine Execution Completed.[-:-:-]")

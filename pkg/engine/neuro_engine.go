@@ -94,7 +94,8 @@ func (n *NeuroEngineCore) Analyze(reqDump, resDump string) *TacticalAction {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	if !logic.GlobalNeuro.Active {
+	neuro := logic.GetGlobalNeuro()
+	if neuro == nil || !neuro.Active {
 		utils.TacticalLog("[yellow]NEURO:[-] Engine inactive. Cannot analyze.")
 		return nil
 	}
@@ -126,7 +127,7 @@ PAYLOAD: [Suggested attack payload or technique]
 `, reqDump, resDump)
 
 	// Query the global neuro engine
-	response, err := logic.GlobalNeuro.ExecuteQuery(prompt)
+	response, err := neuro.ExecuteQuery(prompt)
 	if err != nil {
 		utils.TacticalLog("[yellow]NEURO:[-] Analysis failed: " + err.Error())
 		return nil
@@ -151,7 +152,8 @@ func (n *NeuroEngineCore) AnalyzeEndpoint(endpoint string, lastStatus int, loot 
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	if !logic.GlobalNeuro.Active {
+	neuro := logic.GetGlobalNeuro()
+	if neuro == nil || !neuro.Active {
 		return nil
 	}
 
@@ -171,7 +173,7 @@ REASONING: [Explanation]
 PAYLOAD: [Suggested exploit]
 `, endpoint, lastStatus, loot.HasJWT, loot.HasAWS, loot.Credential != "")
 
-	response, err := logic.GlobalNeuro.ExecuteQuery(prompt)
+	response, err := neuro.ExecuteQuery(prompt)
 	if err != nil {
 		return nil
 	}
@@ -500,7 +502,7 @@ func (n *NeuroEngineCore) ComprehensiveAnalysis(endpoints []string, loot logic.L
 		}
 
 		// Second pass: If AI is active, perform neural analysis
-		if logic.GlobalNeuro.Active && len(actions) < 10 {
+		if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active && len(actions) < 10 {
 			aiAction := n.AnalyzeEndpoint(endpoint, traffic[endpoint], loot)
 			if aiAction != nil && aiAction.Type != "GENERIC" {
 				actions = append(actions, *aiAction)
