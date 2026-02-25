@@ -1,3 +1,12 @@
+## License Update Notice
+
+Starting from version 3.1.1 this project will transition to BSL.
+
+Reason:
+To allow sustainable development, support, and long-term maintenance while keeping the project open and transparent.
+
+Previous versions remain under the original license.
+
 ```
      __  __                         _____                    
     \ \ / /___  _ __  ___  _ __   |_   _| __ __ _  ___ ___ 
