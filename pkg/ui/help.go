@@ -62,7 +62,7 @@ func ShowHelpModal(app *tview.Application, pages *tview.Pages) {
 
 	// Close on Input and restore focus
 	modal.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEsc || event.Key() == tcell.KeyEnter || event.Key() == tcell.KeyCtrlH {
+		if event.Key() == tcell.KeyEsc || event.Key() == tcell.KeyEnter {
 			pages.RemovePage("help_modal")
 			// Return focus to the command input so the user can keep typing
 			if cmdInput != nil {

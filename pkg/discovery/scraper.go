@@ -3,6 +3,7 @@ package discovery
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
 	"sync"
 
@@ -27,7 +28,9 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 
 	client := logic.GlobalClient
 
-	resp, err := client.Get(url)
+	req, _ := http.NewRequest("GET", url, nil)
+	logic.ApplyEvasion(req) // Apply rotating User-Agent
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch JS bundle: %v", err)
 	}

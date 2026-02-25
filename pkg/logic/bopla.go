@@ -96,7 +96,7 @@ func (b *BOPLAContext) ProbeProperty(key string) {
 
 	req, _ := http.NewRequest(b.Method, b.TargetURL, bytes.NewBuffer(payload))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.10 Industrialized)")
+	ApplyEvasion(req) // Use rotating User-Agent
 
 	activeToken := CurrentSession.AttackerToken
 	if activeToken != "" {

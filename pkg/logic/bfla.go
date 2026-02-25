@@ -61,7 +61,7 @@ func (b *BFLAContext) MassProbe(threads int) {
 
 func (b *BFLAContext) TamperAndProbeSilent(method string) {
 	req, _ := http.NewRequest(method, b.TargetURL, nil)
-	req.Header.Set("User-Agent", "VaporTrace/2.1.0 (Phase 9.10 Industrialized)")
+	ApplyEvasion(req) // Use rotating User-Agent
 
 	activeToken := CurrentSession.AttackerToken
 	if activeToken != "" {
