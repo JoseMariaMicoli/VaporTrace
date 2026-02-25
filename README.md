@@ -20,7 +20,7 @@ Previous versions remain under the original license.
 
 **Enterprise-Grade API Security Testing Platform**
 
-![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square) ![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square) ![OWASP](https://img.shields.io/badge/OWASP-API%20Top%2010-blue?style=flat-square) ![MITRE](https://img.shields.io/badge/MITRE-ATT%26CK-orange?style=flat-square) ![NIST](https://img.shields.io/badge/NIST-CSF%20v2.0-purple?style=flat-square) ![Autonomy](https://img.shields.io/badge/Autonomy-Full-red?style=flat-square) ![AI](https://img.shields.io/badge/AI-LLM%20Driven-ff69b4?style=flat-square)
+![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go) ![License](https://img.shields.io/badge/License-Business_Source_1.1-red) ![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square) ![OWASP](https://img.shields.io/badge/OWASP-API%20Top%2010-blue?style=flat-square) ![MITRE](https://img.shields.io/badge/MITRE-ATT%26CK-orange?style=flat-square) ![NIST](https://img.shields.io/badge/NIST-CSF%20v2.0-purple?style=flat-square) ![Autonomy](https://img.shields.io/badge/Autonomy-Full-red?style=flat-square) ![AI](https://img.shields.io/badge/AI-LLM%20Driven-ff69b4?style=flat-square)
 
 **Status:** ✅ Production Ready | **Released:** February 2026 | **Sprints Complete:** 1-12 (partial), 16-17 | **In Development:** Sprint 13-15
 
@@ -570,7 +570,7 @@ graph LR
 
 ## 📄 License
 
-MIT License - See [LICENSE](LICENSE) file for details
+ Business Source License (BSL) 1.1 - See [LICENSE](LICENSE) file for details
 
 ---
 
