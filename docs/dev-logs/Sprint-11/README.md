@@ -1,3 +1,5 @@
+![VaporTrace Logo](../../../assets/images/VaporTrace_Logo.png)
+
 /*
 Copyright (c) 2026 José María Micoli
 Licensed under the Business Source License 1.1

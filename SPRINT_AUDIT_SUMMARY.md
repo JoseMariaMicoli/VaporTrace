@@ -1,3 +1,5 @@
+![VaporTrace Logo](assets/images/VaporTrace_Logo.png)
+
 # VaporTrace Sprint Audit Summary
 
 **Date:** February 11, 2026  

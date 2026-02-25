@@ -1,3 +1,5 @@
+![VaporTrace Logo](assets/images/VaporTrace_Logo.png)
+
 ## License Update Notice
 
 Starting from version 3.1.1 this project will transition to BSL.
