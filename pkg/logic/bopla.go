@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
 )
 
@@ -82,6 +83,14 @@ func (b *BOPLAContext) Fuzz() {
 			
 			if len(body) > 0 {
 				pterm.Info.Printf("Server Reflection: %s\n", string(body))
+			}
+
+			// PERSISTENCE HOOK
+			db.LogQueue <- db.Finding{
+				Phase:   "PHASE III: AUTH LOGIC",
+				Target:  b.TargetURL,
+				Details: fmt.Sprintf("Mass Assignment: %s", key),
+				Status:  "EXPLOITED",
 			}
 		} else {
 			pterm.Info.Printf("Property [%s] rejected (Status: %d)\n", key, resp.StatusCode)

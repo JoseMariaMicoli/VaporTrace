@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/pterm/pterm"
 )
 
@@ -50,6 +51,14 @@ func (b *BFLAContext) Probe() {
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			pterm.Warning.Prefix = pterm.Prefix{Text: "VULN", Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
 			pterm.Warning.Printf("BFLA POTENTIAL: Server accepted %s (Status: %d)\n", method, resp.StatusCode)
+
+			// PERSISTENCE HOOK
+			db.LogQueue <- db.Finding{
+				Phase:   "PHASE III: AUTH LOGIC",
+				Target:  b.TargetURL,
+				Details: fmt.Sprintf("BFLA Method Allowed: %s", method),
+				Status:  "UNAUTHORIZED ACCESS",
+			}
 		} else {
 			pterm.Info.Printf("Verb %s rejected (Status: %d)\n", method, resp.StatusCode)
 		}

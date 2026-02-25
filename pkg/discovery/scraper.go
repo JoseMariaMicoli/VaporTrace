@@ -3,10 +3,11 @@ package discovery
 import (
 	"io"
 	"regexp"
+
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db" // Added Persistence
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
-// ExtractJSPaths uses regex to find potential API paths in JS content
 func ExtractJSPaths(url string, proxy string) ([]string, error) {
 	client, err := utils.GetClient(proxy)
 	if err != nil {
@@ -21,15 +22,21 @@ func ExtractJSPaths(url string, proxy string) ([]string, error) {
 
 	body, _ := io.ReadAll(resp.Body)
 	
-	// Regex for finding paths starting with /api/ or common patterns
-	// This matches strings like "/api/v1/user" or "/v2/config"
 	pathRegex := regexp.MustCompile(`"/(api|v[0-9]|rest)/[a-zA-Z0-9\-\_/]+ "`)
 	matches := pathRegex.FindAllString(string(body), -1)
 
 	var cleaned []string
 	for _, m := range matches {
-		// Remove the quotes
-		cleaned = append(cleaned, m[1:len(m)-1])
+		path := m[1 : len(m)-1]
+		cleaned = append(cleaned, path)
+
+		// PERSISTENCE HOOK: Log extracted JS path
+		db.LogQueue <- db.Finding{
+			Phase:   "PHASE II: DISCOVERY",
+			Target:  url,
+			Details: "Extracted API Path from JS: " + path,
+			Status:  "INFO",
+		}
 	}
 	return cleaned, nil
 }
