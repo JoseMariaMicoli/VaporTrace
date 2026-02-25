@@ -12,10 +12,56 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/ai"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
+
+// AnalyzeForFuzzing asks the AI specifically about Intruder opportunities
+func (n *NeuroEngineCore) AnalyzeForFuzzing(reqDump string) []TacticalAction {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	neuro := logic.GetGlobalNeuro()
+	if neuro == nil || !neuro.Active {
+		return nil
+	}
+
+	targetURL := n.extractURL(reqDump)
+
+	// Use the new specialized prompt
+	prompt := fmt.Sprintf(ai.FuzzingRecommendationPrompt, reqDump)
+	response, err := neuro.ExecuteQuery(prompt)
+	if err != nil {
+		return nil
+	}
+
+	var actions []TacticalAction
+	lines := strings.Split(response, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "INTRUDER:") {
+			// Parse: INTRUDER:param:category
+			parts := strings.Split(line, ":")
+			if len(parts) == 3 {
+				param := parts[1]
+				category := parts[2]
+
+				actions = append(actions, TacticalAction{
+					Type:       "INTRUDER", // New Type
+					Target:     targetURL,
+					Payload:    fmt.Sprintf("%s:%s", param, category), // "id:numeric"
+					Confidence: "HIGH",
+					Reasoning:  fmt.Sprintf("AI detected '%s' as a candidate for %s fuzzing.", param, category),
+					Status:     "PENDING",
+				})
+			}
+		}
+	}
+	return actions
+}
 
 // NeuroAnalysisResult represents the output of an AI analysis pass
 type NeuroAnalysisResult struct {
@@ -48,7 +94,8 @@ func (n *NeuroEngineCore) Analyze(reqDump, resDump string) *TacticalAction {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	if !logic.GlobalNeuro.Active {
+	neuro := logic.GetGlobalNeuro()
+	if neuro == nil || !neuro.Active {
 		utils.TacticalLog("[yellow]NEURO:[-] Engine inactive. Cannot analyze.")
 		return nil
 	}
@@ -80,7 +127,7 @@ PAYLOAD: [Suggested attack payload or technique]
 `, reqDump, resDump)
 
 	// Query the global neuro engine
-	response, err := logic.GlobalNeuro.ExecuteQuery(prompt)
+	response, err := neuro.ExecuteQuery(prompt)
 	if err != nil {
 		utils.TacticalLog("[yellow]NEURO:[-] Analysis failed: " + err.Error())
 		return nil
@@ -105,7 +152,8 @@ func (n *NeuroEngineCore) AnalyzeEndpoint(endpoint string, lastStatus int, loot 
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	if !logic.GlobalNeuro.Active {
+	neuro := logic.GetGlobalNeuro()
+	if neuro == nil || !neuro.Active {
 		return nil
 	}
 
@@ -125,7 +173,7 @@ REASONING: [Explanation]
 PAYLOAD: [Suggested exploit]
 `, endpoint, lastStatus, loot.HasJWT, loot.HasAWS, loot.Credential != "")
 
-	response, err := logic.GlobalNeuro.ExecuteQuery(prompt)
+	response, err := neuro.ExecuteQuery(prompt)
 	if err != nil {
 		return nil
 	}
@@ -337,7 +385,7 @@ func (n *NeuroEngineCore) ExecuteSmartAttack(targetURL, method string, payloads 
 
 		// Identify the request as an AI-driven exploit for logging/debugging
 		req.Header.Set("X-Neuro-Engine", "Automated-Exploit")
-		req.Header.Set("User-Agent", "VaporTrace-Neuro/1.0")
+		logic.ApplyEvasion(req) // Use rotating User-Agent
 
 		startAttack := time.Now()
 		resp, err := client.Do(req)
@@ -454,7 +502,7 @@ func (n *NeuroEngineCore) ComprehensiveAnalysis(endpoints []string, loot logic.L
 		}
 
 		// Second pass: If AI is active, perform neural analysis
-		if logic.GlobalNeuro.Active && len(actions) < 10 {
+		if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active && len(actions) < 10 {
 			aiAction := n.AnalyzeEndpoint(endpoint, traffic[endpoint], loot)
 			if aiAction != nil && aiAction.Type != "GENERIC" {
 				actions = append(actions, *aiAction)
@@ -551,7 +599,7 @@ func (n *NeuroEngineCore) ProcessExploitResult(exploit TacticalAction, loot stri
 			nextAction = &TacticalAction{
 				Type:         "LATERAL_MOVEMENT",
 				Target:       exploit.Target, // Same target but with new token
-				Payload:      fmt.Sprintf("Use bearer token for privilege escalation"),
+				Payload:      "Use bearer token for privilege escalation",
 				Confidence:   "HIGH",
 				Reasoning:    "Auth token detected. Attempt lateral movement with elevated privileges.",
 				Status:       "PENDING",
@@ -565,7 +613,7 @@ func (n *NeuroEngineCore) ProcessExploitResult(exploit TacticalAction, loot stri
 			nextAction = &TacticalAction{
 				Type:         "CLOUD_PIVOT",
 				Target:       "https://sts.amazonaws.com/",
-				Payload:      fmt.Sprintf("Enumerate AWS with extracted keys"),
+				Payload:      "Enumerate AWS with extracted keys",
 				Confidence:   "HIGH",
 				Reasoning:    "AWS credentials detected. Pivot to cloud infrastructure.",
 				Status:       "PENDING",
@@ -580,7 +628,7 @@ func (n *NeuroEngineCore) ProcessExploitResult(exploit TacticalAction, loot stri
 			nextAction = &TacticalAction{
 				Type:         "JWT_BYPASS",
 				Target:       exploit.Target,
-				Payload:      fmt.Sprintf("Decode and use JWT for privilege escalation"),
+				Payload:      "Decode and use JWT for privilege escalation",
 				Confidence:   "MEDIUM",
 				Reasoning:    "JWT token found. Attempt to manipulate token claims.",
 				Status:       "PENDING",

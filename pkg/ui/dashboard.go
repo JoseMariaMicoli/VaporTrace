@@ -81,10 +81,11 @@ var (
 	knownCommands = []string{
 		"tasks", // NEW
 		"ask",
-		"auth", "sessions", "map", "swagger", "scrape", "mine", "proxy", "proxies", "target", "pipeline",
-		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe",
+		"auth", "sessions", "map", "swagger", "scrape", "mine", "spider", "fuzz", "proxy", "proxies", "target", "pipeline",
+		"flow", "bola", "bopla", "bfla", "exhaust", "ssrf", "audit", "probe", "intruder",
 		"weaver", "loot", "test-bola", "test-bopla", "test-bfla", "test-exhaust", "test-ssrf", "test-audit", "test-probe",
 		"neuro", "test-neuro", "neuro-gen",
+		"stealth", "stealth status", "stealth toggle", "stealth multiplier", "evasion", "waf detect", // Evasion
 		"init_db", "seed_db", "reset_db", "report", "clear", "exit", "usage", "help",
 	}
 
@@ -218,7 +219,9 @@ func InitTacticalDashboard() {
 				switchTo("neuro")
 
 				go func() {
-					logic.GlobalNeuro.AnalyzeTrafficSnapshot(req, res)
+					if neuro := logic.GetGlobalNeuro(); neuro != nil {
+						neuro.AnalyzeTrafficSnapshot(req, res)
+					}
 				}()
 			}
 			return nil
@@ -284,7 +287,12 @@ func InitTacticalDashboard() {
 			utils.TacticalLog(fmt.Sprintf("INTERCEPTOR: %v", logic.InterceptorActive))
 			updatePipelineQuadrant()
 		case tcell.KeyCtrlH:
-			ShowHelpModal(app, pages)
+			if pages.HasPage("help_modal") {
+				pages.RemovePage("help_modal")
+				app.SetFocus(cmdInput)
+			} else {
+				ShowHelpModal(app, pages)
+			}
 			return nil
 		case tcell.KeyPgUp:
 			row, col := brainLog.GetScrollOffset()
@@ -512,7 +520,7 @@ func updatePipelineQuadrant() {
 	targetColumn.SetCell(7, 1, tview.NewTableCell(intStatus))
 
 	neuroStatus := "[red]OFF"
-	if logic.GlobalNeuro.Active {
+	if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active {
 		neuroStatus = "[magenta]ONLINE (HYBRID)"
 	}
 	targetColumn.SetCell(8, 0, tview.NewTableCell("NEURO BRAIN"))
@@ -597,7 +605,51 @@ func startAsyncEngines() {
 		for range ticker.C {
 			app.QueueUpdateDraw(func() {
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
-				statusFooter.SetText(fmt.Sprintf(" [blue]SYSTEM SYNC %s [white]| %s", spinnerFrames[spinnerIdx], time.Now().Format("15:04:05")))
+
+				// Build evasion indicators with mode and detailed status
+				config := logic.GetStealthConfig()
+				evasionIndicators := ""
+				if config != nil {
+					jitterColor := "[green]"
+					if !config.EnableJitter {
+						jitterColor = "[darkgray]"
+					}
+					thinkColor := "[green]"
+					if !config.EnableThinkingTime {
+						thinkColor = "[darkgray]"
+					}
+					backoffColor := "[green]"
+					if !config.EnableBackoff {
+						backoffColor = "[darkgray]"
+					}
+					obfusColor := "[green]"
+					if !config.EnablePathObfuscation {
+						obfusColor = "[darkgray]"
+					}
+					encodingColor := "[green]"
+					if !config.EnablePayloadEncoding {
+						encodingColor = "[darkgray]"
+					}
+
+					// Format: Mode name in uppercase + multiplier + individual toggles
+					evasionIndicators = fmt.Sprintf(" [cyan]%s[-] [yellow]%.1fx[-] [%s[J][-] %s[T][-] %s[B][-] %s[O][-] %s[E][-]]",
+						strings.ToUpper(config.Mode), config.GlobalEvasionMultiplier,
+						jitterColor, thinkColor, backoffColor, obfusColor, encodingColor)
+				}
+
+				// Build interceptor status indicator
+				interceptorStatus := ""
+				if logic.InterceptorActive {
+					interceptorStatus = " [red]⚡INTERCEPTOR:ON[-]"
+				}
+
+				// Build NEURO status indicator
+				neuroStatus := ""
+				if neuro := logic.GetGlobalNeuro(); neuro != nil && neuro.Active {
+					neuroStatus = " [green]🧠NEURO:ON[-]"
+				}
+
+				statusFooter.SetText(fmt.Sprintf(" [blue]SYSTEM SYNC %s [white]| %s%s%s%s", spinnerFrames[spinnerIdx], time.Now().Format("15:04:05"), interceptorStatus, neuroStatus, evasionIndicators))
 				updatePipelineQuadrant()
 
 				// Update Tab 5 Summary in real-time

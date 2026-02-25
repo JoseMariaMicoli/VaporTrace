@@ -20,6 +20,7 @@ func MineParameters(baseURL string, endpoint string, proxy string) {
 		fullURL := fmt.Sprintf("%s%s?%s=true", baseURL, endpoint, p)
 
 		req, _ := http.NewRequest("GET", fullURL, nil)
+		logic.ApplyEvasion(req) // Apply rotating User-Agent
 		resp, err := client.Do(req)
 
 		if err != nil {

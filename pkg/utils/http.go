@@ -42,3 +42,25 @@ func GetClient(proxyAddr string) (*http.Client, error) {
 		Timeout:   30 * time.Second,
 	}, nil
 }
+
+// JoinURL properly joins a base URL with a path, avoiding double slashes.
+// It handles cases where base ends with "/" and path starts with "/".
+func JoinURL(baseURL, path string) string {
+	if baseURL == "" {
+		return path
+	}
+	if path == "" {
+		return baseURL
+	}
+
+	// Ensure we don't have double slashes
+	if baseURL[len(baseURL)-1] == '/' && path[0] == '/' {
+		// Both have slashes, remove one
+		return baseURL + path[1:]
+	} else if baseURL[len(baseURL)-1] != '/' && path[0] != '/' {
+		// Neither has a slash, add one
+		return baseURL + "/" + path
+	}
+	// One has a slash, concatenate as is
+	return baseURL + path
+}

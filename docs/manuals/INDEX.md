@@ -18,6 +18,7 @@
 5. [Reconnaissance & Discovery](05_RECONNAISSANCE.md) - Building your attack surface map
 6. [Exploitation Engine](06_EXPLOITATION.md) - OWASP API Top 10 attack modules
 7. [AI & Neural Engine](07_AI_NEURO_ENGINE.md) - ML-driven payload generation
+7a. [Neuro Quick Usage Guide](NEURO_QUICK_USAGE_GUIDE.md) - Complete workflows and examples for AI features
 8. [Interceptor & MITM](08_INTERCEPTOR_MITM.md) - Request manipulation and analysis
 
 ### 🛠️ Advanced Features
@@ -25,6 +26,7 @@
 10. [Ghost Weaver (Evasion)](10_GHOST_WEAVER.md) - Token forgery and data masking
 11. [Loot Vault (Exfiltration)](11_LOOT_VAULT.md) - Secret capture and management
 12. [Proxy & Network](12_PROXY_NETWORK.md) - Upstream proxies and traffic routing
+12a. [QUICK_START_RACE.md](QUICK_START_RACE.md) - Race Condition Testing (Tier 3) ⭐ NEW
 
 ### 📊 Reporting & Analysis
 13. [Report Generation](13_REPORTING.md) - Export findings and generate reports
@@ -37,19 +39,39 @@
 
 ### 📚 Reference
 18. [Command Reference](18_COMMAND_REFERENCE.md) - All CLI commands with examples
+**22. [Advanced Discovery Guide](22_DISCOVERY_GUIDE.md) - Spider & Fuzz techniques (Tier 2) ⭐ NEW**
 19. [API Module Documentation](19_API_MODULES.md) - Detailed module descriptions
 20. [FAQ & Tips](20_FAQ_TIPS.md) - Frequently asked questions and pro tips
+21. [WAF Evasion Techniques](21_WAF_EVASION_TECHNIQUES.md) - Advanced WAF bypass strategies
 
 ---
 
 ## Quick Navigation by Use Case
 
 ### 🔍 "I want to discover API endpoints"
-**Read:** [05_RECONNAISSANCE.md](05_RECONNAISSANCE.md)
+**Read:** [05_RECONNAISSANCE.md](05_RECONNAISSANCE.md) and **[22_DISCOVERY_GUIDE.md](22_DISCOVERY_GUIDE.md)** ⭐ NEW
 - Target management
-- Automatic endpoint discovery
+- Automatic endpoint discovery (map, swagger, scrape)
+- **Advanced: Domain crawling with spider (Tier 2) ⭐ NEW**
+- **Advanced: Brute-force fuzzing with fuzz (Tier 2) ⭐ NEW**
 - Parameter fuzzing
 - Swagger/OpenAPI parsing
+
+### 🕷️ "I want to crawl a domain for endpoints"
+**Read:** **[22_DISCOVERY_GUIDE.md](22_DISCOVERY_GUIDE.md)** ⭐ NEW
+- Spider command for recursive crawling
+- Depth control and optimization
+- WAF evasion for crawling
+- Performance tuning
+- Real-world examples
+
+### 🔎 "I want to fuzz for hidden paths/parameters"
+**Read:** **[22_DISCOVERY_GUIDE.md](22_DISCOVERY_GUIDE.md)** ⭐ NEW
+- Fuzz command for path enumeration
+- Parameter discovery with anomaly detection
+- Embedded wordlists
+- Speed vs stealth tradeoffs
+- Troubleshooting guides
 
 ### ⚔️ "I want to test for vulnerabilities"
 **Read:** [06_EXPLOITATION.md](06_EXPLOITATION.md)
@@ -59,11 +81,12 @@
 - SSRF, Resource Exhaustion, etc.
 
 ### 🧠 "I want to use AI to generate payloads"
-**Read:** [07_AI_NEURO_ENGINE.md](07_AI_NEURO_ENGINE.md)
-- Neural Engine setup
-- AI payload generation
-- Mutation strategies
-- Configuration
+**Read:** [07_AI_NEURO_ENGINE.md](07_AI_NEURO_ENGINE.md) and [NEURO_QUICK_USAGE_GUIDE.md](NEURO_QUICK_USAGE_GUIDE.md)
+- Neural Engine setup and configuration
+- AI payload generation with multiple providers
+- Complete workflows and examples
+- Troubleshooting and best practices
+- 5 AI providers: Groq, OpenAI, Gemini, Ollama, Hybrid mode
 
 ### 🎯 "I want to orchestrate complex attacks"
 **Read:** [04_STRATEGIC_PLANNING.md](04_STRATEGIC_PLANNING.md) & [09_ATTACK_CHAINS.md](09_ATTACK_CHAINS.md)
@@ -92,6 +115,21 @@
 - Secret management
 - Credential usage
 - Export options
+
+### 🏃 "I want to test for race conditions" (Tier 3)
+**Read:** [QUICK_START_RACE.md](QUICK_START_RACE.md) ⭐ NEW
+- Race condition basics
+- Synchronization gate pattern
+- TOCTOU vulnerability detection
+- Common race scenarios
+- Troubleshooting guide
+
+### 🔫 "I want to fuzz parameters with custom wordlists" (Tier 3)
+**Read:** [QUICK_START_RACE.md](QUICK_START_RACE.md) & [18_COMMAND_REFERENCE.md](18_COMMAND_REFERENCE.md) ⭐ NEW
+- Intruder sniper mode
+- Anomaly detection
+- Custom wordlist loading
+- Baseline comparison
 
 ---
 
@@ -124,7 +162,20 @@ list-plan
 commit
 ```
 
-### Workflow 3: AI-Driven Exploitation (20 minutes)
+### Workflow 3: Race Condition Testing (Tier 3) (15 minutes)
+1. [QUICK_START_RACE.md](QUICK_START_RACE.md) - Learn race testing basics
+2. [Identify target endpoint](#) - Find state-changing endpoints
+3. Run race test - Execute concurrent requests
+4. Analyze results - Check for timing-based vulnerabilities
+
+**Commands:**
+```bash
+target https://api.example.com
+race https://api.example.com/api/claim?code=WINNER 30
+report
+```
+
+### Workflow 4: AI-Driven Exploitation (20 minutes)
 1. [07_AI_NEURO_ENGINE.md](07_AI_NEURO_ENGINE.md) - Setup neural engine
 2. [06_EXPLOITATION.md](06_EXPLOITATION.md) - Run attacks with AI
 3. [13_REPORTING.md](13_REPORTING.md) - Generate report
@@ -249,6 +300,9 @@ A: See [13_REPORTING.md](13_REPORTING.md) - Report Generation
 
 ```
 docs/
+├── DOCUMENTATION_STATUS.md
+├── TUI.png
+├── diagram_mermaid.png
 ├── manuals/
 │   ├── INDEX.md (you are here)
 │   ├── 01_INSTALLATION_SETUP.md
@@ -258,27 +312,53 @@ docs/
 │   ├── 05_RECONNAISSANCE.md
 │   ├── 06_EXPLOITATION.md
 │   ├── 07_AI_NEURO_ENGINE.md
+│   ├── NEURO_QUICK_USAGE_GUIDE.md (✨ NEW - Complete neuro workflows)
 │   ├── 08_INTERCEPTOR_MITM.md
 │   ├── 09_ATTACK_CHAINS.md
 │   ├── 10_GHOST_WEAVER.md
 │   ├── 11_LOOT_VAULT.md
 │   ├── 12_PROXY_NETWORK.md
+│   ├── 12_SPRINT12_EVASION_V2.md
 │   ├── 13_REPORTING.md
+│   ├── 13_SPRINT13_EVASION_HARDENING.md
 │   ├── 14_ANALYTICS.md
 │   ├── 15_CONFIGURATION.md
 │   ├── 16_TROUBLESHOOTING.md
 │   ├── 17_KEYBOARD_SHORTCUTS.md
 │   ├── 18_COMMAND_REFERENCE.md
 │   ├── 19_API_MODULES.md
-│   └── 20_FAQ_TIPS.md
+│   ├── 20_FAQ_TIPS.md
+│   ├── 21_WAF_EVASION_TECHNIQUES.md
+│   ├── KEYBINDINGS_QUICK_REFERENCE.md
+│   └── SPRINT12_INTEGRATION_GUIDE.md
 └── dev-logs/
-    ├── INDEX.md (architecture & technical overview)
-    ├── 01_ARCHITECTURE.md
-    ├── 02_IMPLEMENTATION.md
-    ├── 03_MODULES_DETAILED.md
-    ├── 04_DATA_FLOW.md
-    ├── 05_AI_INTEGRATION.md
-    └── DIAGRAMS/ (ASCII flow diagrams)
+    ├── INDEX.md
+    ├── 00_START_HERE.md (✨ NEW - Navigation hub)
+    ├── NEURO_QUICK_REFERENCE.md (✨ NEW - One-page reference)
+    ├── NEURO_SOURCE_FIXES_NEEDED.md (✨ NEW - Implementation guide)
+    ├── NEURO_COMPLETE_STATUS.md (✨ NEW - Status & workflows)
+    ├── NEURO_AUDIT_REPORT.md
+    ├── NEURO_AUDIT_EXECUTIVE_SUMMARY.md
+    ├── NEURO_AUDIT_VISUAL_MAP.md
+    ├── AUDIT_SUMMARY_FOR_TEAM.md
+    ├── Dev-Roadmap.md
+    ├── BUG-Fixes/
+    ├── Sprint-01/
+    ├── Sprint-02/
+    ├── Sprint-03/
+    ├── Sprint-04/
+    ├── Sprint-05/
+    ├── Sprint-06/
+    ├── Sprint-07/
+    ├── Sprint-08/
+    ├── Sprint-09/
+    ├── Sprint-10/
+    ├── Sprint-11/
+    ├── Sprint-12/
+    ├── Sprint-13/
+    ├── Sprint-14/
+    ├── Sprint-15/
+    └── Sprint-16/
 ```
 
 ---
@@ -289,12 +369,43 @@ docs/
 2. **Want to do something specific?** Use "Quick Navigation by Use Case" above
 3. **Need step-by-step?** Follow the "Workflows" section
 4. **Looking for reference?** Jump to [18_COMMAND_REFERENCE.md](18_COMMAND_REFERENCE.md)
-5. **Technical details?** See [dev-logs/INDEX.md](../dev-logs/INDEX.md)
+5. **Want to use AI/Neuro?** Check [NEURO_QUICK_USAGE_GUIDE.md](NEURO_QUICK_USAGE_GUIDE.md) for complete workflows
+6. **Technical details?** See [dev-logs/INDEX.md](../dev-logs/INDEX.md) or [dev-logs/00_START_HERE.md](../dev-logs/00_START_HERE.md)
+7. **Need quick AI reference?** Use [dev-logs/NEURO_QUICK_REFERENCE.md](../dev-logs/NEURO_QUICK_REFERENCE.md)
+
+---
+
+## 🎯 New: Comprehensive Neuro Engine Documentation (February 2026)
+
+We've completely refreshed the Neuro Engine documentation and guides:
+
+### For Users
+- **[NEURO_QUICK_USAGE_GUIDE.md](NEURO_QUICK_USAGE_GUIDE.md)** - Start here! Complete workflows, provider setup, troubleshooting
+  - 4 real-world attack scenarios
+  - Setup instructions for 5 providers (Groq, OpenAI, Gemini, Ollama, Hybrid)
+  - 2,500+ words of actionable guidance
+  
+### For Developers
+- **[dev-logs/NEURO_SOURCE_FIXES_NEEDED.md](../dev-logs/NEURO_SOURCE_FIXES_NEEDED.md)** - Implementation guide
+  - All 6 critical code issues documented
+  - Before/after code examples
+  - 1.5-2 hour implementation roadmap
+  
+### Quick Reference
+- **[dev-logs/NEURO_QUICK_REFERENCE.md](../dev-logs/NEURO_QUICK_REFERENCE.md)** - One-page reference
+  - All commands at a glance
+  - Feature status table
+  
+### Navigation Hub
+- **[dev-logs/00_START_HERE.md](../dev-logs/00_START_HERE.md)** - Central navigation
+  - Links organized by role (user/dev/manager)
+  - Complete workflow diagrams
 
 ---
 
 ## Version History
 
+- **3.1 (Feb 10, 2026)** - Neuro Engine refinement: Fixed race conditions, nil checks, improved prompts. Complete documentation refresh.
 - **3.0+ (Feb 8, 2026)** - Post Sprint 11: TUI fixes, comprehensive documentation, AI integration stable
 - **2.5 (Jan 2026)** - Added neural engine and AI payloads
 - **2.0 (Dec 2025)** - HITL strategic planning added

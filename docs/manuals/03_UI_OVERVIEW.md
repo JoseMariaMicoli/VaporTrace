@@ -15,7 +15,7 @@ The VaporTrace dashboard is organized into **7 interactive tabs** + **1 command 
 ┌─────────────────────────────────────────────────────────────┐
 │ VaporTrace Dashboard                                        │
 ├─────────────────────────────────────────────────────────────┤
-│ F1:LOGS │ F2:MAP │ F3:LOOT │ F4:ANALYSIS │ F5:PLAN │ F6:NEURO │ F7:SETTINGS
+│ F1:LOGS │ F2:MAP │ F3:LOOT │ F4:TRAFFIC │ F5:PLAN │ F6:NEURO │ F7:REPORT
 ├─────────────────────────────────────────────────────────────┤
 │                     [TAB CONTENT AREA]                       │
 │                                                               │
@@ -136,18 +136,38 @@ SESSION    │ PHPSESSID=abc123...        │ /api/auth           │ 08:31:50
 
 ---
 
-### F4 - ANALYSIS Tab
+### F4 - TRAFFIC Tab
 **Hotkey:** F4  
-**Shows:** Vulnerabilities and security findings  
-**Updates:** After exploitation modules run
+**Shows:** HTTP requests and responses  
+**Updates:** Real-time during traffic capture and interception
 
 **What you'll see:**
 ```
-ID  │ Type    │ Endpoint          │ Severity │ Confidence │ Description
-────────────────────────────────────────────────────────────────────
-1   │ BOLA    │ /api/users/[id]   │ HIGH     │ 95%        │ ID enumeration works
-2   │ BFLA    │ /api/admin/*      │ HIGH     │ 80%        │ Admin endpoint accessible
-3   │ BOPLA   │ /api/users        │ MEDIUM   │ 70%        │ Mass assignment on role
+Method │ URL              │ Status │ Size    │ Time   │ Response
+──────────────────────────────────────────────────────────────
+GET    │ /api/users       │ 200    │ 2.3 KB  │ 125ms  │ [{"id":1,"name":"Alice"}...]
+POST   │ /api/auth/login  │ 200    │ 512 B   │ 250ms  │ {"token":"eyJ0...","expires":3600}
+GET    │ /api/admin       │ 403    │ 256 B   │ 50ms   │ {"error":"Unauthorized"}
+PUT    │ /api/users/1     │ 200    │ 1.8 KB  │ 180ms  │ {"id":1,"updated":true}
+GET    │ /admin/settings  │ 200    │ 4.2 KB  │ 95ms   │ {"timezone":"UTC","locale":"en"...}
+```
+
+**Key Information:**
+- **Method:** HTTP verb (GET, POST, PUT, DELETE, PATCH)
+- **URL:** Request path
+- **Status:** HTTP response code
+- **Size:** Response body size
+- **Time:** Round-trip latency
+- **Response:** Preview of response body
+
+**Actions in F4:**
+- Click on request to view full details
+- **Ctrl+I:** Open request in Interceptor (if enabled)
+- **Ctrl+F:** Search for specific requests
+- **Ctrl+S:** Save interesting request to Loot (F3)
+- Arrow Keys: Navigate requests
+
+**When to use:** Monitor HTTP traffic, inspect responses, identify interesting endpoints
 4   │ SSRF    │ /api/fetch        │ CRITICAL │ 100%       │ Can access 169.254.169.254
 5   │ CONFIG  │ /.well-known/*    │ MEDIUM   │ 60%        │ CORS: Allow-All
 6   │ AUTH    │ /api/auth         │ LOW      │ 40%        │ Weak password policy
@@ -260,66 +280,79 @@ NEURO: Connected ✓ | Latency: 245ms | Model: llama-3.1-8b | Tokens: 1,234/10,0
 
 ---
 
-### F7 - SETTINGS Tab
+### F7 - REPORT Tab
 **Hotkey:** F7  
-**Shows:** Runtime configuration and options  
-**Updates:** When you change settings
+**Shows:** Findings report editor and preview  
+**Updates:** When you edit content or toggle modes
 
-**Categories:**
+**Dual-Mode Interface:**
 
-#### Global Settings
+#### EDIT Mode (Default)
 ```
-API Target:          https://api.example.com
-Auth Token:          eyJ0exAiOiJIUzI1NiIs...
-Proxy:               localhost:8080 (active)
-Debug Mode:          ON
-Verbose Logging:     ON
-```
+ Title: VaporTrace Assessment Report - Target: api.example.com
+ Date: 2026-02-09
+ Tester: Security Team
 
-#### Module Settings
-```
-Enabled Modules:     BOLA, BFLA, BOPLA, SSRF, Exhaust, Audit, Probe
-Timeout (seconds):   30
-Retries:            3
-Rate Limit Delay:   1000ms (1 sec)
-Follow Redirects:    ON
-SSL Verify:          OFF (for testing)
-```
+## Executive Summary
+High-risk vulnerabilities identified requiring immediate remediation.
 
-#### Neural Engine
-```
-Provider:            Groq
-API Key:             [••••••••••••••••••] (set)
-Model:               llama-3.1-8b
-Enabled:             ON
-Temperature:         0.7 (creativity)
-Max Tokens:          2000
+## Vulnerabilities Found
+
+### 1. Broken Object Level Authorization (BOLA)
+**Severity:** CRITICAL (95% confidence)
+**Endpoint:** GET /api/users/{id}
+**Description:** User objects are accessible via sequential ID enumeration
+**Impact:** Unauthorized access to all user profiles
+**Proof:** [Shows captured user IDs 1-10000]
+
+### 2. Broken Function Level Authorization (BFLA)
+**Severity:** HIGH (80% confidence)
+**Endpoint:** GET /api/admin/settings
+**Description:** Admin endpoints accessible without authentication
 ```
 
-#### Database
+**Features in EDIT Mode:**
+- Full Markdown support
+- Syntax highlighting
+- Line numbers
+- Copy/paste support
+- Auto-save draft state
+
+#### PREVIEW Mode (Read-Only)
 ```
-Location:            ~/.vaportrace/vaportrace.db
-Size:               2.3 MB
-Records:            4,532 endpoints, 1,234 findings
-Auto-backup:        Every 6 hours
+Shows the same report content, but with:
+✓ Dynamic colors for severity levels:
+  - CRITICAL → Red/Bold
+  - HIGH → Orange/Bold
+  - MEDIUM → Yellow
+  - LOW → Gray
+
+✓ Markdown headers rendered in Blue/Bold
+✓ Keyword highlighting (CRITICAL, HIGH, MEDIUM)
+✓ Professional formatting
+✓ Scroll-through view
 ```
 
-#### Export Defaults
-```
-Report Format:       Markdown (can be PDF)
-Include Loot:        Yes
-Include Screenshots: No
-Compress Archive:    Yes
-```
+**Key Information:**
+- Auto-populated from tactical findings
+- Markdown compatible for export to PDF
+- Severity color-coding in preview
+- Read/Edit/Preview/Save/Delete capabilities
 
 **Actions in F7:**
-- **Tab:** Navigate between sections
-- **Enter:** Edit selected setting
-- **Ctrl+S:** Save settings
-- **Ctrl+R:** Reset to defaults
-- **F1:** Help for current setting
+- **Ctrl+P:** Toggle between EDIT and PREVIEW modes
+- **Ctrl+W** or **Ctrl+S:** Save report to disk (from either mode)
+- **Ctrl+X:** Delete session and clear report
+- **Ctrl+C:** Copy text (EDIT mode)
+- **Arrow Keys:** Navigate content
 
-**When to use:** Configure API keys, proxies, modules before testing
+**Report Export Formats:**
+- Markdown (.md) - direct save
+- HTML - from Markdown
+- PDF - via markdown-to-pdf conversion
+- Custom templates available
+
+**When to use:** Document findings, prepare client reports, export assessments
 
 ---
 
@@ -359,7 +392,8 @@ TARGET: https://api.example.com | STATUS: Ready | PID: 2847
 2. F1 (LOGS)    ← Monitor real-time progress
 3. F5 (PLAN)    ← Review tactical actions
 4. F3 (LOOT)    ← Check captured secrets
-5. F4 (ANALYSIS)← Review vulnerabilities found
+5. F4 (TRAFFIC) ← Review HTTP traffic
+6. F7 (REPORT)  ← Document findings
 ```
 
 ### During Exploitation
@@ -367,18 +401,20 @@ TARGET: https://api.example.com | STATUS: Ready | PID: 2847
 Start command:   > commit
 Watch: F5 (PLAN) - see action status
 Watch: F1 (LOGS) - see execution logs
+Watch: F4 (TRAFFIC) - monitor HTTP activity
 Pause: Ctrl+I to intercept requests
 Check: F6 (NEURO) for AI alternatives
 Review: F3 (LOOT) for real-time captures
+Document: F7 (REPORT) to record findings
 ```
 
-### Configuration
+### Reporting
 ```
-Before attack:   Open F7 (SETTINGS)
-Set: API keys, proxy, modules
-Save: Ctrl+S
-Verify: Click "Test Connection"
-Ready: Close F7 and run attack
+After attack:    Open F7 (REPORT)
+Mode: EDIT       - Write findings in Markdown
+Mode: PREVIEW    - See formatted/colored output
+Save: Ctrl+W     - Export report to disk
+Export: PDF/HTML - Convert via markdown tools
 ```
 
 ---

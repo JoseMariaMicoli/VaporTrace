@@ -25,13 +25,31 @@ type NeuroEngine struct {
 	Primary   ai.LLMProvider
 	Secondary ai.LLMProvider
 	Active    bool
+	Provider  string // Tracks the current configuration mode
 	mu        sync.Mutex
 	lastCall  time.Time // Rate Limiter Timestamp
 }
 
-// Global singleton instance
-var GlobalNeuro = &NeuroEngine{
-	Active: false,
+// Global singleton instance with thread-safe initialization
+var (
+	GlobalNeuro *NeuroEngine
+	neuroMutex  sync.RWMutex
+	neuroOnce   sync.Once
+)
+
+// GetGlobalNeuro returns the singleton instance with double-checked locking
+func GetGlobalNeuro() *NeuroEngine {
+	if GlobalNeuro != nil {
+		return GlobalNeuro
+	}
+
+	neuroOnce.Do(func() {
+		GlobalNeuro = &NeuroEngine{
+			Active: false,
+		}
+	})
+
+	return GlobalNeuro
 }
 
 // Configure sets up the AI provider with Hydra Optimization (Prioritize Cloud)
@@ -47,6 +65,8 @@ func (n *NeuroEngine) Configure(providerType, apiKey, model, endpoint string) {
 	if providerType == "" {
 		providerType = "openai" // Default to Cloud if unspecified
 	}
+
+	n.Provider = providerType
 
 	switch strings.ToLower(providerType) {
 	case "ollama":
@@ -104,10 +124,11 @@ func (n *NeuroEngine) enforceRateLimit() {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	// Strict 6 seconds between calls for Free Tier safety in high-latency regions
+	// Industry standard 2 seconds between calls (sufficient for most rate limiting)
+	const rateLimitDelay = 2 * time.Second
 	elapsed := time.Since(n.lastCall)
-	if elapsed < 6*time.Second {
-		wait := 6*time.Second - elapsed
+	if elapsed < rateLimitDelay {
+		wait := rateLimitDelay - elapsed
 		time.Sleep(wait)
 	}
 	n.lastCall = time.Now()
@@ -115,6 +136,14 @@ func (n *NeuroEngine) enforceRateLimit() {
 
 // ExecuteQuery tries primary provider, and immediately falls back to secondary on 429
 func (n *NeuroEngine) ExecuteQuery(prompt string) (string, error) {
+	if !n.Active {
+		return "", fmt.Errorf("neural engine is not active")
+	}
+
+	if prompt == "" {
+		return "", fmt.Errorf("prompt cannot be empty")
+	}
+
 	var primaryErr error
 
 	if n.Primary != nil {
@@ -153,10 +182,13 @@ func (n *NeuroEngine) ExecuteQuery(prompt string) (string, error) {
 			finalErr := fmt.Errorf("Hybrid Failure - Cloud: %v | Local: %v", primaryErr, err)
 			return "", finalErr
 		}
+		if res == "" {
+			return "", fmt.Errorf("secondary provider returned empty response (Primary: %v)", primaryErr)
+		}
 		return res, nil
 	}
 
-	return "", fmt.Errorf("all neural paths failed (Primary: %v, No Secondary configured)", primaryErr)
+	return "", fmt.Errorf("all neural paths failed: primary=%v, secondary=nil", primaryErr)
 }
 
 // AnalyzeTrafficSnapshot is the Core Trigger (Ctrl+A).
@@ -167,36 +199,66 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 		return
 	}
 
-	// Task 5: Immediate UI Feedback
-	utils.LogNeural("[magenta]>>> PROCESSING TRAFFIC SNAPSHOT (Please Wait)...[-]")
+	// ✅ ENHANCED: Immediate visible feedback to user
+	utils.LogNeural("[magenta]⏳ ANALYZING TRAFFIC SNAPSHOT...[-]")
+	utils.LogNeural("[blue]Status: Querying AI engine (5-10 seconds expected)...[-]")
+	utils.LogNeural("[white]Parameters detected in request. Processing payloads...[-]\n")
+	utils.TacticalLog("[cyan]>>> Ctrl+A: Traffic analysis started. Results will appear in F6 (Neuro tab)[-]")
 
 	// Safely truncate dumps to avoid token limit hangs
 	safeReq := truncateContext(reqDump, 1000) // Lowered token count further for 429 safety
 	safeRes := truncateContext(resDump, 1000)
 
-	// Async Execution
+	// Async Execution with better error handling
 	go func() {
+		defer func() {
+			// ✅ ENHANCED: Panic recovery with user notification
+			if r := recover(); r != nil {
+				utils.LogNeural(fmt.Sprintf("[red]⚠ CRITICAL ERROR: %v[-]", r))
+				utils.TacticalLog(fmt.Sprintf("[red]NEURO PANIC:[-] %v", r))
+			}
+		}()
+
 		// 1. Construct the Offensive Prompt
 		prompt := fmt.Sprintf(ai.TrafficAnalysisPrompt, safeReq, safeRes)
 
 		// 2. Query LLM (Hybrid Execution)
+		utils.LogNeural("[yellow]→ Sending to LLM...[-]")
 		response, err := n.ExecuteQuery(prompt)
 		if err != nil {
 			utils.TacticalLog(fmt.Sprintf("[red]NEURO ERROR:[-] %v", err))
-			utils.LogNeural(fmt.Sprintf("[red]ERROR: %v[-]", err))
+			utils.LogNeural(fmt.Sprintf("[red]✗ ERROR: %v[-]", err))
+			utils.LogNeural("[blue]Troubleshooting: Check API keys, rate limits, or network connectivity[-]")
 			return
 		}
+
+		// ✅ ENHANCED: Progress feedback
+		utils.LogNeural("[yellow]→ Parsing response...[-]")
 
 		// 3. Parse Sections
 		analysis, payloads, compliance := n.parseAIOutput(response)
 
-		// 4. Report to UI (F6 Neural Tab)
-		report := fmt.Sprintf("\n[cyan]=== TACTICAL ANALYSIS (%s) ===[-]\n[white]%s[-]\n\n", time.Now().Format("15:04:05"), analysis)
+		// ✅ ENHANCED: Detailed results with statistics
+		report := fmt.Sprintf("\n[cyan]✓ === TACTICAL ANALYSIS (%s) ===[-]\n[white]%s[-]\n\n", time.Now().Format("15:04:05"), analysis)
 		if compliance != "" {
-			report += fmt.Sprintf("[blue]=== COMPLIANCE ===[-]\n[gray]%s[-]\n", compliance)
+			report += fmt.Sprintf("[blue]✓ COMPLIANCE NOTES:[-]\n[gray]%s[-]\n", compliance)
 		}
+
+		// ✅ ENHANCED: Payload summary
+		if len(payloads) > 0 {
+			report += fmt.Sprintf("[magenta]✓ IDENTIFIED %d EXPLOITATION VECTORS:[-]\n", len(payloads))
+			for i, p := range payloads {
+				if i < 5 { // Show first 5 payloads
+					report += fmt.Sprintf("  [yellow]%d.[-] %s\n", i+1, p)
+				}
+			}
+			if len(payloads) > 5 {
+				report += fmt.Sprintf("  [gray]... and %d more[-]\n", len(payloads)-5)
+			}
+		}
+
 		utils.LogNeural(report)
-		utils.TacticalLog("[green]NEURO:[-] Analysis Complete. Check Tab 6.")
+		utils.TacticalLog(fmt.Sprintf("[green]✓ NEURO:[-] Analysis Complete - %d vectors identified. Check F6 tab for details.", len(payloads)))
 
 		// 5. AUTO-FUZZING: Execute Generated Exploits
 		if len(payloads) > 0 {
@@ -206,7 +268,7 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 			// Engage "Smart Fuzzer" logic
 			n.executeSmartAttack(targetURL, method, payloads)
 		} else {
-			utils.TacticalLog("[yellow]NEURO:[-] No viable exploits generated by AI.")
+			utils.LogNeural("[gray]Note: No exploitation vectors generated. Request may not contain exploitable parameters.[-]")
 		}
 	}()
 }
@@ -320,7 +382,7 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 
 		// Identify the request as an AI-driven exploit for logging/debugging
 		req.Header.Set("X-Neuro-Engine", "Automated-Exploit")
-		req.Header.Set("User-Agent", "VaporTrace-Neuro/1.0")
+		ApplyEvasion(req) // Use rotating User-Agent
 
 		startAttack := time.Now()
 		resp, err := client.Do(req)
