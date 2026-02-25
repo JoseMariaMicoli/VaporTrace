@@ -1,3 +1,17 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under {'license_type': 'BSL', 'change_date': '2033-02-17', 'convert_to': 'Apache-2.0'}
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 package logic
 
 import (
@@ -7,12 +21,14 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/ai"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/kb" // IMPORT KB
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
@@ -205,9 +221,10 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 	utils.LogNeural("[white]Parameters detected in request. Processing payloads...[-]\n")
 	utils.TacticalLog("[cyan]>>> Ctrl+A: Traffic analysis started. Results will appear in F6 (Neuro tab)[-]")
 
-	// Safely truncate dumps to avoid token limit hangs
-	safeReq := truncateContext(reqDump, 1000) // Lowered token count further for 429 safety
-	safeRes := truncateContext(resDump, 1000)
+	// TASK 3: Context Sanitization
+	// Redact URLs in the dump that are out of scope to prevent LLM hallucinations
+	safeReq := n.redactOutOfScope(truncateContext(reqDump, 1000))
+	safeRes := n.redactOutOfScope(truncateContext(resDump, 1000))
 
 	// Async Execution with better error handling
 	go func() {
@@ -273,6 +290,19 @@ func (n *NeuroEngine) AnalyzeTrafficSnapshot(reqDump, resDump string) {
 	}()
 }
 
+// redactOutOfScope sanitizes inputs based on the GlobalScope manager
+func (n *NeuroEngine) redactOutOfScope(input string) string {
+	// Regex to find URLs
+	urlRegex := regexp.MustCompile(`https?://[a-zA-Z0-9.-]+(?:/[^\s]*)?`)
+
+	return urlRegex.ReplaceAllStringFunc(input, func(match string) string {
+		if !GlobalScope.IsInScope(match) {
+			return "[REDACTED_OUT_OF_SCOPE]"
+		}
+		return match
+	})
+}
+
 // PerformNeuroBrute implements the Fuzzing logic triggered by Ctrl+B
 // It takes context (body or headers) and generates high-entropy mutations.
 func (n *NeuroEngine) PerformNeuroBrute(seedBody string) {
@@ -286,7 +316,18 @@ func (n *NeuroEngine) PerformNeuroBrute(seedBody string) {
 	go func() {
 		// Reduce context drastically for brute gen to save tokens
 		truncBody := truncateContext(seedBody, 400)
-		prompt := fmt.Sprintf("Generate 5 fuzzing mutations for this data to test for SQLi and BOLA. Return ONLY raw strings/JSON:\n%s", truncBody)
+
+		// KB INJECTION: Get historically successful payloads to inspire the AI
+		proven := kb.GetTopPayloads("", 3) // Get top 3 of any type
+		provenContext := ""
+		if len(proven) > 0 {
+			provenContext = "\nHISTORICAL SUCCESS VECTORS (Use these as inspiration):\n"
+			for _, p := range proven {
+				provenContext += "- " + p + "\n"
+			}
+		}
+
+		prompt := fmt.Sprintf("Generate 5 fuzzing mutations for this data to test for SQLi and BOLA. Return ONLY raw strings/JSON. %s\nDATA:\n%s", provenContext, truncBody)
 
 		resp, err := n.ExecuteQuery(prompt)
 		if err != nil {
@@ -428,6 +469,9 @@ func (n *NeuroEngine) evaluateResponse(resp *http.Response, payload, target stri
 	if resp.StatusCode >= 500 {
 		utils.TacticalLog(fmt.Sprintf("[red]CRITICAL HIT (%d): %s (Lat: %v)[-]", resp.StatusCode, shortPayload(payload), latency))
 
+		// KB LEARNING: Learn this payload
+		kb.LearnPattern("CRASH/DoS", payload)
+
 		if db.DB != nil {
 			utils.RecordFinding(db.Finding{
 				Phase:        "PHASE 10.6: NEURO-EXPLOIT",
@@ -452,6 +496,9 @@ func (n *NeuroEngine) evaluateResponse(resp *http.Response, payload, target stri
 	if err == nil && strings.Contains(aiEval, `"success": true`) {
 		utils.TacticalLog(fmt.Sprintf("[magenta]AI CONFIRMED EXPLOIT: %s[-]", aiEval))
 
+		// KB LEARNING: Learn this payload
+		kb.LearnPattern("AI_CONFIRMED_BYPASS", payload)
+
 		// Parse the JSON from AI to enrich the DB finding
 		if db.DB != nil {
 			utils.RecordFinding(db.Finding{
@@ -471,6 +518,10 @@ func (n *NeuroEngine) evaluateResponse(resp *http.Response, payload, target stri
 	// 5. LOGIC 4: GENERIC BYPASS (Fallthrough)
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		utils.TacticalLog(fmt.Sprintf("[green]POTENTIAL BYPASS (%d): %s[-]", resp.StatusCode, shortPayload(payload)))
+
+		// KB LEARNING: Learn this payload
+		kb.LearnPattern("LOGIC_BYPASS", payload)
+
 		if db.DB != nil {
 			utils.RecordFinding(db.Finding{
 				Phase:        "PHASE 10.6: NEURO-EXPLOIT",
@@ -492,6 +543,9 @@ func (n *NeuroEngine) recordTimeBasedSQLi(target, payload string, latency, basel
 	msg := fmt.Sprintf("[red]!!! TIME-BASED SQLI CONFIRMED !!! Latency: %v (Base: %v) | Vector: %s[-]", latency, baseline, payload)
 	utils.LogNeural(msg)
 	utils.TacticalLog(msg)
+
+	// KB LEARNING: Learn this payload
+	kb.LearnPattern("SQLI_TIME", payload)
 
 	if db.DB != nil {
 		utils.RecordFinding(db.Finding{

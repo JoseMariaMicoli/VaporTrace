@@ -1,3 +1,17 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under {'license_type': 'BSL', 'change_date': '2033-02-17', 'convert_to': 'Apache-2.0'}
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 package report
 
 import (
@@ -109,19 +123,68 @@ func writeRemediationTracker(f *os.File) {
 		f.WriteString("| ATTACK VECTOR | RESULT | TIMESTAMP |\n")
 		f.WriteString("| :--- | :--- | :--- |\n")
 
-		if db.DB != nil {
-			rows, err := db.DB.Query("SELECT details, status, timestamp FROM findings WHERE phase = ?", phase)
-			if err == nil {
-				hasData := false
-				for rows.Next() {
-					hasData = true
-					var details, status, ts string
-					rows.Scan(&details, &status, &ts)
-					f.WriteString(fmt.Sprintf("| %s | **%s** | %s |\n", details, status, ts))
-				}
-				rows.Close()
-				if !hasData { f.WriteString("| - | *NO LOGS FOUND* | - |\n") }
-			}
+		f.WriteString("\n---\n")
+	}
+}
+
+func writeMethodology(f *os.File) {
+	f.WriteString("## 4. METHODOLOGY & FRAMEWORK ALIGNMENT\n\n")
+	f.WriteString("This assessment was conducted using the **VaporTrace Tactical Engine**, adhering to standard Adversary Emulation protocols.\n\n")
+
+	f.WriteString("### 4.1 Framework Reference\n")
+	f.WriteString("- **MITRE ATT&CK:** Used to classify adversary tactics and techniques (T-Codes).\n")
+	f.WriteString("- **OWASP API Security Top 10 (2023):** Primary standard for API vulnerability classification.\n")
+	f.WriteString("- **NIST CSF v2.0:** Used for mapping findings to defensive controls (Identify, Protect, Detect, Respond, Recover).\n")
+	f.WriteString("- **CVSS v3.1:** Common Vulnerability Scoring System for severity quantification.\n\n")
+
+	f.WriteString("**End of Report**\n")
+}
+
+func writeKnowledgeBaseSection(f *os.File) {
+	if db.DB == nil {
+		return
+	}
+
+	f.WriteString("## 4. INSTITUTIONAL MEMORY (LEARNED VECTORS)\n")
+	f.WriteString("These payloads were confirmed successful during the engagement and have been added to the VaporTrace Knowledge Base for future retraining.\n\n")
+
+	f.WriteString("| TYPE | PAYLOAD | SUCCESS COUNT |\n")
+	f.WriteString("| :--- | :--- | :--- |\n")
+
+	rows, err := db.DB.Query("SELECT vuln_type, payload, success_count FROM attack_patterns ORDER BY success_count DESC LIMIT 20")
+	if err != nil {
+		f.WriteString("> KB Unavailable\n\n")
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var vType, payload string
+		var count int
+		rows.Scan(&vType, &payload, &count)
+
+		// Escape pipes for markdown table
+		safePayload := strings.ReplaceAll(payload, "|", "\\|")
+		f.WriteString(fmt.Sprintf("| %s | `%s` | %d |\n", vType, safePayload, count))
+	}
+	f.WriteString("\n---\n\n")
+}
+
+// ASCII Progress Bar generator
+func progressBar(count, total int) string {
+	if total == 0 {
+		return "░░░░░░░░░░"
+	}
+	percent := float64(count) / float64(total)
+	barLen := 10
+	filledLen := int(percent * float64(barLen))
+
+	bar := ""
+	for i := 0; i < barLen; i++ {
+		if i < filledLen {
+			bar += "█"
+		} else {
+			bar += "░"
 		}
 		f.WriteString("\n")
 	}

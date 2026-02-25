@@ -1,3 +1,17 @@
+/*
+Copyright (c) 2026 José María Micoli
+Licensed under {'license_type': 'BSL', 'change_date': '2033-02-17', 'convert_to': 'Apache-2.0'}
+
+You may:
+✔ Study
+✔ Modify
+✔ Use for internal security testing
+
+You may NOT:
+✘ Offer as a commercial service
+✘ Sell derived competing products
+*/
+
 package db
 
 import (
@@ -91,6 +105,15 @@ func InitDB() {
         source TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(scope, key, value)
+    );
+    -- TIER 4 DAY 3: INSTITUTIONAL MEMORY
+    CREATE TABLE IF NOT EXISTS attack_patterns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vuln_type TEXT,
+        payload TEXT,
+        success_count INTEGER DEFAULT 1,
+        last_used DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(vuln_type, payload)
     );`
 
 	_, err = DB.Exec(schema)
@@ -202,6 +225,8 @@ func ResetDB() {
 	tx.Exec("DELETE FROM context_store")
 	tx.Exec("DELETE FROM sqlite_sequence WHERE name='context_store'")
 	tx.Exec("DELETE FROM mission_state")
+	tx.Exec("DELETE FROM attack_patterns") // Tier 4
+	tx.Exec("DELETE FROM sqlite_sequence WHERE name='attack_patterns'")
 	tx.Exec("INSERT INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
 	tx.Commit()
 }
