@@ -11,10 +11,14 @@
             "id": "7ad35cc5d256c690",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "README.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "README"
             }
           }
         ]
@@ -90,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "docs/SESSION_SUMMARY_FEB8_2026.md",
+                "file": "README.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -100,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for SESSION_SUMMARY_FEB8_2026"
+              "title": "Backlinks for README"
             }
           },
           {
@@ -109,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "docs/SESSION_SUMMARY_FEB8_2026.md",
+                "file": "README.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from SESSION_SUMMARY_FEB8_2026"
+              "title": "Outgoing links from README"
             }
           },
           {
@@ -152,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "docs/SESSION_SUMMARY_FEB8_2026.md",
+                "file": "README.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of SESSION_SUMMARY_FEB8_2026"
+              "title": "Outline of README"
             }
           }
         ]
@@ -181,41 +185,6 @@
   },
   "active": "7ad35cc5d256c690",
   "lastOpenFiles": [
-    "docs/dev-logs/CRITICAL_BUG_FIX_TLS_TRANSPORT.md",
-    "VaporTrace-go-tmp-umask",
-    "docs/dev-logs/Sprint-12/TLS_ROTATION_IMPLEMENTATION_COMPLETE.md",
-    "docs/dev-logs/Sprint-12/BROWSER_PROFILES_REFERENCE.md",
-    "docs/dev-logs/Sprint-12/TLS_BROWSER_ROTATION_FIX.md",
-    "docs/manuals/SPRINT12_INTEGRATION_GUIDE.md",
-    "docs/manuals/12_SPRINT12_EVASION_V2.md",
-    "docs/dev-logs/Sprint-12/COMPLETION_REPORT.md",
-    "pkg/logic/oob_exfiltration.go",
-    "pkg/logic/tls_evasion.go",
-    "docs/DOCUMENTATION_STATUS.md",
-    "docs/SESSION_SUMMARY_FEB8_2026.md",
-    "docs/manuals/04_STRATEGIC_PLANNING.md",
-    "docs/manuals/18_COMMAND_REFERENCE.md",
-    "docs/manuals/17_KEYBOARD_SHORTCUTS.md",
-    "docs/dev-logs/Sprint-12/README.md",
-    "docs/dev-logs/BUG-Fixes/SPRINT_11_COMPLETION_REPORT.md",
-    "docs/dev-logs/BUG-Fixes/SPRINT_11_DELIVERY_MANIFEST.md",
-    "docs/dev-logs/BUG-Fixes/SPRINT_11_EXECUTIVE_SUMMARY.md",
-    "docs/dev-logs/BUG-Fixes/SPRINT_11_INDEX.md",
-    "docs/dev-logs/BUG-Fixes/SPRINT_11_TECHNICAL_DEEPDIVE.md",
-    "docs/dev-logs/BUG-Fixes/TUI_CASCADE_PREVENTION.md",
-    "docs/dev-logs/BUG-Fixes/TUI_FIXES_BEFORE_AFTER.md",
-    "docs/dev-logs/BUG-Fixes/TUI_FIXES_INDEX.md",
-    "docs/dev-logs/BUG-Fixes/TUI_FIXES_SUMMARY.md",
-    "docs/dev-logs/BUG-Fixes/TUI_RENDERING_FIXES.md",
-    "docs/dev-logs/BUG-Fixes/SPRINT_11_CODE_REFERENCE.md",
-    "docs/dev-logs/BUG-Fixes/README_SPRINT_11.md",
-    "docs/dev-logs/BUG-Fixes/HELP_USAGE_UPDATE.md",
-    "docs/dev-logs/BUG-Fixes",
-    "vaportrace",
-    "docs/dev-logs/Sprint-16",
-    "docs/dev-logs/Sprint-15",
-    "docs/dev-logs/Sprint-14",
-    "docs/dev-logs/Sprint-13",
-    "docs/dev-logs/Sprint-12"
+    "docs/dev-logs/Dev-Roadmap.md"
   ]
 }
