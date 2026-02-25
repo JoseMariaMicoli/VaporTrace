@@ -7,7 +7,7 @@ import (
 	"regexp"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils" // Import Central Utils
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic" // Standardized to Logic for Phase 9 implementation
 )
 
 type SwaggerDoc struct {
@@ -16,8 +16,8 @@ type SwaggerDoc struct {
 }
 
 func ParseSwagger(url string, proxy string) ([]string, error) {
-	// PATCH: Use GlobalClient
-	client := utils.GlobalClient
+	// PHASE 9.4: Use logic.GlobalClient to ensure Proxy Sensing/Hit-Mirroring is active
+	client := logic.GlobalClient
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -45,6 +45,10 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 	for path := range doc.Paths {
 		fullPath := doc.BasePath + path
 		endpoints = append(endpoints, fullPath)
+		
+		// PHASE 9.5: The Link
+		// Automatically pipes every discovered swagger path into the global tactical store
+		logic.GlobalDiscovery.AddEndpoint(fullPath)
 	}
 
 	return endpoints, nil
@@ -74,8 +78,8 @@ func WalkVersions(endpoints []string) []string {
 }
 
 func ProbeEndpoint(baseURL string, path string, proxy string) (int, error) {
-	// PATCH: Use GlobalClient
-	client := utils.GlobalClient
+	// Standardized to logic.GlobalClient
+	client := logic.GlobalClient
 
 	fullURL := baseURL + path
 	req, err := http.NewRequest(http.MethodHead, fullURL, nil)
