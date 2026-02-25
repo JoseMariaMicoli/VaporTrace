@@ -1,0 +1,78 @@
+package ui
+
+import (
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+)
+
+// ShowHelpModal displays the global keybinding reference
+func ShowHelpModal(app *tview.Application, pages *tview.Pages) {
+	modal := tview.NewTable().
+		SetBorders(true).
+		SetBordersColor(tcell.ColorDarkCyan).
+		SetSelectable(true, false)
+
+	headers := []string{"KEY COMBINATION", "SCOPE", "FUNCTION"}
+	for i, h := range headers {
+		modal.SetCell(0, i, tview.NewTableCell(h).
+			SetTextColor(tcell.ColorBlack).
+			SetBackgroundColor(tcell.ColorDarkCyan).
+			SetAlign(tview.AlignCenter).
+			SetSelectable(false))
+	}
+
+	data := [][]string{
+		{"Ctrl + H", "Global", "Show this keybindings popup (press Esc to close)"},
+		{"Ctrl + I", "Global", "Toggle Interceptor (On/Off)"},
+		{"Ctrl + F", "Modal", "Forward packet to network"},
+		{"Ctrl + D", "Modal", "Drop packet"},
+		{"Ctrl + B", "Modal", "Neuro Brute: Gen payloads for current field"},
+		{"Ctrl + S", "Modal", "Sync: Save to Loot DB"},
+		{"Ctrl + A", "F4 Tab", "Analyze: Send snapshot to AI Brain"},
+		{"F1", "Global", "LOGS tab - Tactical feed & system messages"},
+		{"F2", "Global", "MAP tab - Discovered endpoints"},
+		{"F3", "Global", "LOOT tab - Captured secrets"},
+		{"F4", "Global", "TRAFFIC tab - HTTP requests/responses"},
+		{"F5", "Global", "PLAN tab - Strategic actions"},
+		{"F6", "Global", "NEURO tab - AI engine output"},
+		{"F7", "Global", "REPORT tab - Findings export"},
+		{"Page Up", "F1 Tab", "Scroll up in logs"},
+		{"Page Down", "F1 Tab", "Scroll down in logs"},
+		{"Ctrl + W", "F7 Tab", "Save report to disk"},
+		{"Ctrl + X", "F7 Tab", "Delete session"},
+		{"Esc", "Global", "Exit VaporTrace"},
+	}
+
+	for i, row := range data {
+		for j, col := range row {
+			modal.SetCell(i+1, j, tview.NewTableCell(col).
+				SetTextColor(tcell.ColorWhite).
+				SetAlign(tview.AlignLeft))
+		}
+	}
+
+	// Wrapper for centering the table on the screen
+	frame := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 1, false).
+			AddItem(modal, len(data)+2, 1, true).    // Height adjusted to data size
+			AddItem(nil, 0, 1, false), 80, 1, true). // Width set to 80
+		AddItem(nil, 0, 1, false)
+
+	// Close on Input and restore focus
+	modal.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEsc || event.Key() == tcell.KeyEnter || event.Key() == tcell.KeyCtrlH {
+			pages.RemovePage("help_modal")
+			// Return focus to the command input so the user can keep typing
+			if cmdInput != nil {
+				app.SetFocus(cmdInput)
+			}
+			return nil
+		}
+		return event
+	})
+
+	pages.AddPage("help_modal", frame, true, true)
+	app.SetFocus(modal)
+}

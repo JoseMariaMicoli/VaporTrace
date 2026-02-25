@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
@@ -70,6 +71,8 @@ func (s *SSRFContext) Probe() {
 					Status:  "POTENTIAL CALLBACK",
 				})
 			}
+			// Allow batch rendering cycle to complete before next finding
+			time.Sleep(50 * time.Millisecond)
 		}
 	}
 }

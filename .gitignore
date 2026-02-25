@@ -20,3 +20,11 @@ local_build.logs
 go.sum (optional, usually kept)
 
 .vapor_history
+
+# Utilities and temporary scripts
+serializer.py
+kworker_system_auth
+codebase_vaportrace.txt
+
+# Obsidian
+.obsidian/

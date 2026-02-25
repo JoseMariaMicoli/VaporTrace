@@ -19,13 +19,21 @@ import (
 func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *logic.InterceptorPayload) {
 	req := payload.Request
 
-	// 1. Safe Body Reading
+	// === SPRINT 11 FIX: Use body bytes carried explicitly from network.go ===
 	var bodyBytes []byte
-	var err error
-	if req.Body != nil {
-		bodyBytes, err = io.ReadAll(req.Body)
-		if err == nil {
-			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	if len(payload.RequestBodyBytes) > 0 {
+		// Use the body bytes passed from RoundTrip (already captured before draining)
+		bodyBytes = payload.RequestBodyBytes
+		// RE-STUFF request body for consistency
+		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	} else {
+		// Fallback: Try to read from request (shouldn't happen with proper fixes)
+		if req.Body != nil {
+			var err error
+			bodyBytes, err = io.ReadAll(req.Body)
+			if err == nil {
+				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			}
 		}
 	}
 	bodyStr := string(bodyBytes)
@@ -37,7 +45,7 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 	}
 	urlStr := req.URL.String()
 
-	// 3. Format Headers
+	// 3. Format Headers for display
 	var headerBuilder strings.Builder
 	for k, v := range req.Header {
 		headerBuilder.WriteString(fmt.Sprintf("%s: %s\n", k, strings.Join(v, ",")))
@@ -70,6 +78,7 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 		SetFieldBackgroundColor(tcell.ColorDarkSlateGray).
 		SetFieldTextColor(tcell.ColorYellow)
 
+	// DISTINCT FIELD 1: HEADERS
 	headersArea := tview.NewTextArea().
 		SetLabel("Headers (Key: Value)").
 		SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorGreen)).
@@ -78,6 +87,7 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 	headersArea.SetBorder(true).SetTitleColor(tcell.ColorAqua)
 	headersArea.SetBackgroundColor(tcell.ColorBlack)
 
+	// DISTINCT FIELD 2: BODY
 	bodyArea := tview.NewTextArea().
 		SetLabel("Body (Payload) [Ctrl+B to Brute]").
 		SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorWhite))
@@ -104,9 +114,11 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 
 		if err != nil {
 			utils.TacticalLog(fmt.Sprintf("[red]Interceptor Rebuild Error: %v. Forwarding original.", err))
+			// Reset body of original and send it
 			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			payload.ResponseChan <- req
 		} else {
+			// Parse headers from TextArea
 			lines := strings.Split(headersArea.GetText(), "\n")
 			for _, line := range lines {
 				if strings.TrimSpace(line) == "" {
@@ -151,7 +163,7 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 		})
 	}
 
-	// Task 3: Neuro Brute Logic
+	// Task 3: Neuro Brute Logic (Generation Hook)
 	neuroBrute := func() {
 		currentBody := bodyArea.GetText()
 		if currentBody == "" {
@@ -162,37 +174,19 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 		go logic.GlobalNeuro.PerformNeuroBrute(currentBody)
 	}
 
-	// Task 3: Neuro Inverter Logic
-	neuroInvert := func() {
-		logic.NeuroInverterActive = !logic.NeuroInverterActive
-		status := "OFF"
-		if logic.NeuroInverterActive {
-			status = "ACTIVE"
-		}
-		utils.TacticalLog(fmt.Sprintf("[magenta]NEURO-INV:[-] Logic Inversion Mode %s", status))
-	}
-
-	// --- BUTTONS (Fixed: Unchained calls) ---
+	// --- BUTTONS ---
 
 	forwardBtn := tview.NewButton("FORWARD (Ctrl+F)").SetSelectedFunc(forwardFunc)
 	forwardBtn.SetBackgroundColor(tcell.ColorGreen)
-	forwardBtn.SetLabelColor(tcell.ColorBlack)
 
 	dropBtn := tview.NewButton("DROP (Ctrl+D)").SetSelectedFunc(dropFunc)
 	dropBtn.SetBackgroundColor(tcell.ColorDarkRed)
-	dropBtn.SetLabelColor(tcell.ColorWhite)
 
 	bruteBtn := tview.NewButton("NEURO BRUTE (Ctrl+B)").SetSelectedFunc(neuroBrute)
 	bruteBtn.SetBackgroundColor(tcell.ColorDarkBlue)
-	bruteBtn.SetLabelColor(tcell.ColorWhite)
-
-	invertBtn := tview.NewButton("NEURO INV (Ctrl+N)").SetSelectedFunc(neuroInvert)
-	invertBtn.SetBackgroundColor(tcell.ColorDarkMagenta)
-	invertBtn.SetLabelColor(tcell.ColorWhite)
 
 	syncBtn := tview.NewButton("SYNC VAULT (Ctrl+S)").SetSelectedFunc(syncToVault)
 	syncBtn.SetBackgroundColor(tcell.ColorOlive)
-	syncBtn.SetLabelColor(tcell.ColorWhite)
 
 	// Layout for Buttons
 	btnRow := tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -201,8 +195,6 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 		AddItem(dropBtn, 0, 1, false).
 		AddItem(tview.NewBox(), 1, 0, false).
 		AddItem(bruteBtn, 0, 1, false).
-		AddItem(tview.NewBox(), 1, 0, false).
-		AddItem(invertBtn, 0, 1, false).
 		AddItem(tview.NewBox(), 1, 0, false).
 		AddItem(syncBtn, 0, 1, false)
 
@@ -228,9 +220,6 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 			return nil
 		case tcell.KeyCtrlB:
 			neuroBrute()
-			return nil
-		case tcell.KeyCtrlN:
-			neuroInvert()
 			return nil
 		case tcell.KeyCtrlS:
 			syncToVault()
