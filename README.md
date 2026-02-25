@@ -1,12 +1,20 @@
 ```markdown
-    __   __                       _____                   
-    \ \ / /___  _ __  ___  _ __  |_   _| __ __ _  ___ ___ 
-     \ V // _ `| '_ \/ _ \| '__|   | || '__/ _` |/ __/ _ \
-      \  / (_| | |_)  (_) | |      | || | | (_| | (_|  __/
-       \/ \__,_| .__/\___/|_|      |_||_|  \__,_|\___\___|
-               |_|      [ API INFRASTRUCTURE TRACER ]
+    __  __                         _____                    
+    \ \ / /___  _ __  ___  _ __   |_   _| __ __ _  ___ ___ 
+     \ V // _ `| '_ \/ _ \| '__|    | || '__/ _` |/ __/ _ \
+      \  / (_| | |_)  (_) | |       | || | | (_| | (_|  __/
+       \/ \__,_| .__/\___/|_|       |_||_|  \__,_|\___\___|
+               |_|      [ Surgical API Exploitation Suite ]
+
+
+
 ```
-**VaporTrace** is a high-performance Red Team framework engineered in Go for surgical reconnaissance and exploitation of API architectures. It specializes in uncovering "Shadow APIs," analyzing authorization logic (BOLA/BFLA), and mapping the entire attack surface of modern REST/Microservice environments.
+
+**VaporTrace** is a high-performance Red Team framework engineered in Go for surgical reconnaissance, logic-first exploitation, and automated compliance mapping of API architectures. It specializes in uncovering "Shadow APIs," analyzing complex authorization logic (BOLA/BFLA), and providing a unified command-and-control environment through the **Hydra TUI**. With the integration of the **9.13 Reporting Engine** and the **AI Heuristic Brain**, VaporTrace transforms raw technical findings into executive-level risk intelligence.
+
+> **Project Phase:** HYDRA (Sprint 10) - Unified Tactical TUI & AI Integration.
+> **Current Version:** v3.1-Hydra (Stable)
+> **Core Principle:** Middleware-First Interception & Logic-First Exploitation.
 
 ---
 
@@ -17,134 +25,309 @@
 1. **Authorization Required:** Never use VaporTrace against targets you do not have explicit, written permission to test.
 2. **No Liability:** The author and contributors assume no liability and are not responsible for any misuse, data loss, service degradation, or legal consequences caused by this program.
 3. **Local Laws:** It is the user's responsibility to comply with all applicable local, state, and international laws.
-4. **Logic Risk:** Be aware that automated BOLA/BFLA probing can modify server-side data. Always perform tests in a controlled staging environment when possible.
+4. **Logic Risk:** Be aware that automated BOLA/BFLA probing can modify server-side data. Always perform tests in a controlled environment.
 
 **By compiling or running this software, you agree to these terms.**
 
 ---
 
-### **🛡️ MITRE ATT&CK Mapping (Full Suite)**
+## 🛡️ Framework Alignment (MITRE / OWASP / NIST)
 
-VaporTrace operations are mapped across the full attack lifecycle to provide stakeholders with clear visibility into adversary emulation.
+VaporTrace implements a "Zero-Touch" tagging engine that aligns every finding with industry-standard frameworks for immediate NIST compliance auditing.
 
-| PHASE | TACTIC | TECHNIQUE | VAPORTRACE COMPONENT |
-| --- | --- | --- | --- |
-| **P1: Foundation** | Command and Control | T1105: Ingress Tool Transfer | `Burp Bridge / Proxy Config` |
-| **P2: Discovery** | Reconnaissance | T1595.002: Active Scanning | `map`, `swagger`, `mine` |
-| **P2: Discovery** | Reconnaissance | T1592: Victim Info | **`pipeline` (Endpoint Categorization)** |
-| **P3: Auth Logic** | **Privilege Escalation** | **T1548: Abuse Elevation** | **`bola --pipeline` (Mass Engine)** |
-| **P3: Auth Logic** | **Privilege Escalation** | **T1548.002: Mass Assignment** | **`bopla --pipeline` (Property Fuzzer)** |
-| **P3: Auth Logic** | Privilege Escalation | T1548: Abuse Elevation | `scan-bfla` (Verb Tampering) |
-| **P4: Injection** | Impact | T1499: Endpoint DoS | `resource-exhaustion (API4)` |
-| **P4: Injection** | Discovery | T1046: Network Service Discovery | `ssrf-tracker (API7)` |
-| **P5: Reporting** | Reporting | T1592: Victim Info | `persistence (SQLite) / report` |
-| **P8: Exfiltration** | **Exfiltration** | **T1041: Exfiltration Over C2** | **`weaver` (Ghost-Weaver)** |
-| **P8: Discovery** | **Credential Access** | **T1552.001: Files/Env** | **`loot` (Discovery Vault)** |
-| **P8: Discovery** | **Credential Access** | **T1552.005: Cloud Provider** | **`TriggerCloudPivot`** |
-| **Standardization** | **Exfiltration** | **T1071.001: Web Protocols** | **`SafeDo` (Universal Mirroring)** |
-| **Standardization** | Credential Access | T1557: AiTM | **`X-VaporTrace-Signal`** |
+### **Tactical Mapping Matrix**
 
+| Command | OWASP API 2023 | MITRE ID | MITRE Tactic | CVSS |
+| --- | --- | --- | --- | --- |
+| **bola** | API1: BOLA | T1594 | Exfiltration | 9.1 |
+| **weaver** | API2: Auth | T1606.001 | Credential Access | 8.5 |
+| **bopla** | API3: Property | T1548 | Privilege Escalation | 9.8 |
+| **exhaust** | API4: Resource | T1499.004 | Impact (DoS) | 7.5 |
+| **bfla** | API5: Function | T1548.003 | Privilege Escalation | 8.2 |
+| **ssrf** | API7: SSRF | T1071.001 | Discovery | 9.2 |
+| **audit** | API8: Misconfig | T1562.001 | Defense Evasion | 5.4 |
+| **map** | API9: Inventory | T1595.002 | Reconnaissance | N/A |
+| **probe** | API10: Consump. | T1190 | Initial Access | 8.1 |
+
+### **NIST CSF v2.0 Mapping**
+
+| Control ID | Category | Technical Implementation |
+| --- | --- | --- |
+| **ID.AM-07** | Asset Management | Automated inventory of all REST/Microservice endpoints. |
+| **PR.AC-01** | Identity Mgmt | Vault storage and injection of credentials via Aggregator. |
+| **PR.AC-03** | Access Control | Verification of Object-Level and Function-Level auth logic. |
+| **PR.AC-05** | Least Privilege | Testing for functional escalation between roles. |
+| **PR.DS-01** | Data Security | Assessment of SSRF and sensitive data exposure in headers/JS. |
+| **PR.PS-01** | Protective Tech | Validation of WAF, SSL/TLS, and secure header configurations. |
+| **DE.AE-02** | Detection | Simulation of adversarial patterns to test SOC/SIEM response. |
+| **ID.RA-01** | Risk Assessment | Automated CVSS scoring and severity distribution reporting. |
 
 ---
 
-## 🖥️ The Tactical Shell: Persistence & Context
+## 🖥️ Deep Dive: The Hydra Tactical TUI
 
-The **VaporTrace Shell** is the core differentiator of this framework. Unlike standard one-shot CLI tools, the shell provides a **Persistent Security Context** required for complex logic testing.
+The legacy interactive shell has been deprecated in favor of the **Hydra TUI**. Built on `rivo/tview`, it provides a high-speed environment for parallel operations and deep packet manipulation.
 
-### Strategic Use Case: The "Ghost-Weaver" Pivot
+### **Interface Navigation (Global Hotkeys)**
 
-In modern API pentesting, most vulnerabilities aren't found in a single request, but in the **logical relationship** between two accounts and background persistence.
+| Key | Context | Function |
+| --- | --- | --- |
+| **F1** | **LOGS** | Real-time system events, attack module feedback, and error streams. |
+| **F2** | **TARGETS** | Active target management, scope definition, and global config. |
+| **F3** | **TASKS** | Background process monitor for long-running scans and worker pools. |
+| **F4** | **TRAFFIC** | **Deep Packet Inspection.** Split-view (Request/Response) of all middleware traffic. |
+| **F5** | **CONTEXT** | **The Aggregator.** Displays auto-injected credentials and AI correlations. |
+| **F6** | **INTERCEPTOR** | Toggles Global Interception Mode (Red footer indicates **INT-ON**). |
+| **F7** | **NEURAL** | Toggles Display AI Nerual interface. |
 
-* **Identity Management:** The shell maintains a global state for `Attacker` and `Victim` tokens. You configure them once, and the engine automatically handles the "Identity Swap" during probes.
-* **Background Sovereignty:** The `weaver` command spawns a background agent that monitors for OIDC tokens and exfiltrates discovered loot via AES-256-GCM encrypted channels.
-* **NHPP Evasion:** Every exfiltrated packet is masked as a `[WARN] Deprecated dependency` log to bypass basic automated traffic analysis.
-* **Real-time Triage:** Integrated `pterm` tables provide immediate feedback on whether a request was blocked (403), missing (404), or successfully leaked (200 OK).
+### **The Tactical Interceptor (Modal Commands)**
 
-To enter the interactive tactical mode, execute:
-```bash
-./VaporTrace shell
+When Interception is enabled (**F6**), the `TacticalTransport` middleware pauses traffic and opens the Red Modal.
+
+| Key | Action | Description |
+| --- | --- | --- |
+| **CTRL + F** | **FORWARD** | Injects the modified packet back into the pipeline and sends it to the target. |
+| **CTRL + D** | **DROP** | Drops the packet immediately. The request never leaves the local machine. |
+| **TAB** | **NAVIGATE** | Switch focus between Path, Headers, and Body input fields. |
+
+---
+
+### **The Tactical Interceptor (Modal Commands)**
+
+When Interception is enabled (typically via **F6**), the `TacticalTransport` middleware pauses outgoing traffic. Use these shortcuts within the Red Modal to manipulate or synchronize data.
+
+| Key | Action | Description |
+| --- | --- | --- |
+| **CTRL + F** | **FORWARD** | Injects the modified packet back into the pipeline.
+
+ |
+| **CTRL + D** | **DROP** | Drops the packet immediately; the request never leaves the local machine.
+
+ |
+| **CTRL + A + S** | **SYNC TO VAULT** | <br>**Global Action:** Mirrors the current buffer (Tab 4) to **Tab 7 (Vault)**.
+
+ |
+| **CTRL + N** | **NEURO INV** | <br>**Neural Inversion:** Toggles AI-assisted payload mutation for logic bypass.
+
+ |
+| **CTRL + B** | **NEURO BRUTE** | <br>**Neural Brute:** Triggers a high-speed, entropy-aware fuzzer on the selected field.
+
+ |
+| **TAB** | **NAVIGATE** | Switches focus between Path, Headers, and Body input fields.
+
+ |
+
+---
+
+### **🛠️ Tactical Command Reference**
+
+The Hydra TUI centralizes all commands through a unified command bar. Below is the complete, untruncated technical catalog.
+
+| Command | Action | Technical Context | Framework Focus |
+| --- | --- | --- | --- |
+| `target <url>` | **Scope Definition** | Sets the global context for all modules.
+
+ | General |
+| `map -u <url>` | **Inventory** | Spidering, OpenAPI mining, and route extraction.
+
+ | OWASP API9 |
+| `swagger <url>` | **Spec Parsing** | Ingests Swagger/OpenAPI definitions into the DB.
+
+ | OWASP API9 |
+| `scrape <url>` | **JS Mining** | Extracts hidden API paths from JavaScript bundles.
+
+ | OWASP API9 |
+| `mine <url>` | **Param Fuzz** | Brute-forces hidden parameters (debug, admin, test).
+
+ | OWASP API9 |
+| `bola <url>` | **ID Swap** | Broken Object Level Authorization testing.
+
+ | OWASP API1 |
+| **`weaver`** | **Auth Forge** | Intercepts OIDC tokens and masks data exfiltration.
+
+ | OWASP API2 |
+| `bopla <url>` | **Mass Assign** | Broken Object Property Level Authorization (Property injection).
+
+ | OWASP API3 |
+| `exhaust <url>` | **DoS Probe** | Testing resource limits (Payload size, pagination limits). | OWASP API4 |
+| `bfla <url>` | **PrivEsc** | Broken Function Level Authorization (Method tampering).
+
+ | OWASP API5 |
+| `ssrf <url>` | **Infra Pivot** | SSRF against Cloud Metadata (169.254.169.254). | OWASP API7 |
+| `audit <url>` | **Config Check** | Header analysis, SSL/TLS checks, and CORS auditing. | OWASP API8 |
+| `probe <url>` | **Integration** | Tests for unsafe consumption in webhooks/3rd party APIs. | OWASP API10 |
+| **`proxy`** | **Routing** | Enables/disables traffic routing (Default: Burp @ 127.0.0.1:8080).
+
+ | Infrastructure |
+| **`proxies load`** | **Rotation** | Loads a list of proxies for rotation to bypass rate limiting.
+
+ | Evasion |
+| **`proxies reset`** | **Clear** | Clears the current proxy rotation list.
+
+ | Infrastructure |
+| **`sessions`** | **Context** | Manages active authentication sessions and stored cookies. | Authentication |
+| **`neuro on`** | **Enable Engine** | Activates the Neural Mutation layer for all traffic.
+
+ | Logic Bypass |
+| **`neuro off`** | **Disable Engine** | Reverts to standard manual or static payloads.
+
+ | General |
+| **`neuro config`** | **LLM Settings** | Opens the configuration modal for LLM provider endpoints.
+
+ | Infrastructure |
+| **`neuro ollama <m>`** | **Model Selection** | Sets the local provider (e.g., `neuro ollama mistral`). | Neural Config |
+| **`test-neuro`** | **Engine Diag** | Runs connectivity and latency tests to the AI provider.
+
+ | Infrastructure |
+| **`test-bola`** | **Logic Diag** | Tests BOLA using a dummy ID (e.g., "999") against httpbin.
+
+ | Logic Testing |
+| **`test-bopla`** | **Logic Diag** | Runs a mass assignment test against a patch endpoint.
+
+ | Logic Testing |
+| **`test-bfla`** | **Logic Diag** | Tests BFLA by attempting admin verbs with low-priv sessions.
+
+ | Logic Testing |
+| `report` | **Generate** | Triggers the 9.13 Reporting Engine (Markdown/PDF). | Compliance |
+| `init_db` | **Persistence** | Initializes the SQLite3 Framework-Tagged backend. | Infrastructure |
+| `seed_db` | **Intelligence** | Populates the Aggregator with test/known credentials. | Infrastructure |
+| `reset_db` | **Wipe** | Purges all mission data from the local database.
+
+ | Infrastructure |
+
+### **Framework Compliance Context**
+
+* 
+**MITRE ATT&CK:** Every synchronization via `CTRL + A + S` automatically tags findings for **T1552** (Credential Access) or **T1562.001** (Defense Evasion).
 
 
-```
+* 
+**OWASP API Security:** The `neuro` engine is optimized for testing logic vulnerabilities like **API1:2023** (BOLA) and **API2:2023** (Broken Authentication) that require intelligent payload generation.
+
+---
+
+## 📊 Sprint 9.13: Automated Reporting Engine
+
+The **9.13 Reporting Engine** automates the transition from exploitation to documentation, generating high-fidelity Markdown and PDF reports directly from the SQLite `ContextStore`.
+
+### **Report Architecture:**
+
+* **Executive Summary:** High-level risk overview with CVSS v3.1 distribution charts.
+* **Vulnerability Distribution:** Graphical breakdown of Critical, High, Medium, and Low findings.
+* **Remediation Priority Tracker:** A prioritized list for engineering teams focusing on critical path vulnerabilities.
+* **Adversarial Methodology:** Technical logs including the exact VaporTrace command, timestamp, and target URL for every finding.
+* **Framework Verification:** Direct mapping of each finding to MITRE ATT&CK, NIST, and OWASP identifiers.
+
+---
+
+## 🎭 Evasion Techniques & AI Heuristic Brain
+
+### **Sprint 11/12: Deep Evasion Suite**
+
+To bypass modern Next-Gen Firewalls (WAF) and behavioral analytics, VaporTrace implements:
+
+* **Ghost Masquerade:** Process renaming to `kworker_system_auth` to hide from local host-based monitoring.
+* **Dynamic Jitter:** Adds variable delay to requests to prevent signature-based rate-limiting detection.
+* **Header Randomization:** Rotates User-Agents, Fingerprints, and non-essential headers for every request.
+* **Proxy Pools:** Native support for rotation through SOCKS5/HTTP proxy lists to mask origin IPs.
+
+### **Sprint 10.5: AI Heuristic Brain [ACTIVE]**
+
+VaporTrace is currently integrating an AI-driven analysis layer to automate logic-flaw discovery:
+
+* **Pattern Correlation:** The AI analyzes response structures across different roles to predict potential BOLA/BFLA endpoints without manual fuzzing.
+* **Autonomous Payload Generation:** Uses heuristic models to generate payloads that specifically target identified technology stacks (e.g., SpringBoot, Express, Django).
+* **Anomaly Scoring:** Flags unusual API behavior that might indicate hidden "Shadow" functionality or debug modes.
 
 ---
 
 ## 🚀 Strategic Roadmap
 
-### **Phase 1: The Foundation [STABLE]**
+### **Part I: The Hardened Core & Intelligence [STABLE]**
 
-* [x] **Cobra CLI Engine:** Subcommand-based architecture (`map`, `scan`, `auth`).
-* [x] **Interactive Shell UI:** Advanced REPL with `readline` auto-completion and `pterm` styling.
-* [x] **The Burp Bridge:** Industrial-strength HTTP client with native proxy support.
-* [x] **SSL/TLS Hardening:** Automatic bypass of self-signed certs for intercepting proxies.
-* [x] **Global Config:** Persistent flag management for headers and authentication.
+| Phase | Sub-Phase | Focus / Technical Deliverable | Status |
+| --- | --- | --- | --- |
+| **Sprint 1: Foundation** | 1.1 | Cobra CLI Engine: Subcommand-based architecture (map, scan, auth). | ✅ DONE |
+|  | 1.2 | Interactive Shell UI: Advanced REPL with readline auto-completion. | ✅ DONE |
+|  | 1.3 | The Burp Bridge: Industrial-strength HTTP client with native proxy support. | ✅ DONE |
+|  | 1.4 | SSL/TLS Hardening: Automatic bypass of self-signed certs for proxies. | ✅ DONE |
+|  | 1.5 | Global Config: Persistent flag management for headers and authentication. | ✅ DONE |
+| **Sprint 2: Recon** | 2.1 | Spec Ingestion: Automated parsing of Swagger (v2) and OpenAPI (v3). | ✅ DONE |
+|  | 2.2 | JS Route Scraper: Regex-based endpoint extraction from JS bundles. | ✅ DONE |
+|  | 2.3 | Version Walker: Identification of deprecated versions (/v1/ vs /v2/). | ✅ DONE |
+|  | 2.4 | Parameter Miner: Automatic identification of hidden query params/headers. | ✅ DONE |
+| **Sprint 3: Auth Logic** | 3.1 | BOLA Prober (API1): Tactical ID-swapping engine with session stores. | ✅ DONE |
+|  | 3.2 | BOPLA/Mass Assignment (API3): Fuzzing bodies for hidden properties. | ✅ DONE |
+|  | 3.3 | BFLA Module (API5): Hierarchical access testing via method manipulation. | ✅ DONE |
+| **Sprint 4: Injection** | 4.1 | Resource Exhaustion (API4): Probing pagination and payload limits. | ✅ DONE |
+|  | 4.2 | SSRF Tracker (API7): Detecting OOB callbacks via URL-parameter injection. | ✅ DONE |
+|  | 4.3 | Security Misconfig (API8): Automated CORS and Security Header audit. | ✅ DONE |
+|  | 4.4 | Integration Probe (API10): Unsafe consumption in webhooks/3rd party. | ✅ DONE |
+| **Sprint 5: Intel** | 5.1 | SQLite Persistence: Local-first mission database for session continuity. | ✅ DONE |
+|  | 5.2 | Async Log Worker: Non-blocking background commitments of findings. | ✅ DONE |
+|  | 5.3 | Classified Reporting: NIST-aligned Markdown/PDF debrief generator. | ✅ DONE |
+|  | 5.4 | Database Management: Built-in init_db and reset_db control. | ✅ DONE |
+| **Sprint 6: Evasion** | 6.1 | Header Randomization: Rotating User-Agents and JA3 fingerprints. | ✅ DONE |
+|  | 6.2 | IP Rotation: Integration with proxy-chains and Tor. | ✅ DONE |
+|  | 6.3 | Timing Attacks: Implementing jitter and "Sleepy Probes" for NHPP. | ✅ DONE |
+| **Sprint 7: Flow & Logic** | 7.1 | Flow Engine Implementation: Command suite, recording, and replay. | ✅ DONE |
+|  | 7.2 | State-Machine Mapping: Logical order enforcement & out-of-order testing. | ✅ DONE |
+|  | 7.3 | Race Condition Engine: Multi-threaded "Turbo Intruder" probes. | ✅ DONE |
+| **Sprint 8: Post-Exfil** | 8.1 | Discovery Vault: Real-time regex scanning of all responses for secrets. | ✅ DONE |
+|  | 8.2 | Cloud Pivot Engine: Interception of IMDS (169.254.169.254) requests. | ✅ DONE |
+|  | 8.3 | Ghost-Weaver Agent: OIDC interception and encrypted exfiltration. | ✅ DONE |
+|  | 8.4 | NHPP Evasion: Masking data as "Deprecated Dependency" system logs. | ✅ DONE |
+|  | 8.5 | OOB Validation: Automated validation for leaked tokens/infrastructure. | ✅ DONE |
+| **Sprint 9: Hardening** | 9.1 | Report Engine: Refactored NIST generator with Vault integration. | ✅ DONE |
+|  | 9.1.1 | Tactical UI: Integrated spinners and real-time feedback tables. | ✅ DONE |
+|  | 9.2 | Surgical BOLA: Response Diffing engine to eliminate False Positives. | ✅ DONE |
+|  | 9.3 | Concurrency Engine: High-speed channel-based worker pools. | ✅ DONE |
+|  | 9.4 | Environment Sensing: Burp/ZAP detection with X-Header signaling. | ✅ DONE |
+|  | 9.5 | Discovery-to-Engine: Automating map-to-scan handover pipeline. | ✅ DONE |
+|  | 9.6 | Universal Proxy: Refactored SafeDo with multi-module mirroring. | ✅ DONE |
+|  | 9.7 | BOLA Concurrency: Multi-threaded mass scanner upgrade. | ✅ DONE |
+|  | 9.8 | Industrialized BOPLA: Concurrent JSON property fuzzing. | ✅ DONE |
+|  | 9.9 | Industrialized BFLA: Method Matrix worker pool (Verb-Tampering). | ✅ DONE |
+|  | 9.10 | Universal Concurrency: GenericExecutor standardization. | ✅ DONE |
+|  | 9.11 | Ghost Masquerade: Process renaming to kworker_system_auth. | ✅ DONE |
+|  | 9.13 | Refactor: Framework-Tagged DB (OWASP/MITRE/NIST) Integration | ✅ DONE |
 
-### **Phase 2: Discovery & Inventory (API9) [STABLE]**
+### **Part II: The Hydra TUI & Autonomous Systems [ACTIVE]**
 
-* [x] **Spec Ingestion:** Automated parsing of Swagger (v2) and OpenAPI (v3) definitions.
-* [ ] **JS Route Scraper:** Regex-based endpoint extraction from client-side JavaScript bundles.
-* [x] **Version Walker:** Identification of deprecated versions (e.g., `/v1/` vs `/v2/`) to find unpatched logic.
-* [ ] **Parameter Miner:** Automatic identification of hidden query parameters and headers.
+| Phase | Sub-Phase | Focus / Technical Deliverable | Status |
+| --- | --- | --- | --- |
+| **Sprint 10: Hydra** | 10.1 | Universal Target Function (Global Context) | ✅ DONE |
+|  | 10.2 | Project Mosaic: The Hydra-TUI Dashboard | ✅ DONE |
+|  | 10.2.1 | Terminal Multi-Pane (Quadrants + F-Tabs Switcher) | ✅ DONE |
+|  | 10.2.2 | Legacy Shell Fallback (CLI Flag Logic) | ✅ DONE |
+|  | 10.3 | Contextual Aggregator & Information Gathering | ✅ DONE |
+|  | 10.4 | Tactical Interceptor (F2 Modal Manipulation) | ✅ DONE |
+|  | 10.5 | AI Base Integration (Heuristic Brain) | ✅ DONE |
+|  | 10.6 | AI Payload Generation & Autonomous Fuzzing | ✅ DONE |
 
-### **Phase 3: Authorization & Logic (API1, API3, API5) [STABLE]**
+### **Part III: The Future Evolution [NEW]**
 
-* [x] **BOLA Prober (API1):** Tactical ID-swapping engine with persistent session stores for Attacker/Victim contexts.
-* [x] **BOPLA/Mass Assignment (API3):** Fuzzing JSON bodies for administrative or hidden properties.
-* [x] **BFLA Module (API5):** Testing hierarchical access via HTTP method manipulation (GET vs DELETE).
-
-### **Phase 4: Consumption & Injection (API4, API7, API8, API10) [STABLE]**
-
-* [x] **Resource Exhaustion (API4):** Probing pagination limits and payload size constraints.
-* [x] **SSRF Tracker (API7):** Detecting out-of-band callbacks via URL-parameter injection.
-* [x] **Security Misconfig (API8):** Automated CORS, Security Header, and Verbose Error audit.
-* [x] **Integration Probe (API10):** Identifying unsafe consumption in webhooks and 3rd party triggers.
-
-### **Phase 5: Intelligence & Persistence [STABLE]**
-
-* [x] **SQLite Persistence:** Local-first mission database to prevent data loss on session termination.
-* [x] **Async Log Worker:** Non-blocking background commitments of tactical findings.
-* [x] **Classified Reporting:** Automated generation of professional "Mission Debrief" reports in Markdown/PDF.
-* [x] **Database Management:** Built-in `init_db` and `reset_db` commands for mission lifecycle control.
-
-### **Phase 6: Advanced Evasion & Rate-Limit Bypassing [STABLE]**
-
-* [x] **Header Randomization:** Rotating User-Agents and JA3 fingerprints to bypass WAFs.
-* [x] **IP Rotation:** Integration with proxy-chains and Tor for distributed probing.
-* [x] **Timing Attacks:** Implementing jitter and "Sleepy Probes" to stay under SOC thresholds.
-
-### **Phase 7: Business Logic & Workflow Fuzzing [STABLE]**
-
-* [x] **Flow Engine Implementation** Command suite, recording, and replay
-* [x] **State-Machine Mapping** Logical order enforcement & out-of-order testing
-* [x] **Race Condition Engine** Multi-threaded "Turbo Intruder" probes
-
-### **Phase 8: Post-Exploitation & Data Exfiltration [ACTIVE]**
-
-* [x] **8.1: Discovery Vault:** Real-time regex-based scanning of all response bodies for secrets (Credit Cards, SSN, JWTs).
-* [x] **8.2: Cloud Pivot Engine:** Automatic interception of requests to IMDS (169.254.169.254) for credential harvesting.
-* [x] **8.3: Ghost-Weaver Agent:** Background process for OIDC interception and encrypted exfiltration.
-* [x] **8.4: NHPP Evasion:** Masking tactical data as legitimate-looking "Deprecated Dependency" system logs.
-* [x] **Automated OOB validation** for discovered API tokens and infrastructure leaks.
-
-### **Phase 9: Engineering & Hardening [STABLE]**
-
-* [x] **9.1: Scraper Refinement:** Pre-compiled global regex for high-performance scraping.
-* [x] **9.1.1: Tactical UI:** Integrated spinners and real-time tables for immediate feedback.
-* [x] **9.2: Surgical BOLA:** Response Diffing engine (Baseline comparison) to eliminate False Positives.
-* [x] **9.3: Concurrency Engine:** High-speed worker pools with channel-based task distribution for massive enumeration.
-* [x] **9.4: Environment Sensing:** Auto-detection of Burp Suite/ZAP proxies with intelligent "Hit-Mirroring" and custom X-Header signaling.
-* [x] **9.5: Discovery-to-Engine Pipeline:** Automating the handover from map/swagger results to the scan-bola concurrency pool.
-* [x] **9.6: Universal Proxy Integration:** Refactored `SafeDo` to support multi-module mirroring with `isHit` tactical signaling.
-* [x] **9.7: BOLA Concurrency Engine:** Successfully upgraded the surgical BOLA probe to a high-speed, multi-threaded mass scanner using the Phase 9.3 Worker Pool.
-* [x] **9.8: Industrialized BOPLA (Mass Assignment):** Refactor the BOPLA logic to leverage concurrent JSON property fuzzing and automated traffic mirroring.
-* [x] **9.9: Industrialized BFLA (Functional Logic):** Implement a "Method Matrix" worker pool to test Verb-Tampering (POST/DELETE/PUT) concurrently across all routes.
-* [x] **9.10: Universal Concurrency (Generic Executor):** Standardize all commands (`mine`, `exhaust`, etc.) under a single `GenericExecutor` for code efficiency.
-* [x] **9.11: Ghost Masquerade:** Process renaming to `kworker_system_auth` for stealth operations.
-
-### **Phase 10: The Vanguard (Future)**
-
-* [ ] **AI-Driven Fuzzing:** Context-aware payload generation using local LLM integration.
-* [ ] **Auto-Exploit PoC:** Standalone script generation for verified vulnerabilities.
+| Phase | Sub-Phase | Focus / Technical Deliverable | Status |
+| --- | --- | --- | --- |
+| **Sprint 11: Autonomy** 
+|  |**11.1** | **Dynamic Dependency Injection (DDI)** | ❌ **ACTIVE** |
+|  | 11.2 | State-Machine driven payload selection | ❌ [NEW] |
+|  | 11.3 | Autonomous lateral movement within API subnets | ❌ [NEW] |
+| **Sprint 12: Evasion V2** 
+|  | 12.1 | Deep Traffic Shaping: Mimicking legitimate API traffic | ❌ [NEW] |
+|  | 12.2 | Encrypted OOB: Secure exfiltration via custom protocols | ❌ [NEW] |
+|  | 12.3 | Behavioral Jitter: Randomized inter-packet timing | ❌ [NEW] |
+| **Sprint 13: The Hive** 
+|  | 13.1 | Hybrid C2 Architecture: gRPC Control Plane | ❌ [NEW] |
+|  | 13.2 | RESTful Management API for the Hive Master | ❌ [NEW] |
+|  | 13.3 | VaporTrace Console: Web-based Mission Dashboard | ❌ [NEW] |
+| **Sprint 14: Pivot** 
+|  | 14.1 | Cross-Tenant Leakage: Exploiting shared infrastructure | ❌ [NEW] |
+|  | 14.2 | K8s Escape: API-to-Cluster orchestration pivoting | ❌ [NEW] |
+|  | 14.3 | Serverless Poisoning: Attacking Lambda/Cloud-Function logic | ❌ [NEW] |
+| **Sprint 15: Mastery** 
+|  | 15.1 | Post-Quantum Cryptography for NHPP | ❌ [NEW] |
+|  | 15.2 | Multi-Agent Swarm Logic (Coordinated BOLA) | ❌ [NEW] |
 
 ---
 
@@ -159,83 +342,42 @@ go build -o VaporTrace
 
 ```
 
-### 2. Interactive Shell Usage
+### 2. Tactical Workflow Example (BOPLA / API3)
 
-Launch the shell with `./VaporTrace shell` and use the following tactics:
-
-| COMMAND | DESCRIPTION | EXAMPLE |
-| --- | --- | --- |
-| **Identity & Sessions** |  |  |
-| `auth` | Set identity tokens (JWT/Cookies) in the session store | `auth attacker <token>` |
-| `sessions` | View currently loaded tokens for Victim/Attacker | `sessions` |
-| **Discovery & Recon** |  |  |
-| `map` | Execute full Phase 2 Recon (Endpoint mapping) | `map -u <url>` |
-| `swagger` | Parse OpenAPI/Swagger JSON to map attack surface | `swagger <url>` |
-| `scrape` | Extract hidden API paths from JavaScript files | `scrape <url>` |
-| `mine` | Fuzz for hidden parameters (debug, admin, etc.) | `mine <url> /users` |
-| `proxy` | Route all tactical traffic through Burp Suite | `proxy http://127.0.0.1:8080` |
-| `proxy off` | Disable the interceptor and go direct | `proxy off` |
-| `proxies load <f>` | Ingests proxy list for IP rotation | `proxies load list.txt` |
-| `proxies reset` | Flushes pool (Returns to Direct/Burp mode) | `proxies reset` |
-| `target <url>` | Locks base URL for automated pipeline | `target https://api.target.com` |
-| `pipeline` | Categorize targets for BOLA/BFLA/BOPLA | `pipeline` |
-| **Logic Exploitation** |  |  |
-| `flow add` | Record business logic sequence (Interactive) | `flow add` |
-| `flow run` | Replay sequence with variable injection | `flow run` |
-| `flow step` | Tests prerequisite bypasses. | `flow step <id>` |
-| `flow race` | High-concurrency synchronized TOCTOU attack. | `flow race <id> <threads>` |
-| `flow clear` | Reset flow variables. | `flow clear` |
-| `bola` | Execute a live BOLA ID-swap probe (API1) | `bola <url> <id>` |
-| `bopla` | Execute Mass Assignment / BOPLA fuzzing (API3) | `bopla <url> '{"id":1}'` |
-| `bfla` | Execute Method Shuffling / Verb Tampering (API5) | `bfla <url>` |
-| `exhaust` | Execute Phase 4.1 Resource Exhaustion (API4) | `exhaust <url> <param>` |
-| `ssrf` | Execute Phase 4.2 SSRF Tracking (API7) | `ssrf <url> <param> <cb>` |
-| `audit` | Execute Phase 4.3 Security Misconfig Audit (API8) | `audit <url>` |
-| `probe` | Execute Phase 4.4 Integration Probe (API10) | `probe <url> stripe` |
-| **Data & Exfiltration** |  |  |
-| `weaver <int>` | Deploy Ghost-Weaver background agent with exfil interval | `weaver 60` |
-| `loot list` | View all discovered secrets (AWS Keys, JWTs, IPs) | `loot list` |
-| `loot clear` | Purge the in-memory discovery vault | `loot clear` |
-| **Logic Verification** |  |  |
-| `test-bola` | Run BOLA logic verification against httpbin | `test-bola` |
-| `test-bopla` | Verify BOPLA/Mass-Assignment injection engine | `test-bopla` |
-| `test-bfla` | Verify BFLA/Verb-tampering logic | `test-bfla` |
-| `test-exhaust` | Verify pagination fuzzing and latency detection | `test-exhaust` |
-| `test-ssrf` | Verify SSRF redirect/tracking logic | `test-ssrf` |
-| `test-audit` | Verify the Misconfig/CORS scanner | `test-audit` |
-| `test-probe` | Verify Webhook/Integration spoofing logic | `test-probe` |
-| **System & Debrief** |  |  |
-| `init_db` | Initialize Phase 5 SQLite Persistence & Logging | `init_db` |
-| `reset_db` | **Wipe all** local mission data (Purge) | `reset_db` |
-| `report` | Generate Classified Markdown Mission Report | `report` |
-| `clear` | Reset the terminal view/banner | `clear` |
-| `exit` | Gracefully shutdown the tactical suite | `exit` |
-
----
-
-### 3. Tactical Workflow Example (BOPLA / API3)
-
-Capture your tokens from a proxy and pivot:
+Identify a sensitive property and attempt to escalate privilege using Mass Assignment:
 
 ```bash
-# 1. Enter the shell
-./VaporTrace shell
+# 1. Launch the Hydra TUI
+./VaporTrace
 
-# 2. Set the Attacker Context
-vapor@trace:~$ auth attacker eyJhbGciOiJIUzI1...
+# 2. Initialize Persistence
+:init_db
+:seed_db
 
-# 3. Target a user-settings endpoint with a base JSON object
-# The engine will attempt to inject 'is_admin', 'role', etc.
-vapor@trace:~$ bopla [https://api.target.com/v1/user/me](https://api.target.com/v1/user/me) '{"name":"vapor"}'
+# 3. Set Scope
+:target https://api.target.corp
+
+# 4. Execute Mass Assignment Probe
+:bopla https://api.target.corp/v1/user/me '{"name":"vapor"}'
+
+
+```
+
+### 3. Generate Tactical Report
+
+Once the mission is complete, generate the 9.13 Framework-Aligned report:
+
+```bash
+:report
 
 
 ```
 
 ---
 
-### **📑 Tactical Incident Response (IR) Template**
+## 📑 Tactical Incident Response (IR) Template (NIST SP 800-61 R3 Alignment)
 
-Use this unified template to document findings across the VaporTrace tactical phases. Note the new **Mirroring** section for P9.6.
+Use this unified template to document findings across the VaporTrace tactical phases.
 
 > **[VAPOR-TRACE-SECURITY-ADVISORY]**
 > **FINDING ID:** VT-{{YEAR}}-{{ID}}
@@ -251,35 +393,52 @@ Use this unified template to document findings across the VaporTrace tactical ph
 > * **Mirroring (P9.6):** Request captured in proxy history via `X-VaporTrace-Signal`.
 > * **Injection/Consumption (P4):** Logic used to trigger SSRF or Resource Exhaustion.
 > * **Persistence (P5):** All tactical logs committed to SQLite for debrief.
->  
->  
+> 
+> 
 > **REPRODUCTION LOG:**
-> 
-> 
-
 > ```bash
-> vapor@trace:~$ {{executed_command}}
+> :{{executed_command}}
 > [MIRROR] Confirmed hit via {{Module}} mirrored to proxy.
 > [RESULT] {{server_response_code}} | {{latency_ms}}ms
->  
 > 
 > ```
 > 
 > 
->  
->  
-> **IMPACT:** {{Data_Exfiltration / Service_Instability / Privilege_Escalation}}
-> **REMEDIATION:** {{Engineering_Action_Plan}}
+
+> ```
+> 
+> **IMPACT:** {{Data\_Exfiltration / Service\_Instability / Privilege\_Escalation}}
+> **REMEDIATION:** {{Engineering\_Action\_Plan}}
+> 
+> ```
+> 
+> 
+
+---
+
+## IV. DFIR RESPONSE GUIDANCE
+
+#### **1. Detection & Analysis (ID.AN)**
+
+* **Network Artifacts:** Monitor for anomalous traffic mirroring or the presence of the `X-VaporTrace-Signal` header. Watch for SSRF patterns targeting internal IP metadata ranges.
+* **Endpoint Artifacts:** Audit for background processes renamed to `kworker_system_auth` or unauthorized access to `/proc/net/arp` and OIDC cache files.
+
+#### **2. Containment & Eradication (PR.PT)**
+
+* **Logic Hardening:** Implement Object-Level Authorization (OLA) at the middleware layer to mitigate BOLA.
+* **Metadata Protection:** Enforce IMDSv2 with session-oriented headers to prevent unauthenticated credential harvesting.
 
 ---
 
 ## 📡 The Technology Behind the Tracer
 
 * **Language:** Golang (Concurrency-focused, statically linked).
-* **Database:** SQLite3 with async I/O worker pool for persistent mission tracking.
-* **UI Stack:** `pterm` for tactical dashboarding and `readline` for shell interactivity.
-* **Network Stack:** Custom `net/http` wrapper with `crypto/tls` overrides and robust `net/url` path handling.
+* **UI Engine:** `rivo/tview` / `gdamore/tcell` (Hydra TUI).
+* **Database:** SQLite3 with Framework-Tagging (MITRE/OWASP/NIST).
+* **Networking:** Middleware-Driven `http.RoundTripper` with native Proxy support.
+* **Reporting:** NIST-aligned Markdown generator (Sprint 9.13).
 
 **VaporTrace - Reveal the Invisible.**
 
+```
 ---
