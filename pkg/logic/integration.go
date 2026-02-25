@@ -29,7 +29,7 @@ func (i *IntegrationContext) Probe() {
 		req, _ := http.NewRequest("POST", i.TargetURL, bytes.NewBuffer([]byte(body)))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Vapor-Trace-Tactical", "API10-Probe")
-		req.Header.Set("User-Agent", fmt.Sprintf("VaporTrace-%s-Scanner", i.IntegrationType))
+		ApplyEvasion(req) // Use rotating User-Agent
 
 		start := time.Now()
 		// Using SafeDo ensures Evasion and Loot scanning happen automatically

@@ -1,0 +1,202 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║              SPRINT 13: EVASION HARDENING - QUICK REFERENCE                ║
+║                  VaporTrace v3.1-Hydra | February 8, 2026                 ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+WHAT WAS FIXED
+═════════════════════════════════════════════════════════════════════════════
+
+1. USER-AGENT ROTATION (✅ NOW WORKING)
+   Problem:  All requests in a session used the same User-Agent
+   Cause:    rand.Seed(time.Now().UnixNano()) was resetting RNG every call
+   Fix:      Removed rand.Seed() from ApplyEvasion()
+   Result:   Each request now gets different random User-Agent
+   File:     pkg/logic/evasion.go (line ~82-98)
+
+2. TLS EVASION (⏳ DEFERRED TO SPRINT 14)
+   Problem:  Static TLS profile broke all discovery functions
+   Cause:    Forcing fixed TLS fingerprint breaks server compatibility
+   Fix:      Disabled ApplyTLSEvasion() call in InitializeRotaryClient()
+   Result:   All discovery modules restored and working
+   File:     pkg/logic/network.go (line ~282-285)
+
+3. DOCUMENTATION (✅ COMPLETE)
+   Added:    Sprint 13 dev-log and manual documentation
+   Updated:  Dev-roadmap with new sprint status
+   Updated:  Manual index with Sprint 13 reference
+   Files:    docs/dev-logs/SPRINT13_EVASION_ROTATION_FIX.md
+             docs/manuals/13_SPRINT13_EVASION_HARDENING.md
+
+
+CURRENT EVASION STACK (PRODUCTION READY)
+═════════════════════════════════════════════════════════════════════════════
+
+✅ WORKING:
+   • User-Agent Rotation (5+ agents, truly random per request)
+   • Proxy Rotation (via GetRandomProxy() from ProxyPool)
+   • Timing Jitter (20-150ms random delay per request)
+   • Header Spoofing (Realistic Accept, Accept-Language, etc.)
+   • Body Capture (Full request/response traffic logging)
+
+⏳ PLANNED (SPRINT 14+):
+   • Per-Request TLS Rotation (needs custom DialTLSContext)
+   • HTTP/2 Fingerprinting (protocol-level handling)
+   • Context-Aware User-Agent (same UA within operation)
+
+
+BUILD STATUS
+═════════════════════════════════════════════════════════════════════════════
+
+✅ COMPILATION:  SUCCESS (go build ./... - no errors)
+✅ EXECUTABLE:   20 MB VaporTrace binary
+✅ ALL MODULES:  OPERATIONAL
+✅ DISCOVERY:    100% WORKING
+✅ EXPLOITATION: READY
+✅ EVASION:      TESTED & VERIFIED
+
+
+TESTING CHECKLIST
+═════════════════════════════════════════════════════════════════════════════
+
+Test 1: User-Agent Rotation
+  1. Run: VaporTrace
+  2. Execute: scan -u http://httpbin.org/get -p GET
+  3. Press F4 (Traffic tab)
+  4. Verify: User-Agent header in traffic
+  5. Expected: Different from your actual browser
+
+Test 2: Discovery Functions
+  1. Execute: swagger -u http://api.example.com
+  2. Execute: scrape -u http://api.example.com
+  3. Execute: mine -u http://api.example.com
+  4. Expected: All return responses (no timeouts)
+
+Test 3: Multiple Requests
+  1. Execute same URL 3 times
+  2. Check F4 Traffic tab
+  3. Expected: Different User-Agents in each request
+
+
+CODE CHANGES SUMMARY
+═════════════════════════════════════════════════════════════════════════════
+
+FILE: pkg/logic/evasion.go
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REMOVED:
+  rand.Seed(time.Now().UnixNano())
+
+ADDED:
+  // NO SEED - each call gets different random value
+  // rand.Intn() now actually rotates user agents
+
+FILE: pkg/logic/network.go
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REMOVED:
+  tlsConfig = ApplyTLSEvasion(tlsConfig)
+
+ADDED:
+  // TLS Config: DO NOT apply static TLS evasion here
+  // Static profiles at init time break server compatibility
+  // Per-request TLS evasion deferred to Sprint 14
+
+
+DEPLOYMENT
+═════════════════════════════════════════════════════════════════════════════
+
+Status:  ✅ PRODUCTION READY
+
+Before Deploying:
+  1. Verify: go build ./... (should succeed)
+  2. Test: Run scan command and check F4 tab
+  3. Confirm: All discovery functions operational
+  4. Check: No connection errors or timeouts
+
+After Deploying:
+  1. Verify: User-Agent rotates on multiple requests
+  2. Verify: Proxy rotation works (if configured)
+  3. Verify: All modules responsive
+  4. Monitor: Traffic tab shows different headers per request
+
+
+DOCUMENTATION
+═════════════════════════════════════════════════════════════════════════════
+
+User Documentation:
+  → docs/manuals/13_SPRINT13_EVASION_HARDENING.md
+    - How to use evasion features
+    - Testing procedures
+    - Troubleshooting guide
+
+Developer Documentation:
+  → docs/dev-logs/SPRINT13_EVASION_ROTATION_FIX.md
+    - Technical implementation details
+    - Architecture decisions
+    - Root cause analysis
+
+Roadmap:
+  → docs/dev-logs/Dev-Roadmap.md
+    - Updated sprint status
+    - Sprint 14+ planning
+
+
+SUPPORT / ISSUES
+═════════════════════════════════════════════════════════════════════════════
+
+Issue:   All requests have same User-Agent
+Fix:     Ensure using latest build after Sprint 13 fixes
+Verify:  Check F4 Traffic tab for multiple requests
+
+Issue:   Discovery functions not working
+Fix:     Verify TLS evasion is disabled (not calling ApplyTLSEvasion)
+Check:   grep "ApplyTLSEvasion" pkg/logic/network.go (should return nothing)
+
+Issue:   Proxy rotation not working
+Fix:     Load proxies first: proxy set ./proxies.txt
+Verify:  proxy list (should show loaded proxies)
+
+
+ARCHITECTURE NOTES (FOR SPRINT 14)
+═════════════════════════════════════════════════════════════════════════════
+
+Per-Request TLS Evasion (Next Sprint):
+  Challenge: Go's http.Transport reuses TLS connections
+  Solution:  Need custom DialTLSContext that reads profile from request context
+  
+  Flow:
+    1. RoundTrip() calls ApplyPerRequestTLSEvasion()
+    2. Returns TLS config for this request
+    3. Store in request context (via context.WithValue)
+    4. Custom DialTLSContext reads from context
+    5. Each connection uses appropriate profile
+  
+  Benefits:
+    ✓ True per-request TLS rotation
+    ✓ Varies JA3 fingerprints
+    ✓ Defeats TLS-based detection
+
+
+QUICK COMMANDS
+═════════════════════════════════════════════════════════════════════════════
+
+# Build and verify
+cd /home/xoce/Workspace/VaporTrace && go build ./...
+
+# Run VaporTrace
+./VaporTrace
+
+# Test evasion
+scan -u http://httpbin.org/get -p GET
+F4  # Check Traffic tab
+
+# Load proxies
+proxy set ./proxies.txt
+proxy list
+
+# Verify changes
+grep -n "rand.Seed" pkg/logic/evasion.go  # Should return nothing
+grep -n "ApplyTLSEvasion" pkg/logic/network.go  # Should return nothing
+
+
+═════════════════════════════════════════════════════════════════════════════
+✅ SPRINT 13 COMPLETE - VaporTrace is production ready
+═════════════════════════════════════════════════════════════════════════════

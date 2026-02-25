@@ -320,7 +320,7 @@ func (n *NeuroEngine) executeSmartAttack(targetURL, method string, payloads []st
 
 		// Identify the request as an AI-driven exploit for logging/debugging
 		req.Header.Set("X-Neuro-Engine", "Automated-Exploit")
-		req.Header.Set("User-Agent", "VaporTrace-Neuro/1.0")
+		ApplyEvasion(req) // Use rotating User-Agent
 
 		startAttack := time.Now()
 		resp, err := client.Do(req)

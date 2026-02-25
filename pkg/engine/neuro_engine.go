@@ -337,7 +337,7 @@ func (n *NeuroEngineCore) ExecuteSmartAttack(targetURL, method string, payloads 
 
 		// Identify the request as an AI-driven exploit for logging/debugging
 		req.Header.Set("X-Neuro-Engine", "Automated-Exploit")
-		req.Header.Set("User-Agent", "VaporTrace-Neuro/1.0")
+		logic.ApplyEvasion(req) // Use rotating User-Agent
 
 		startAttack := time.Now()
 		resp, err := client.Do(req)
@@ -551,7 +551,7 @@ func (n *NeuroEngineCore) ProcessExploitResult(exploit TacticalAction, loot stri
 			nextAction = &TacticalAction{
 				Type:         "LATERAL_MOVEMENT",
 				Target:       exploit.Target, // Same target but with new token
-				Payload:      fmt.Sprintf("Use bearer token for privilege escalation"),
+				Payload:      "Use bearer token for privilege escalation",
 				Confidence:   "HIGH",
 				Reasoning:    "Auth token detected. Attempt lateral movement with elevated privileges.",
 				Status:       "PENDING",
@@ -565,7 +565,7 @@ func (n *NeuroEngineCore) ProcessExploitResult(exploit TacticalAction, loot stri
 			nextAction = &TacticalAction{
 				Type:         "CLOUD_PIVOT",
 				Target:       "https://sts.amazonaws.com/",
-				Payload:      fmt.Sprintf("Enumerate AWS with extracted keys"),
+				Payload:      "Enumerate AWS with extracted keys",
 				Confidence:   "HIGH",
 				Reasoning:    "AWS credentials detected. Pivot to cloud infrastructure.",
 				Status:       "PENDING",
@@ -580,7 +580,7 @@ func (n *NeuroEngineCore) ProcessExploitResult(exploit TacticalAction, loot stri
 			nextAction = &TacticalAction{
 				Type:         "JWT_BYPASS",
 				Target:       exploit.Target,
-				Payload:      fmt.Sprintf("Decode and use JWT for privilege escalation"),
+				Payload:      "Decode and use JWT for privilege escalation",
 				Confidence:   "MEDIUM",
 				Reasoning:    "JWT token found. Attempt to manipulate token claims.",
 				Status:       "PENDING",

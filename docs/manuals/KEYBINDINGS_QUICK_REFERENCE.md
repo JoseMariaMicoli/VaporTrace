@@ -9,27 +9,27 @@
 
 | Key | Function | Notes |
 |-----|----------|-------|
-| **Ctrl + H** | 📋 Show Keybindings Modal | Opens this reference popup |
-| **Ctrl + I** | 🚨 Toggle Interceptor | On/Off switch for request interception |
 | **F1** | 📊 LOGS Tab | Tactical feed & system messages |
 | **F2** | 🗺️ MAP Tab | Discovered endpoints & attack surface |
 | **F3** | 💎 LOOT Tab | Captured secrets & credentials |
 | **F4** | 📡 TRAFFIC Tab | HTTP requests & responses |
 | **F5** | 🎯 PLAN Tab | Strategic actions & planner |
 | **F6** | 🧠 NEURO Tab | AI engine output & analysis |
-| **F7** | 📄 REPORT Tab | Findings export (Markdown/PDF) |
+| **F7** | 📄 REPORT Tab | Markdown editor with preview & syntax highlighting |
+| **Ctrl + H** | 📋 Show Keybindings Modal | Opens this reference popup |
+| **Ctrl + I** | 🚨 Toggle Interceptor | On/Off switch for request interception |
 | **Esc** | 🚪 Exit | Terminate VaporTrace (with confirmation) |
 
 ---
 
-## Modal-Only Hotkeys (When Interceptor Modal Open)
+## Interceptor Modal Hotkeys (When Interceptor Modal is Open)
 
 | Key | Function | Notes |
 |-----|----------|-------|
-| **Ctrl + F** | ✈️ Forward Packet | Send to network immediately |
-| **Ctrl + D** | ✋ Drop Packet | Block and discard packet |
-| **Ctrl + B** | 🧬 Neuro Brute | Generate AI payloads for field |
-| **Ctrl + S** | 💾 Sync Loot | Save request to Loot DB |
+| **Ctrl + F** | ✈️ Forward Packet | Send modified request to network immediately |
+| **Ctrl + D** | ✋ Drop Packet | Block and discard packet (don't send) |
+| **Ctrl + B** | 🧬 Neuro Brute | Generate AI mutation payloads for field |
+| **Ctrl + S** | 💾 Sync Loot | Save intercepted request to Loot DB (F3) |
 
 ---
 
@@ -41,15 +41,11 @@
 | **Page Up** | Scroll up in logs |
 | **Page Down** | Scroll down in logs |
 
-### F4 Tab (Traffic)
-| Key | Function |
-|-----|----------|
-| **Ctrl + A** | Analyze snapshot with AI Brain |
-
 ### F7 Tab (Report)
 | Key | Function |
 |-----|----------|
-| **Ctrl + W** | Save report to disk |
+| **Ctrl + P** | Toggle between EDIT and PREVIEW mode |
+| **Ctrl + W** or **Ctrl + S** | Save report to disk (works in both modes) |
 | **Ctrl + X** | Delete session & clear report |
 
 ---
