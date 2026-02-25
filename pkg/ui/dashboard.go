@@ -174,6 +174,8 @@ func InitTacticalDashboard() {
 	}()
 
 	app = tview.NewApplication()
+	// Ensure graceful shutdown restores terminal state when using `exit`.
+	engine.SetExitHook(func() { app.Stop() })
 	pages = tview.NewPages()
 
 	// TASK 2: PERFORMANCE SWEEPING
