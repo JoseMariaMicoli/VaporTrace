@@ -638,6 +638,7 @@ graph LR
 ---
 
 **See Also:** 
+- [22_DISCOVERY_GUIDE.md](22_DISCOVERY_GUIDE.md) - **NEW**: Advanced spider & fuzz techniques (Tier 2)
 - [06_EXPLOITATION.md](06_EXPLOITATION.md) - Next phase after discovery
 - [18_COMMAND_REFERENCE.md](18_COMMAND_REFERENCE.md) - All discovery commands
 - [04_STRATEGIC_PLANNING.md](04_STRATEGIC_PLANNING.md) - Integration with planning

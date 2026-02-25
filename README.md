@@ -56,11 +56,12 @@
 | **TUI Dashboard** | Sprint 10 | ✅ Complete | Hydra multi-pane, 7 tabs, F-key navigation, real-time monitoring |
 | **Full Autonomy** | Sprint 11 | ✅ Complete | ProcessChain(), AI chaining, DDI, race-condition fixes |
 | **Evasion V2** | Sprint 12 | ⚠️ Partial | Traffic shaping (✅), Jitter (✅), Path obfuscation (✅), Rate-limit backoff (✅), TLS fingerprinting (⏳) |
-| **C2 Architecture** | Sprint 13 | ⏳ Pending | Hive master, gRPC control plane, Web dashboard |
-| **Cloud Pivoting** | Sprint 14 | ⏳ Pending | K8s escape, cross-tenant leakage, serverless attacks |
-| **Advanced Evasion** | Sprint 15 | ⏳ Pending | TLS fingerprinting completion, protocol-level obfuscation |
 | **Blue-Team Mirror** | Sprint 16 | ✅ Complete | LLM remediation, Gold Standard library, 3-tier verification, 7 fixers |
 | **WAF Evasion Hardening** | Sprint 17 | ✅ Complete | 5 coordinated evasion techniques, 22 browser profiles |
+| **Intruder Engine** | Sprint 18-19 | ✅ Complete | Sniper mode, anomaly detection, AI payload generation |
+| **Race Condition Engine** | Sprint 20 | ✅ Complete | Synchronization gate, TOCTOU detection, parallel fuzzing |
+| **C2 Architecture** | Sprint 13+ | ⏳ Pending | Hive master, gRPC control plane, Web dashboard (Tier 4) |
+| **Cloud Pivoting** | Sprint 14+ | ⏳ Pending | K8s escape, cross-tenant leakage, serverless attacks (Tier 4) |
 
 ---
 
@@ -81,6 +82,11 @@
 - `bfla`            Broken Function Level Authorization (privilege escalation)
 - `bopla`           Broken Object Property Authorization (mass assignment)
 - `flow`            Orchestrate multi-step attack chains
+
+### **Offensive Capabilities** (Tier 3 - NEW)
+
+- `intruder`        Sniper fuzzing engine with anomaly detection
+- `race`            Race condition testing with synchronization gate (TOCTOU detection)
 
 ### **Infrastructure & Data Testing** (OWASP API4, API7, API8, API10)
 

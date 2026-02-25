@@ -12,10 +12,56 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/ai"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
+
+// AnalyzeForFuzzing asks the AI specifically about Intruder opportunities
+func (n *NeuroEngineCore) AnalyzeForFuzzing(reqDump string) []TacticalAction {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	neuro := logic.GetGlobalNeuro()
+	if neuro == nil || !neuro.Active {
+		return nil
+	}
+
+	targetURL := n.extractURL(reqDump)
+
+	// Use the new specialized prompt
+	prompt := fmt.Sprintf(ai.FuzzingRecommendationPrompt, reqDump)
+	response, err := neuro.ExecuteQuery(prompt)
+	if err != nil {
+		return nil
+	}
+
+	var actions []TacticalAction
+	lines := strings.Split(response, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "INTRUDER:") {
+			// Parse: INTRUDER:param:category
+			parts := strings.Split(line, ":")
+			if len(parts) == 3 {
+				param := parts[1]
+				category := parts[2]
+
+				actions = append(actions, TacticalAction{
+					Type:       "INTRUDER", // New Type
+					Target:     targetURL,
+					Payload:    fmt.Sprintf("%s:%s", param, category), // "id:numeric"
+					Confidence: "HIGH",
+					Reasoning:  fmt.Sprintf("AI detected '%s' as a candidate for %s fuzzing.", param, category),
+					Status:     "PENDING",
+				})
+			}
+		}
+	}
+	return actions
+}
 
 // NeuroAnalysisResult represents the output of an AI analysis pass
 type NeuroAnalysisResult struct {

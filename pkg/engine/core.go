@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/attack"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/discovery"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/logic"
@@ -35,6 +36,9 @@ type TacticalAction struct {
 // ActionBuffer is the global staging area for the planner
 var ActionBuffer []TacticalAction
 
+// LastCapturedRequest stores the most recent HTTP request for fuzzing analysis
+var LastCapturedRequest string
+
 // getTarget helps commands inherit the global target if no argument is provided
 func getTarget(args []string) string {
 	if len(args) > 0 {
@@ -45,6 +49,16 @@ func getTarget(args []string) string {
 		return ""
 	}
 	return global
+}
+
+// GetLastCapturedRequest returns the most recent HTTP request dump for AI analysis
+func GetLastCapturedRequest() string {
+	return LastCapturedRequest
+}
+
+// StoreLastRequest stores a request for later fuzzing analysis
+func StoreLastRequest(reqDump string) {
+	LastCapturedRequest = reqDump
 }
 
 // ExecuteCommand parses raw input strings and routes them to the appropriate logic module.
@@ -259,6 +273,44 @@ func ExecuteCommand(rawCmd string) {
 			utils.TacticalLog("[red]Error:[-] Usage: map <url> (or set global target first).")
 		}
 
+	case "spider":
+		target := getTarget(args)
+		depth := 2 // Default depth
+
+		if len(args) > 1 {
+			// Check for depth arg (simple parsing)
+			if d, err := strconv.Atoi(args[1]); err == nil {
+				depth = d
+			}
+		}
+
+		if target == "" {
+			utils.TacticalLog("[red]Usage:[-] spider <url> [depth] (or set global target)")
+		} else {
+			// Launch the fixed spider
+			discovery.StartSpider(target, depth)
+		}
+
+	case "fuzz":
+		// Usage: fuzz <url> [params|paths]
+		target := getTarget(args)
+		mode := "params"
+
+		if len(args) > 1 {
+			mode = args[1]
+		}
+
+		if target == "" {
+			utils.TacticalLog("[red]Usage:[-] fuzz <url> [params|paths]")
+			return
+		}
+
+		if mode == "paths" {
+			go discovery.FuzzPaths(target, nil) // nil = use built-in top list
+		} else {
+			go discovery.FuzzParams(target, nil) // nil = use built-in top list
+		}
+
 	case "pipeline":
 		utils.TacticalLog("[aqua]Initializing Industrialized Attack Pipeline...[-]")
 		go func() {
@@ -387,6 +439,69 @@ func ExecuteCommand(rawCmd string) {
 			ctx := &logic.IntegrationContext{TargetURL: target, IntegrationType: iType}
 			go ctx.Probe()
 		}
+
+	case "intruder":
+		// Syntax: intruder sniper <url> <param> <wordlist>
+		if len(args) < 4 {
+			utils.TacticalLog("[red]Usage:[-] intruder sniper <url> <param> <wordlist>")
+			return
+		}
+
+		mode := strings.ToLower(args[0])
+		target := args[1]
+		param := args[2]
+		wordlist := args[3]
+
+		if mode != "sniper" {
+			utils.TacticalLog("[red]Error:[-] Currently only 'sniper' mode is supported.")
+			return
+		}
+
+		// Validate file existence before starting
+		if _, err := os.Stat(wordlist); os.IsNotExist(err) {
+			utils.TacticalLog(fmt.Sprintf("[red]Error:[-] Wordlist not found: %s", wordlist))
+			return
+		}
+
+		utils.TacticalLog(fmt.Sprintf("[aqua]INTRUDER:[-] Initializing Sniper attack on %s (param: %s)", target, param))
+
+		config := attack.IntruderConfig{
+			TargetURL:    target,
+			Param:        param,
+			WordlistPath: wordlist,
+			Concurrency:  logic.CurrentSession.Threads, // Use global thread setting
+			Mode:         attack.Sniper,
+		}
+
+		go func() {
+			attack.RunSniper(config)
+			utils.TacticalLog("[green]INTRUDER:[-] Session finished. Check logs/db for anomalies.")
+		}()
+
+	case "race":
+		// Syntax: race <url> [threads]
+		if len(args) < 1 {
+			utils.TacticalLog("[red]Usage:[-] race <url> [threads]")
+			return
+		}
+
+		target := args[0]
+		threads := 20 // Default to high concurrency for race conditions
+
+		if len(args) > 1 {
+			if t, err := strconv.Atoi(args[1]); err == nil {
+				threads = t
+			}
+		}
+
+		go func() {
+			config := attack.RaceConfig{
+				TargetURL: target,
+				Method:    "GET", // Default, in future add flags for POST
+				Threads:   threads,
+			}
+			attack.RunRace(config)
+		}()
 
 	// --- FLOW ENGINE ---
 	case "flow":
@@ -1002,7 +1117,39 @@ func ComprehensiveAnalysis() []TacticalAction {
 	endpoints := silo.F2_Discovery.Endpoints
 	if len(endpoints) == 0 {
 		utils.TacticalLog("[yellow]ANALYSIS:[-] No endpoints discovered. Run 'map', 'swagger', or 'scrape' first.[-]")
-		return actions
+
+		// ✅ NEW: Provide hint actions to guide user
+		hintActions := []TacticalAction{
+			{
+				ID:         1,
+				Type:       "HINT: DISCOVERY",
+				Target:     "N/A - Start reconnaissance",
+				Payload:    "Run 'map <url>' or 'swagger <openapi-url>' to discover endpoints",
+				Confidence: "MEDIUM",
+				Status:     "PENDING",
+			},
+			{
+				ID:         2,
+				Type:       "HINT: SPIDERING",
+				Target:     "N/A - Explore application",
+				Payload:    "Run 'scrape <url>' to extract links from HTML responses",
+				Confidence: "MEDIUM",
+				Status:     "PENDING",
+			},
+			{
+				ID:         3,
+				Type:       "HINT: TRAFFIC",
+				Target:     "F4 Tab - Intercept requests",
+				Payload:    "Enable Interceptor (Ctrl+I) and press Ctrl+A to analyze traffic snapshots",
+				Confidence: "LOW",
+				Status:     "PENDING",
+			},
+		}
+
+		utils.TacticalLog("[blue]INFO:[-] Strategic buffer populated with discovery workflow hints.")
+		utils.TacticalLog("[cyan]TIP:[-] Check F5 tab for guided next steps to begin reconnaissance.")
+
+		return hintActions
 	}
 
 	utils.TacticalLog(fmt.Sprintf("[blue]ANALYSIS:[-] Phase 1 Complete: %d endpoints discovered.[-]", len(endpoints)))
@@ -1041,6 +1188,28 @@ func ComprehensiveAnalysis() []TacticalAction {
 			}
 			if !isDuplicate && len(actions) < 20 {
 				actions = append(actions, aiAction)
+			}
+		}
+
+		// === PHASE 6B: FUZZING RECOMMENDATIONS (AI-driven Intruder suggestions) ===
+		utils.TacticalLog("[magenta]ANALYSIS:[-] Fuzzing Analysis: Getting AI-recommended Intruder attacks...[-]")
+		// Get last captured request for analysis
+		if lastReq := GetLastCapturedRequest(); lastReq != "" {
+			fuzzActions := GlobalNeuroCore.AnalyzeForFuzzing(lastReq)
+			utils.TacticalLog(fmt.Sprintf("[magenta]ANALYSIS:[-] Fuzzing Pass: %d AI-recommended Intruder actions.[-]", len(fuzzActions)))
+
+			// Add fuzzing actions to buffer
+			for _, fuzzAction := range fuzzActions {
+				isDuplicate := false
+				for _, existing := range actions {
+					if existing.Type == "INTRUDER" && existing.Target == fuzzAction.Target && existing.Payload == fuzzAction.Payload {
+						isDuplicate = true
+						break
+					}
+				}
+				if !isDuplicate && len(actions) < 20 {
+					actions = append(actions, fuzzAction)
+				}
 			}
 		}
 	}
@@ -1124,6 +1293,28 @@ func ExecuteStrategicPlan() {
 				req, _ := http.NewRequest("GET", a.Target, nil)
 				logic.SafeDo(req, false, "STRATEGY-LATERAL")
 				utils.LogContext(fmt.Sprintf("[green]✓ LATERAL COMPLETE:[-] %v", time.Since(startTime)))
+
+			case "INTRUDER":
+				utils.LogContext("[yellow]AI INTRUDER:[-] AI-recommended single-position fuzzing attack...")
+				// Payload format "param:category"
+				parts := strings.Split(a.Payload, ":")
+				if len(parts) == 2 {
+					param := parts[0]
+					category := parts[1]
+					// Get embedded payloads for this category
+					payloads := attack.GetInternalWordlist(category)
+					if len(payloads) > 0 {
+						config := attack.IntruderConfig{
+							TargetURL:   a.Target,
+							Param:       param,
+							PayloadList: payloads,
+							Concurrency: 3,
+							Mode:        attack.Sniper,
+						}
+						attack.RunSniper(config)
+						utils.LogContext(fmt.Sprintf("[green]✓ AI INTRUDER COMPLETE:[-] %s fuzzing on '%s' executed. %v", category, param, time.Since(startTime)))
+					}
+				}
 
 			default:
 				utils.LogContext("[yellow]GENERIC PROBE:[-] Testing endpoint...")
@@ -1355,8 +1546,10 @@ func printUsage() {
 		"[aqua]═══════════════════════════════════════════════════════════════════════════[-]",
 		"[yellow]target <url>[-]     Scope Target           Set the global context URL for all modules.",
 		"[yellow]map[-]              Full Recon             Spidering + Swagger mining + JS scraping (auto-pipeline).",
+		"[yellow]spider <url>[-]     Web Crawler            Active crawl to extract links, APIs, and JS files from domain.",
 		"[yellow]swagger <url>[-]    Parse OpenAPI          Ingest Swagger/OpenAPI JSON specs into the database.",
 		"[yellow]scrape <url>[-]     JS Endpoint Mining     Extract API routes from JavaScript bundles.",
+		"[yellow]fuzz <url>[-]       Brute Discovery        Hidden paths/params with anomaly detection (params|paths mode).",
 		"[yellow]mine <url>[-]       Param Fuzzing          Brute-force hidden query parameters (debug, admin, test).",
 		"[yellow]sessions[-]         Auth Context           Display/manage active authentication tokens & cookies.",
 		"",
@@ -1371,7 +1564,8 @@ func printUsage() {
 		"[yellow]audit <url>[-]      Config Check           Headers (HSTS), SSL/TLS, CORS policy audit.",
 		"[yellow]probe <url>[-]      Webhook Injection      Unsafe consumption in 3rd-party integrations.",
 		"[yellow]flow <action>[-]    Attack Chain           (list|clear|run|race) Manage orchestrated attack sequences.",
-		"",
+		"[yellow]intruder <mode>[-]  Fuzzing Engine         (sniper) Automated payload injection against params.",
+		"[yellow]race <url>[-]       Race Condition Test    Synchronization gate for TOCTOU vulnerability detection.",
 		"[cyan]→ Type 'usage 2' to see Evasion, AI, Infrastructure, and System commands[-]",
 	}
 	for _, l := range lines {
@@ -1520,6 +1714,41 @@ func printHelp(cmd string) {
 		utils.TacticalLog("Analyzes discovered endpoints and auto-routes to appropriate attack engines.")
 		utils.TacticalLog("Orchestration: Patterns detected (ID-based) -> route to BOLA, BOPLA, etc.")
 
+	case "intruder":
+		utils.TacticalLog("[cyan]INTRUDER SNIPER - Automated Fuzzing Engine[-]")
+		utils.TacticalLog("Iterates through a wordlist, replacing a specific parameter value.")
+		utils.TacticalLog("Automatically detects anomalies by comparing against a baseline request.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Usage: intruder sniper <url> <param> <wordlist_path>")
+		utils.TacticalLog("Example: intruder sniper https://api.target.com/user?id=1 id ./payloads/sqli.txt")
+		utils.TacticalLog("")
+		utils.TacticalLog("Logic:")
+		utils.TacticalLog("  1. Baselines the target (normal request).")
+		utils.TacticalLog("  2. Injects payloads from wordlist.")
+		utils.TacticalLog("  3. Flags responses with status code changes or >10% length variation.")
+
+	case "race":
+		utils.TacticalLog("[cyan]RACE CONDITION ENGINE - TOCTOU Vulnerability Testing[-]")
+		utils.TacticalLog("Detects Time-of-Check to Time-of-Use (TOCTOU) race conditions.")
+		utils.TacticalLog("Uses synchronization gate pattern to execute parallel requests with nanosecond precision.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Usage: race <url> [threads]")
+		utils.TacticalLog("Example: race https://api.target.com/api/claim?code=WINNER 30")
+		utils.TacticalLog("")
+		utils.TacticalLog("Detection Logic:")
+		utils.TacticalLog("  1. Spawns N concurrent goroutines (default: 20 threads)")
+		utils.TacticalLog("  2. All threads wait on synchronization gate (channel barrier)")
+		utils.TacticalLog("  3. Gate closes -> all threads fire simultaneously (nanosecond precision)")
+		utils.TacticalLog("  4. Analyzes response variance (status codes, body length)")
+		utils.TacticalLog("")
+		utils.TacticalLog("Common Vulnerabilities Detected:")
+		utils.TacticalLog("  - Coupon reuse (double spending)")
+		utils.TacticalLog("  - Bypassing transfer limits")
+		utils.TacticalLog("  - Creating duplicate resources")
+		utils.TacticalLog("  - Gift card redemption exploits")
+		utils.TacticalLog("")
+		utils.TacticalLog("Severity: CRITICAL (CVSS 8.5+) - Requires architectural fixes")
+
 	case "weaver":
 		utils.TacticalLog("Deploys Ghost Weaver agent for OIDC token interception and data masking.")
 		utils.TacticalLog("Useful for: OAuth 2.0 testing, SAML assertions, session hijacking.")
@@ -1537,8 +1766,59 @@ func printHelp(cmd string) {
 		utils.TacticalLog("Extracts: Endpoints, methods, parameters, auth schemes, request/response schemas.")
 
 	case "mine":
+		utils.TacticalLog("[cyan]PARAMETER MINING - HIDDEN PARAMETER DISCOVERY[-]")
 		utils.TacticalLog("Fuzzes an endpoint for hidden query parameters (debug, admin, test, secret, etc).")
-		utils.TacticalLog("Tests common parameter names to reveal hidden functionality.")
+		utils.TacticalLog("Tests 100 common parameter names to reveal hidden functionality.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Usage: mine <url> [endpoint]")
+		utils.TacticalLog("Example: mine https://api.example.com /api/users")
+		utils.TacticalLog("")
+		utils.TacticalLog("Detection:")
+		utils.TacticalLog("  - Response size anomalies")
+		utils.TacticalLog("  - Status code changes (e.g., 200 vs 400)")
+		utils.TacticalLog("  - Debug parameters revealing internal state")
+
+	case "spider":
+		utils.TacticalLog("[cyan]ACTIVE RECONNAISSANCE SPIDER (Web Crawler)[-]")
+		utils.TacticalLog("Recursively crawl target domain to build the attack surface map.")
+		utils.TacticalLog("Behavior:")
+		utils.TacticalLog("  - Scopes to the target domain (will not crawl external sites).")
+		utils.TacticalLog("  - Extracts 'href' and 'src' attributes from HTML/JS.")
+		utils.TacticalLog("  - Automatically adds findings to Global Discovery (F2) and Database.")
+		utils.TacticalLog("  - Respects 'stealth' settings (User-Agent rotation, delays, jitter).")
+		utils.TacticalLog("  - Rate limiting with semaphore (max 10 concurrent).")
+		utils.TacticalLog("")
+		utils.TacticalLog("Usage: spider <url> [depth]")
+		utils.TacticalLog("Example: spider https://httpbin.org 3")
+		utils.TacticalLog("")
+		utils.TacticalLog("Output:")
+		utils.TacticalLog("  - F2 Map tab: All discovered endpoints with status codes")
+		utils.TacticalLog("  - F1 Log: Real-time crawl progress and findings")
+		utils.TacticalLog("  - Database: All URLs stored for reporting")
+		utils.TacticalLog("")
+		utils.TacticalLog("Pro Tip: Run 'stealth silent' before spider for WAF-protected targets")
+
+	case "fuzz":
+		utils.TacticalLog("[cyan]BRUTE-FORCE DISCOVERY WITH ANOMALY DETECTION[-]")
+		utils.TacticalLog("Fuzz endpoints for hidden paths and parameters using embedded wordlists.")
+		utils.TacticalLog("")
+		utils.TacticalLog("Modes:")
+		utils.TacticalLog("  [yellow]params[-]  - Fuzz query parameters (100 common names)")
+		utils.TacticalLog("             Detection: Status code anomaly, response size delta > 100 bytes")
+		utils.TacticalLog("  [yellow]paths[-]   - Fuzz hidden paths (100 common administrative routes)")
+		utils.TacticalLog("             Detection: Any status other than 404")
+		utils.TacticalLog("")
+		utils.TacticalLog("Usage: fuzz <url> [params|paths]")
+		utils.TacticalLog("Examples:")
+		utils.TacticalLog("  fuzz https://api.example.com/v1/users params    (Find hidden query params)")
+		utils.TacticalLog("  fuzz https://example.com paths                  (Find admin panels, configs, etc)")
+		utils.TacticalLog("")
+		utils.TacticalLog("Concurrency: 5 workers (configurable via --threads flag)")
+		utils.TacticalLog("")
+		utils.TacticalLog("Output:")
+		utils.TacticalLog("  - F2 Map: New endpoints automatically added")
+		utils.TacticalLog("  - F1 Log: Real-time discovery with status codes")
+		utils.TacticalLog("  - Database: Findings recorded with confidence scoring")
 
 	case "target":
 		utils.TacticalLog("Set the global context URL for all modules.")
@@ -1733,4 +2013,102 @@ func shortToken(t string) string {
 		return t[:10]
 	}
 	return t
+}
+
+// GetAvailableCommands returns all available commands for autocomplete and help
+func GetAvailableCommands() []string {
+	return []string{
+		// Strategic Planning
+		"analyze", "list-plan", "edit", "drop", "commit", "remediate",
+		// Reconnaissance & Discovery
+		"target", "map", "spider", "swagger", "scrape", "mine", "fuzz",
+		"sessions", "pipeline",
+		// Exploitation
+		"bola", "bfla", "bopla", "ssrf", "exhaust", "audit", "probe", "flow", "intruder", "race",
+		// Neural Engine
+		"ask", "neuro", "neuro-gen", "test-neuro",
+		// Identity & Sessions
+		"auth",
+		// Stealth & Evasion
+		"stealth", "evasion", "waf", "oob",
+		// Data & Persistence
+		"loot", "proxy", "proxies", "init_db", "seed_db", "reset_db", "report",
+		// System
+		"tasks", "clear", "usage", "help", "keys", "exit",
+		// Advanced
+		"weaver", "test-neuro",
+	}
+}
+
+// AutocompleteCommand provides command suggestions based on partial input
+func AutocompleteCommand(prefix string) []string {
+	commands := GetAvailableCommands()
+	var suggestions []string
+	prefix = strings.ToLower(prefix)
+
+	for _, cmd := range commands {
+		if strings.HasPrefix(cmd, prefix) {
+			suggestions = append(suggestions, cmd)
+		}
+	}
+
+	return suggestions
+}
+
+// GetCommandSyntax returns the full syntax help for a command
+func GetCommandSyntax(cmd string) string {
+	syntaxMap := map[string]string{
+		"analyze":    "analyze",
+		"list-plan":  "list-plan",
+		"edit":       "edit <action_id> <new_payload>",
+		"drop":       "drop <action_id>",
+		"commit":     "commit",
+		"remediate":  "remediate <BOLA|SSRF|SQLI|BFLA>",
+		"target":     "target <url>",
+		"map":        "map [url]",
+		"spider":     "spider <url> [depth]",
+		"swagger":    "swagger <url>",
+		"scrape":     "scrape <js_url>",
+		"mine":       "mine <url> [endpoint]",
+		"fuzz":       "fuzz <url> [params|paths]",
+		"bola":       "bola <url> [victim_id] OR bola --pipeline",
+		"bfla":       "bfla [url]",
+		"bopla":      "bopla [url]",
+		"ssrf":       "ssrf <url> <param> [callback]",
+		"exhaust":    "exhaust <url> <param>",
+		"audit":      "audit <url>",
+		"probe":      "probe <url>",
+		"flow":       "flow <list|clear|run|race>",
+		"race":       "race <url> [threads]",
+		"ask":        "ask <your_question>",
+		"neuro":      "neuro <on|off|config <provider> <model>>",
+		"neuro-gen":  "neuro-gen <context> <count>",
+		"test-neuro": "test-neuro",
+		"auth":       "auth <attacker|victim> <token>",
+		"sessions":   "sessions",
+		"stealth":    "stealth <mode|status|toggle|multiplier|off>",
+		"evasion":    "evasion <technique> | evasion status",
+		"waf":        "waf detect",
+		"oob":        "oob [config|status]",
+		"loot":       "loot [list|clear]",
+		"proxy":      "proxy <host:port>",
+		"proxies":    "proxies load <file>",
+		"init_db":    "init_db",
+		"seed_db":    "seed_db",
+		"reset_db":   "reset_db",
+		"report":     "report",
+		"tasks":      "tasks",
+		"clear":      "clear",
+		"usage":      "usage [1|2]",
+		"help":       "help <command>",
+		"keys":       "help keys",
+		"exit":       "exit",
+		"weaver":     "weaver [enable|disable|status]",
+		"pipeline":   "pipeline",
+	}
+
+	if syntax, ok := syntaxMap[strings.ToLower(cmd)]; ok {
+		return syntax
+	}
+	return ""
 }
