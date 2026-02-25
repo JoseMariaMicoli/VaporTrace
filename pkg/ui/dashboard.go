@@ -77,7 +77,25 @@ var (
 	historyIndex int
 	historyFile  = ".vapor_history"
 
-	// Updated with "tasks" command
+	// === SPRINT 11: TASK 2 BUFFERS ===
+	logBuffer        = NewLogBuffer(50)
+	mapDataBuffer    = NewLogBuffer(30)
+	lootDataBuffer   = NewLogBuffer(30)
+	trafficBuffer    = NewLogBuffer(10)
+	contextLogBuffer = NewLogBuffer(50)
+	neuroLogBuffer   = NewLogBuffer(50)
+
+	// Task 2: Buffered Channel for Throttled Rendering
+	UIUpdateChan = make(chan func(), 100)
+
+	// Task 5: Fullscreen State
+	isFullscreen = false
+	mainFlex     *tview.Flex // Reference to root layout
+
+	// Task 4: History Table
+	historyTable *tview.Table
+
+	// Updated with HITL commands
 	knownCommands = []string{
 		"tasks", // NEW
 		"ask",
@@ -141,6 +159,23 @@ func InitTacticalDashboard() {
 	app = tview.NewApplication()
 	pages = tview.NewPages()
 
+	// TASK 2: PERFORMANCE SWEEPING
+	// Background render loop for throttled updates
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case updateFunc := <-UIUpdateChan:
+				// Execute the specific update function
+				updateFunc()
+			case <-ticker.C:
+				// Force draw once per tick
+				app.Draw()
+			}
+		}
+	}()
+
 	header = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
 	statusFooter = tview.NewTextView().SetDynamicColors(true)
 
@@ -163,8 +198,12 @@ func InitTacticalDashboard() {
 	})
 
 	// --- PIPELINE QUADRANT SETUP ---
-	targetColumn = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorBlue)
-	targetColumn.SetTitle(" [blue]PIPELINE & STATUS [white]").SetBorder(true)
+	targetColumn = tview.NewTable()
+	targetColumn.SetBorders(true)
+	targetColumn.SetBordersColor(tcell.ColorBlue)
+	targetColumn.SetTitle(" [blue]PIPELINE & STATUS [white]")
+	targetColumn.SetBorder(true)
+
 	targetColumn.SetCell(0, 0, tview.NewTableCell("[black:blue] PROPERTY "))
 	targetColumn.SetCell(0, 1, tview.NewTableCell("[black:blue] VALUE "))
 	updatePipelineQuadrant()
@@ -173,16 +212,26 @@ func InitTacticalDashboard() {
 	brainLog = tview.NewTextView().SetDynamicColors(true).SetRegions(true).SetWordWrap(true).SetScrollable(true)
 	brainLog.SetTitle(" [green]VAPOR_LOGS (TACTICAL FEED) [white]").SetBorder(true)
 
-	mapTable = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorDarkCyan).SetSelectable(true, false)
-	mapTable.SetTitle(" [blue]ATTACK_SURFACE (MAP) [white]").SetBorder(true)
+	mapTable = tview.NewTable()
+	mapTable.SetBorders(true)
+	mapTable.SetBordersColor(tcell.ColorDarkCyan)
+	mapTable.SetSelectable(true, false)
+	mapTable.SetTitle(" [blue]ATTACK_SURFACE (MAP) [white]")
+	mapTable.SetBorder(true)
+
 	mapTable.SetCell(0, 0, tview.NewTableCell("[black:cyan] TIMESTAMP "))
 	mapTable.SetCell(0, 1, tview.NewTableCell("[black:cyan] SOURCE "))
 	mapTable.SetCell(0, 2, tview.NewTableCell("[black:cyan] ENDPOINT "))
 	mapTable.SetCell(0, 3, tview.NewTableCell("[black:cyan] META "))
 	mapTable.SetFixed(1, 0)
 
-	lootTable = tview.NewTable().SetBorders(true).SetBordersColor(tcell.ColorDarkCyan).SetSelectable(true, false)
-	lootTable.SetTitle(" [magenta]LOOT_VAULT [white]").SetBorder(true)
+	lootTable = tview.NewTable()
+	lootTable.SetBorders(true)
+	lootTable.SetBordersColor(tcell.ColorDarkCyan)
+	lootTable.SetSelectable(true, false)
+	lootTable.SetTitle(" [magenta]LOOT_VAULT [white]")
+	lootTable.SetBorder(true)
+
 	lootTable.SetCell(0, 0, tview.NewTableCell("[black:cyan] TYPE "))
 	lootTable.SetCell(0, 1, tview.NewTableCell("[black:cyan] VALUE "))
 	lootTable.SetCell(0, 2, tview.NewTableCell("[black:cyan] SOURCE "))
@@ -232,7 +281,23 @@ func InitTacticalDashboard() {
 	// --- CTX SETUP (F5) ---
 	// Split View: Top = Summary, Bottom = Logs
 	ctxSummary = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true)
-	ctxSummary.SetTitle(" [white:blue] ATTACK SURFACE SUMMARY [white] ").SetBorder(true)
+	ctxSummary.SetTitle(" [white:blue] STRATEGIC OVERVIEW [white] ").SetBorder(true)
+
+	// NEW: HITL Planner Table
+	plannerTable = tview.NewTable()
+	plannerTable.SetBorders(true)
+	plannerTable.SetBordersColor(tcell.ColorDarkMagenta)
+	plannerTable.SetSelectable(true, false)
+	plannerTable.SetTitle(" [magenta:black] STRATEGIC ACTION BUFFER (Use 'analyze' -> 'commit') [white] ")
+	plannerTable.SetBorder(true)
+
+	plannerTable.SetCell(0, 0, tview.NewTableCell("[black:magenta] ID "))
+	plannerTable.SetCell(0, 1, tview.NewTableCell("[black:magenta] TYPE "))
+	plannerTable.SetCell(0, 2, tview.NewTableCell("[black:magenta] TARGET "))
+	plannerTable.SetCell(0, 3, tview.NewTableCell("[black:magenta] PAYLOAD "))
+	plannerTable.SetCell(0, 4, tview.NewTableCell("[black:magenta] CONFIDENCE "))
+	plannerTable.SetCell(0, 5, tview.NewTableCell("[black:magenta] STATUS "))
+	plannerTable.SetFixed(1, 0)
 
 	ctxLogView = tview.NewTextView().SetDynamicColors(true).SetWordWrap(true).SetScrollable(true)
 	ctxLogView.SetTitle(" [white:blue] CONTEXT LOG STREAM [white] ").SetBorder(true)
@@ -241,7 +306,43 @@ func InitTacticalDashboard() {
 		AddItem(ctxSummary, 10, 1, false). // Fixed height for summary
 		AddItem(ctxLogView, 0, 3, false)
 
-	// F7 Report Tab Initialization
+	// TASK 4: TRAFFIC VAULT NAVIGATION (Tab 8)
+	historyTable = tview.NewTable()
+	historyTable.SetBorders(true)
+	historyTable.SetBordersColor(tcell.ColorDarkCyan)
+	historyTable.SetSelectable(true, false)
+	historyTable.SetTitle(" [white]TRAFFIC VAULT (HISTORY) - Select to Load in Tab 4 [white] ")
+	historyTable.SetFixed(1, 0)
+
+	historyTable.SetCell(0, 0, tview.NewTableCell("[black:cyan] ID "))
+	historyTable.SetCell(0, 1, tview.NewTableCell("[black:cyan] METHOD "))
+	historyTable.SetCell(0, 2, tview.NewTableCell("[black:cyan] URL "))
+	historyTable.SetCell(0, 3, tview.NewTableCell("[black:cyan] STATUS "))
+	historyTable.SetCell(0, 4, tview.NewTableCell("[black:cyan] TIME "))
+
+	// Interaction: Enter to load into Sniffer
+	historyTable.SetSelectedFunc(func(row, column int) {
+		if row == 0 {
+			return
+		}
+		cell := historyTable.GetCell(row, 0)
+		if cell == nil {
+			return
+		}
+		id := cell.Text
+		entry := logic.GlobalVault.GetByID(id)
+		if entry != nil {
+			// Populate F4 (Traffic)
+			reqView.SetText(string(entry.RequestDump))
+			resView.SetText(string(entry.ResponseDump))
+			reqView.SetTitle(fmt.Sprintf(" [yellow]REQUEST (History ID: %s) [white]", id))
+
+			// Auto-switch to Tab 4
+			switchTo("traffic")
+		}
+	})
+
+	// F7 Report Tab
 	reportFlex = InitReportTab()
 
 	// Add Pages
@@ -252,10 +353,11 @@ func InitTacticalDashboard() {
 	pages.AddPage("ai", ctxFlex, true, false)
 	pages.AddPage("neuro", neuroView, true, false)
 	pages.AddPage("report", reportFlex, true, false)
+	pages.AddPage("history", historyTable, true, false)
 
-	// Main Layout
-	mainFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(header, 10, 1, false).
+	// Main Layout: Increased header height from 10 to 12 for the tab list
+	mainFlex = tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(header, 12, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 			AddItem(targetColumn, 35, 1, false).
 			AddItem(pages, 0, 4, false),
@@ -282,6 +384,9 @@ func InitTacticalDashboard() {
 		case tcell.KeyF7:
 			LoadFindings()
 			switchTo("report")
+		case tcell.KeyF8:
+			refreshHistoryTable()
+			switchTo("history")
 		case tcell.KeyCtrlI:
 			logic.InterceptorActive = !logic.InterceptorActive
 			utils.TacticalLog(fmt.Sprintf("INTERCEPTOR: %v", logic.InterceptorActive))
@@ -304,7 +409,22 @@ func InitTacticalDashboard() {
 			brainLog.ScrollTo(row+1, col)
 		case tcell.KeyEsc:
 			confirmExit()
+		// Added Ctrl+O for Scope Configuration
+		case tcell.KeyCtrlO:
+			// Check if modal is already open
+			if pages.HasPage("scope_modal") {
+				pages.RemovePage("scope_modal")
+				app.SetFocus(cmdInput)
+			} else {
+				ShowScopeConfiguration()
+			}
+			return nil
+		// Added Ctrl+F for Fullscreen
+		case tcell.KeyCtrlF:
+			ToggleFullscreen()
+			return nil
 		}
+
 		return event
 	})
 
@@ -360,6 +480,112 @@ func InitTacticalDashboard() {
 	if err := app.SetRoot(mainFlex, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
+}
+
+// TASK 5: FULLSCREEN TOGGLE
+func ToggleFullscreen() {
+	isFullscreen = !isFullscreen
+	mainFlex.Clear()
+
+	if isFullscreen {
+		// Maximize Pages (Center Content)
+		mainFlex.AddItem(pages, 0, 1, true)
+	} else {
+		// Restore Grid
+		// Increase header size to 12
+		mainFlex.SetDirection(tview.FlexRow).
+			AddItem(header, 12, 1, false).
+			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+				AddItem(targetColumn, 35, 1, false).
+				AddItem(pages, 0, 4, false),
+				0, 4, false).
+			AddItem(statusFooter, 1, 1, false).
+			AddItem(cmdInput, 3, 1, true)
+	}
+	app.SetFocus(cmdInput)
+}
+
+// TASK 1: SCOPE MODAL
+func ShowScopeConfiguration() {
+	inc, exc := logic.GlobalScope.GetRawRules()
+
+	form := tview.NewForm().
+		AddTextArea("Include Regex (One per line)", strings.Join(inc, "\n"), 40, 10, 0, nil).
+		AddTextArea("Exclude Regex (One per line)", strings.Join(exc, "\n"), 40, 10, 0, nil)
+
+	form.AddButton("Apply", func() {
+		incText := form.GetFormItemByLabel("Include Regex (One per line)").(*tview.TextArea).GetText()
+		excText := form.GetFormItemByLabel("Exclude Regex (One per line)").(*tview.TextArea).GetText()
+
+		newInc := strings.Split(incText, "\n")
+		newExc := strings.Split(excText, "\n")
+
+		if err := logic.GlobalScope.UpdateRules(newInc, newExc); err != nil {
+			utils.TacticalLog(fmt.Sprintf("[red]SCOPE ERROR: %v", err))
+		} else {
+			utils.TacticalLog("[green]SCOPE UPDATED: Enforcement Active.")
+			pages.RemovePage("scope_modal")
+			app.SetFocus(cmdInput)
+		}
+	})
+
+	form.AddButton("Cancel", func() {
+		pages.RemovePage("scope_modal")
+		app.SetFocus(cmdInput)
+	})
+
+	form.SetBorder(true).SetTitle(" SCOPE CONFIGURATION ").SetTitleColor(tcell.ColorRed)
+
+	// Explicitly capture Esc to close modal
+	form.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEsc {
+			pages.RemovePage("scope_modal")
+			app.SetFocus(cmdInput)
+			return nil
+		}
+		return event
+	})
+
+	// Helper to center
+	modal := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 1, false).
+			AddItem(form, 30, 1, true).
+			AddItem(nil, 0, 1, false), 60, 1, true).
+		AddItem(nil, 0, 1, false)
+
+	pages.AddPage("scope_modal", modal, true, true)
+	app.SetFocus(form)
+}
+
+// Helper to populate History Table
+func refreshHistoryTable() {
+	historyTable.Clear()
+	historyTable.SetCell(0, 0, tview.NewTableCell("[black:cyan] ID "))
+	historyTable.SetCell(0, 1, tview.NewTableCell("[black:cyan] METHOD "))
+	historyTable.SetCell(0, 2, tview.NewTableCell("[black:cyan] URL "))
+	historyTable.SetCell(0, 3, tview.NewTableCell("[black:cyan] STATUS "))
+	historyTable.SetCell(0, 4, tview.NewTableCell("[black:cyan] TIME "))
+
+	entries := logic.GlobalVault.GetAll()
+	row := 1
+	for _, e := range entries {
+		historyTable.SetCell(row, 0, tview.NewTableCell(e.ID).SetTextColor(tcell.ColorWhite))
+		historyTable.SetCell(row, 1, tview.NewTableCell(e.Method).SetTextColor(tcell.ColorYellow))
+		historyTable.SetCell(row, 2, tview.NewTableCell(shortString(e.URL, 50)).SetTextColor(tcell.ColorWhite))
+
+		statusColor := tcell.ColorGreen
+		if e.StatusCode >= 400 {
+			statusColor = tcell.ColorRed
+		}
+		historyTable.SetCell(row, 3, tview.NewTableCell(fmt.Sprintf("%d", e.StatusCode)).SetTextColor(statusColor))
+
+		historyTable.SetCell(row, 4, tview.NewTableCell(e.Timestamp.Format("15:04:05")).SetTextColor(tcell.ColorGray))
+		row++
+	}
+	// Important: Focus the history table so keyboard navigation works immediately
+	app.SetFocus(historyTable)
 }
 
 func updatePlannerTable() {
@@ -565,9 +791,9 @@ func switchTo(page string) {
 }
 
 func updateTabs(active string) {
-	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "PLAN (F5)", "NEURO (F6)", "REPORT (F7)"}
-	descs := []string{"System", "Recon", "Exfil", "Sniffer", "Strategy", "AI-Ops", "Debrief"}
-	ids := []string{"logs", "map", "loot", "traffic", "ai", "neuro", "report"}
+	tabs := []string{"LOGS (F1)", "MAP (F2)", "LOOT (F3)", "TRAFFIC (F4)", "PLAN (F5)", "NEURO (F6)", "REPORT (F7)", "HISTORY (F8)"}
+	descs := []string{"System", "Recon", "Exfil", "Sniffer", "Strategy", "AI-Ops", "Debrief", "Vault"}
+	ids := []string{"logs", "map", "loot", "traffic", "ai", "neuro", "report", "history"}
 
 	var topRow, bottomRow []string
 
@@ -603,7 +829,9 @@ func startAsyncEngines() {
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
-			app.QueueUpdateDraw(func() {
+			// Instead of direct Draw, use the buffered channel
+			select {
+			case UIUpdateChan <- func() {
 				spinnerIdx = (spinnerIdx + 1) % len(spinnerFrames)
 
 				// Build evasion indicators with mode and detailed status
@@ -656,7 +884,12 @@ func startAsyncEngines() {
 				if ctxSummary != nil {
 					ctxSummary.SetText(logic.GetAttackSurfaceSummary())
 				}
-			})
+				updatePlannerTable()       // Keep Planner view live
+				RefreshActionBufferTable() // Sync tactical action buffer to UI
+			}:
+			default:
+				// Skip if channel full
+			}
 		}
 	}()
 
@@ -669,7 +902,8 @@ func startAsyncEngines() {
 
 		for range batchTicker.C {
 			// === BATCH RENDER: All telemetry sources in one UI update ===
-			app.QueueUpdateDraw(func() {
+			select {
+			case UIUpdateChan <- func() {
 				// 1. Flush log buffer to brainLog
 				logMsgs := logBuffer.Flush()
 				for _, msg := range logMsgs {
@@ -700,7 +934,9 @@ func startAsyncEngines() {
 				if len(neuroMsgs) > 0 {
 					neuroView.ScrollToEnd()
 				}
-			})
+			}:
+			default:
+			}
 		}
 	}()
 
@@ -715,7 +951,8 @@ func startAsyncEngines() {
 	regexMap := regexp.MustCompile(`DISCOVERED\[-\] (.*?) \[yellow\]\((.*?)\)`)
 	go func() {
 		for msg := range utils.MapDataChan {
-			app.QueueUpdateDraw(func() {
+			select {
+			case UIUpdateChan <- func() {
 				cleanMsg := utils.StripANSI(msg)
 				matches := regexMap.FindStringSubmatch(msg)
 				endpoint := cleanMsg
@@ -740,29 +977,37 @@ func startAsyncEngines() {
 				mapTable.SetCell(row, 1, tview.NewTableCell(source).SetTextColor(tcell.ColorBlue))
 				mapTable.SetCell(row, 2, tview.NewTableCell(endpoint).SetTextColor(tcell.ColorGreen))
 				mapTable.SetCell(row, 3, tview.NewTableCell(meta).SetTextColor(tcell.ColorYellow))
-			})
+			}:
+			default:
+			}
 		}
 	}()
 
 	go func() {
 		for pkt := range utils.LootDataChan {
-			app.QueueUpdateDraw(func() {
+			select {
+			case UIUpdateChan <- func() {
 				row := 1
 				lootTable.InsertRow(row)
 				lootTable.SetCell(row, 0, tview.NewTableCell(pkt.Type).SetTextColor(tcell.ColorRed))
 				lootTable.SetCell(row, 1, tview.NewTableCell(pkt.Value).SetTextColor(tcell.ColorYellow))
 				lootTable.SetCell(row, 2, tview.NewTableCell(pkt.Source).SetTextColor(tcell.ColorBlue))
-			})
+			}:
+			default:
+			}
 		}
 	}()
 
 	go func() {
 		for pkt := range utils.TrafficChan {
-			app.QueueUpdateDraw(func() {
+			select {
+			case UIUpdateChan <- func() {
 				reqView.SetText(fmt.Sprintf("[yellow]%s[-]\n\n[white]%s[-]", pkt.ReqHeader, pkt.ReqBody))
 				resView.SetText(fmt.Sprintf("[green]%s[-]\n\n[white]%s[-]", pkt.ResHeader, pkt.ResBody))
 				reqView.SetTitle(" [yellow]REQUEST (UPPER) - Ctrl+A to Analyze [white] ")
-			})
+			}:
+			default:
+			}
 		}
 	}()
 
@@ -790,10 +1035,13 @@ func startAsyncEngines() {
 
 	go func() {
 		for payload := range logic.InterceptorChan {
-			app.QueueUpdateDraw(func() {
+			select {
+			case UIUpdateChan <- func() {
 				utils.TacticalLog("[yellow]INTERCEPTOR:[-] Incoming Request Paused... Check Modal.")
 				ShowInterceptorModal(app, pages, payload)
-			})
+			}:
+			default:
+			}
 		}
 	}()
 }

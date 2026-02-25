@@ -59,22 +59,51 @@
 | **Blue-Team Mirror** | Sprint 16 | ✅ Complete | LLM remediation, Gold Standard library, 3-tier verification, 7 fixers |
 | **WAF Evasion Hardening** | Sprint 17 | ✅ Complete | 5 coordinated evasion techniques, 22 browser profiles |
 | **Intruder Engine** | Sprint 18-19 | ✅ Complete | Sniper mode, anomaly detection, AI payload generation |
-| **Race Condition Engine** | Sprint 20 | ✅ Complete | Synchronization gate, TOCTOU detection, parallel fuzzing |
-| **C2 Architecture** | Sprint 13+ | ⏳ Pending | Hive master, gRPC control plane, Web dashboard (Tier 4) |
-| **Cloud Pivoting** | Sprint 14+ | ⏳ Pending | K8s escape, cross-tenant leakage, serverless attacks (Tier 4) |
+| **Race Condition Engine** | Sprint 19 | ✅ Complete | Synchronization gate, TOCTOU detection, parallel fuzzing |
+| **TIER 4: Intelligence** | Sprint 20 (Day 1) | ✅ Complete | intel wayback, intel shodan, OSINT passive recon |
+| **TIER 4: Chain Reactor** | Sprint 20 (Day 2) | ✅ Complete | Stateful multi-request automation with state extraction |
+| **TIER 4: Knowledge Base** | Sprint 20 (Day 3) | ✅ Complete | Institutional memory, AI learning, KB ↔ Neural Engine |
+| **C2 Architecture** | Sprint 21+ | ⏳ Pending | Hive master, gRPC control plane, Web dashboard (Tier 4) |
+| **Cloud Pivoting** | Sprint 22+ | ⏳ Pending | K8s escape, cross-tenant leakage, serverless attacks (Tier 4) |
 
 ---
 
 ## 📋 Command Summary
 
-### **Reconnaissance & Discovery** (OWASP API9)
+### **Reconnaissance & Discovery** (OWASP API9 - Tier 2)
 
 - `target`          Set global scope URL
 - `map`             Automated endpoint discovery (spider + swagger + scrape + mine)
+- `spider`          Recursive domain crawler with depth control (Sprint 18)
+- `fuzz`            Brute-force discovery with anomaly detection - paths/params (Sprint 18)
 - `swagger`         Parse OpenAPI/Swagger specifications
 - `scrape`          Extract endpoints from JavaScript bundles
 - `mine`            Brute-force hidden query parameters
 - `sessions`        Manage authentication tokens and credentials
+
+### **Intelligence & OSINT** (Tier 4 Day 1 - NEW)
+
+- `intel wayback`   Query Wayback Machine for historical endpoints (Ghost APIs)
+- `intel shodan`    Query Shodan for open ports and services
+- `intel config`    Configure OSINT provider API keys
+
+### **Chain Reactor** (Tier 4 Day 2 - NEW)
+
+- `chain create`    Define stateful multi-step attack workflows
+- `chain add`       Add HTTP steps to chain
+- `chain extract`   Extract data from responses (JSON, Regex, Cookies)
+- `chain header`    Inject headers into specific steps
+- `chain run`       Execute the chain
+- `extract config`  Configure extractors
+- `extract run`     Execute extraction
+
+### **Knowledge Base** (Tier 4 Day 3 - NEW)
+
+- `kb list`         View all recorded attack vectors
+- `kb add`          Record successful exploit pattern
+- `kb search`       Find vectors by endpoint/type/method
+- `kb export`       Share KB with team (JSON/CSV)
+- `kb clear`        Purge KB entries (with confirmation)
 
 ### **Authorization Testing** (OWASP API1-5)
 
@@ -208,7 +237,58 @@
 
 ---
 
-## 📚 Documentation & Development
+## � TIER 4: Advanced Orchestration & Learning Platform
+
+**Complete Tier 4 implementation unlocks AI-driven learning and sophisticated attack automation.**
+
+### Tier 4 Day 1: Intelligence Layer (OSINT)
+Query historical archives and infrastructure databases to discover ghost endpoints and legacy APIs.
+
+**Commands:** `intel wayback`, `intel shodan`, `intel config`  
+**Use Cases:** Historical URL discovery, infrastructure reconnaissance, legacy endpoint detection  
+**Manual:** [23_INTEL_OSINT.md](docs/manuals/23_INTEL_OSINT.md)
+
+### Tier 4 Day 2: Chain Reactor & Extractor
+Build stateful, multi-step attack workflows with data extraction and state persistence.
+
+**Commands:** `chain create|add|extract|header|run|list`, `extract config|run|list`  
+**Use Cases:** Authentication flow automation, CSRF bypass, privilege escalation sequences  
+**Manual:** [24_CHAIN_REACTOR.md](docs/manuals/24_CHAIN_REACTOR.md), [25_EXTRACTOR.md](docs/manuals/25_EXTRACTOR.md)
+
+### Tier 4 Day 3: Knowledge Base (Institutional Memory) ⭐
+Record successful attack vectors and feed them into the Neural Engine for continuous learning.
+
+**Commands:** `kb list|add|search|export|clear`  
+**Impact:** 4-6x faster on subsequent targets with learned patterns  
+**Architecture:**
+```
+Record Success → KB Entry → Neural Engine Learning → AI Mutations → Future Attacks
+```
+**Example Workflow:**
+```bash
+# Target A: Manual discovery
+bola https://api.example-a.com/users/999          # ✓ Success
+kb add BOLA /users/{id} GET id=999                # Record pattern
+
+# Target B: Automatic learning
+target https://api.example-b.com
+neuro on
+neuro-gen BOLA 5                                   # AI learns from KB
+bola /users/999                                    # ✓ Success (5x faster!)
+```
+
+**Manual:** [26_KNOWLEDGE_BASE.md](docs/manuals/26_KNOWLEDGE_BASE.md)
+
+**All Tier 4 Components:**
+- Intelligence feeds F2 Map
+- Chains orchestrate complex attacks
+- Extractors enable data-driven flows
+- KB builds institutional memory
+- Neural Engine learns from every success
+
+---
+
+## �📚 Documentation & Development
 
 **Complete documentation is organized by sprint in the `/docs` folder:**
 
@@ -217,14 +297,23 @@
 - **[02_FIRST_RUN.md](docs/manuals/02_FIRST_RUN.md)** - Step-by-step 11-step walkthrough
 - **[03_UI_OVERVIEW.md](docs/manuals/03_UI_OVERVIEW.md)** - Dashboard tabs, layout, navigation, performance
 - **[04_STRATEGIC_PLANNING.md](docs/manuals/04_STRATEGIC_PLANNING.md)** - HITL workflow and tactical orchestration
+- **[05_RECONNAISSANCE.md](docs/manuals/05_RECONNAISSANCE.md)** - Discovery: spider, swagger, scrape, mine
+- **[06_EXPLOITATION.md](docs/manuals/06_EXPLOITATION.md)** - OWASP API Top 10 attack modules
+- **[07_AI_NEURO_ENGINE.md](docs/manuals/07_AI_NEURO_ENGINE.md)** - Neural engine configuration and usage
+- **[08_INTERCEPTOR_MITM.md](docs/manuals/08_INTERCEPTOR_MITM.md)** - Request interception and modification
+- **[23_INTEL_OSINT.md](docs/manuals/23_INTEL_OSINT.md)** - Wayback Machine, Shodan, OSINT (Tier 4 Day 1)
+- **[24_CHAIN_REACTOR.md](docs/manuals/24_CHAIN_REACTOR.md)** - Stateful multi-step workflows (Tier 4 Day 2)
+- **[25_EXTRACTOR.md](docs/manuals/25_EXTRACTOR.md)** - Data extraction from responses (Tier 4 Day 2)
+- **[26_KNOWLEDGE_BASE.md](docs/manuals/26_KNOWLEDGE_BASE.md)** - Institutional memory & AI learning (Tier 4 Day 3) ⭐
 - **[17_KEYBOARD_SHORTCUTS.md](docs/manuals/17_KEYBOARD_SHORTCUTS.md)** - All 19 hotkeys with examples
 - **[18_COMMAND_REFERENCE.md](docs/manuals/18_COMMAND_REFERENCE.md)** - 40+ commands with parameters and examples
-- **[INDEX.md](docs/manuals/INDEX.md)** - Navigation hub for all 20 user guides
+- **[INDEX.md](docs/manuals/INDEX.md)** - Navigation hub for all 26 user guides
 
 ### 🔧 Technical Documentation (docs/dev-logs/)
-- **[Dev-Roadmap.md](docs/dev-logs/Dev-Roadmap.md)** - Complete Sprint 1-16 roadmap with status (**START HERE**)
+- **[Dev-Roadmap.md](docs/dev-logs/Dev-Roadmap.md)** - Complete Sprint 1-20 roadmap with status (**START HERE**)
 - **[INDEX.md](docs/dev-logs/INDEX.md)** - Architecture overview and system design
-- **Sprint Folders:** Sprint-11/, Sprint-12/, Sprint-13/, Sprint-14/, Sprint-15/, Sprint-16/
+- **[Sprint-20/README.md](docs/dev-logs/Sprint-20/README.md)** - Tier 4 complete implementation (Intel, Chain, KB)
+- **Sprint Folders:** Sprint-11/, Sprint-12/, Sprint-13/, Sprint-14/, Sprint-15/, Sprint-16/, Sprint-17/, Sprint-20/
   - Each sprint contains completion reports, technical deep-dives, and delivery manifests
 
 ### 📊 Documentation Status

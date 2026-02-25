@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
 	"github.com/JoseMariaMicoli/VaporTrace/pkg/enrichment"
@@ -14,6 +16,19 @@ var UIMode = "CLI" // "CLI" or "TUI"
 
 // Buffer increased to 1000 to prevent blocking during Mass-BOLA/BOPLA operations
 var UI_Log_Chan = make(chan string, 1000)
+
+// UI_Log_Buffer maintains the scrollback limit before sending to UI
+// Task 2 Part 2: Enforce Hard Cap of 1,000 lines.
+type LogBufferStruct struct {
+	mu    sync.Mutex
+	lines []string
+	cap   int
+}
+
+var GlobalLogBuffer = &LogBufferStruct{
+	lines: make([]string, 0),
+	cap:   1000,
+}
 
 // SetLoggerMode defines how outputs are rendered
 func SetLoggerMode(mode string) {
@@ -30,12 +45,41 @@ func EscapeTview(text string) string {
 }
 
 // TacticalLog handles generic system messages
+// Modified to use GlobalLogBuffer for scrollback limit enforcement
 func TacticalLog(msg string) {
 	if UIMode == "TUI" {
-		// We do not escape here assuming the caller might want to use colors,
-		// BUT if raw data is passed, the caller should sanitize it.
-		// For safety in mass-ops, we sanitize key variable inputs in the caller,
-		// or we can strictly separate "System Messages" (colored) from "Data" (escaped).
+		cleanMsg := StripANSI(msg)
+
+		if msg == "___CLEAR_SCREEN_SIGNAL___" {
+			select {
+			case UI_Log_Chan <- msg:
+			default:
+			}
+			return
+		}
+
+		colorTag := "[white]"
+		if strings.Contains(strings.ToLower(cleanMsg), "success") || strings.Contains(msg, "[green]") {
+			colorTag = "[green]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "error") || strings.Contains(msg, "[red]") {
+			colorTag = "[red]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "warn") || strings.Contains(msg, "[yellow]") {
+			colorTag = "[yellow]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "phase") || strings.Contains(msg, "[cyan]") {
+			colorTag = "[cyan]"
+		}
+
+		formatted := fmt.Sprintf("[gray][%s][-] %s%s[-]", timeStamp(), colorTag, cleanMsg)
+
+		// Enforce Scrollback Limit
+		GlobalLogBuffer.mu.Lock()
+		GlobalLogBuffer.lines = append(GlobalLogBuffer.lines, formatted)
+		if len(GlobalLogBuffer.lines) > GlobalLogBuffer.cap {
+			// Drop oldest
+			GlobalLogBuffer.lines = GlobalLogBuffer.lines[1:]
+		}
+		GlobalLogBuffer.mu.Unlock()
+
 		select {
 		case UI_Log_Chan <- formatted:
 		default:

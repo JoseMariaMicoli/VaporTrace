@@ -28,6 +28,12 @@
 12. [Proxy & Network](12_PROXY_NETWORK.md) - Upstream proxies and traffic routing
 12a. [QUICK_START_RACE.md](QUICK_START_RACE.md) - Race Condition Testing (Tier 3) ⭐ NEW
 
+### ⭐ Tier 4: Advanced Orchestration (Sprint 20)
+23. [Intelligence Layer (OSINT)](23_INTEL_OSINT.md) - Wayback Machine, Shodan, external intelligence
+24. [Chain Reactor](24_CHAIN_REACTOR.md) - Multi-step stateful attack workflows
+25. [Value Extractor](25_EXTRACTOR.md) - Data extraction from responses (JSON, Regex, Cookies)
+26. [Knowledge Base (Institutional Memory)](26_KNOWLEDGE_BASE.md) - Record and learn from successful exploits
+
 ### 📊 Reporting & Analysis
 13. [Report Generation](13_REPORTING.md) - Export findings and generate reports
 14. [Dashboard Analytics](14_ANALYTICS.md) - Metrics and insights
@@ -116,6 +122,30 @@
 - Credential usage
 - Export options
 
+### 🌐 "I want to find ghost endpoints with OSINT" (Tier 4 Day 1)
+**Read:** [23_INTEL_OSINT.md](23_INTEL_OSINT.md) ⭐ NEW
+- Wayback Machine historical URLs
+- Shodan infrastructure discovery
+- Legacy API version detection
+- Ghost endpoint findings
+- OSINT workflow integration
+
+### 🔗 "I want to orchestrate multi-step attacks" (Tier 4 Day 2)
+**Read:** [24_CHAIN_REACTOR.md](24_CHAIN_REACTOR.md) ⭐ NEW
+- Stateful attack chains
+- Variable extraction and injection
+- Authentication flow automation
+- CSRF bypass workflows
+- Privilege escalation sequences
+
+### 📊 "I want to extract data from responses" (Tier 4 Day 2)
+**Read:** [25_EXTRACTOR.md](25_EXTRACTOR.md) ⭐ NEW
+- JSON path extraction
+- Regular expression patterns
+- Cookie/Header extraction
+- Variable storage and reuse
+- Integration with chains
+
 ### 🏃 "I want to test for race conditions" (Tier 3)
 **Read:** [QUICK_START_RACE.md](QUICK_START_RACE.md) ⭐ NEW
 - Race condition basics
@@ -188,7 +218,38 @@ ssrf
 report
 ```
 
-### Workflow 4: Request Interception & Manipulation (25 minutes)
+### Workflow 4: AI-Driven Exploitation (20 minutes)
+1. [07_AI_NEURO_ENGINE.md](07_AI_NEURO_ENGINE.md) - Setup neural engine
+2. [06_EXPLOITATION.md](06_EXPLOITATION.md) - Run attacks with AI
+3. [13_REPORTING.md](13_REPORTING.md) - Generate report
+
+**Commands:**
+```bash
+neuro on
+target https://api.example.com
+ssrf
+report
+```
+
+### Workflow 5: Learning & Scaling with Knowledge Base (Tier 4 Day 3) (30 minutes)
+1. [26_KNOWLEDGE_BASE.md](26_KNOWLEDGE_BASE.md) - Learn from successful exploits
+2. [06_EXPLOITATION.md](06_EXPLOITATION.md) - Test target A
+3. [26_KNOWLEDGE_BASE.md](26_KNOWLEDGE_BASE.md) - Record successful vectors
+4. [06_EXPLOITATION.md](06_EXPLOITATION.md) - Test target B with learned patterns
+5. [07_AI_NEURO_ENGINE.md](07_AI_NEURO_ENGINE.md) - AI mutates based on KB
+
+**Commands:**
+```bash
+target https://api.target-a.com
+bola /users/999                    # Success
+kb add BOLA /users/{id} GET id=999
+neuro on
+target https://api.target-b.com
+neuro-gen BOLA 5                   # AI learns from KB
+bola /users/999                    # Success again (faster!)
+```
+
+### Workflow 6: Request Interception & Manipulation (25 minutes)
 1. [08_INTERCEPTOR_MITM.md](08_INTERCEPTOR_MITM.md) - Setup interceptor
 2. [06_EXPLOITATION.md](06_EXPLOITATION.md) - Run attack with interception
 3. [11_LOOT_VAULT.md](11_LOOT_VAULT.md) - Review captured loot
@@ -199,6 +260,23 @@ Ctrl+I (toggle interceptor)
 target https://api.example.com
 bola /api/users/
 [Intercept each request, modify, forward]
+```
+
+### Workflow 6: Learning From Exploits (Tier 4 Day 3) (15 minutes)
+1. [26_KNOWLEDGE_BASE.md](26_KNOWLEDGE_BASE.md) - Setup Knowledge Base
+2. [06_EXPLOITATION.md](06_EXPLOITATION.md) - Execute successful attacks
+3. [26_KNOWLEDGE_BASE.md](26_KNOWLEDGE_BASE.md) - Record vectors and AI learning
+
+**Commands:**
+```bash
+target https://api.example.com
+bola /users/999                 # ✓ Success
+kb add BOLA /users/{id} GET id=999
+
+# On next target:
+neuro on
+neuro-gen BOLA 10              # AI learns from KB
+bola /users/999                # Faster exploitation!
 ```
 
 ---

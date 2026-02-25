@@ -1,19 +1,16 @@
 package logic
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"net"
+	"strings"
 	"time"
 
 	utls "github.com/refraction-networking/utls"
-
-	"github.com/JoseMariaMicoli/VaporTrace/pkg/utils"
 )
 
 // TLSProfileMap maps profile keys to uTLS ClientHelloID constants
-// Each profile represents a realistic browser fingerprint
 var TLSProfileMap = map[string]utls.ClientHelloID{
 	"chrome-windows":  utls.HelloChrome_Auto,
 	"firefox-windows": utls.HelloFirefox_Auto,
@@ -25,127 +22,94 @@ var TLSProfileMap = map[string]utls.ClientHelloID{
 	"edge-windows":    utls.HelloChrome_Auto,
 }
 
-// GetTLSClientHelloID returns the uTLS ClientHelloID for a given profile
-// Maps VaporTrace profile names to corresponding uTLS presets
+// JA4Generator manages browser profiles for TLS handshakes
+type JA4Generator struct {
+	UserAgent string
+}
+
+func NewJA4Generator(ua string) *JA4Generator {
+	return &JA4Generator{UserAgent: ua}
+}
+
+// GetClientHelloID matches the UA string to a specific uTLS ClientHello ID
+// This ensures the TCP/TLS fingerprint matches the HTTP Application layer headers.
+func (j *JA4Generator) GetClientHelloID() utls.ClientHelloID {
+	ua := strings.ToLower(j.UserAgent)
+
+	if strings.Contains(ua, "chrome") {
+		// Return Chrome Auto (Robust for v1.6.7+)
+		return utls.HelloChrome_Auto
+	} else if strings.Contains(ua, "firefox") {
+		// Return Firefox Auto
+		return utls.HelloFirefox_Auto
+	} else if strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ios") {
+		// Return iOS Auto (Fixes undefined HelloIOS_16)
+		return utls.HelloIOS_Auto
+	} else if strings.Contains(ua, "android") {
+		// Return Android 11
+		return utls.HelloAndroid_11_OkHttp
+	}
+
+	// Default randomized to avoid Go-default signature
+	return utls.HelloRandomized
+}
+
+// Dial creates a camouflaged connection with HTTP/1.1 enforcement
+func (j *JA4Generator) Dial(network, addr string) (net.Conn, error) {
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
+	rawConn, err := dialer.Dial(network, addr)
+	if err != nil {
+		return nil, err
+	}
+
+	host, _, _ := net.SplitHostPort(addr)
+
+	// CRITICAL FIX: Force HTTP/1.1 in NextProtos
+	// Without this, uTLS mimics a modern browser and sends "h2" (HTTP/2) in ALPN.
+	// The server then replies with binary HTTP/2 frames.
+	// Since Go's http.Transport (when using a custom DialTLS) expects HTTP/1.1 stream by default,
+	// it crashes with "malformed HTTP response" when it sees the HTTP/2 preface.
+	uConfig := &utls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: true, // Standard for Proxy/Offsec tools
+		NextProtos:         []string{"http/1.1"},
+	}
+
+	// Create uTLS Client
+	uConn := utls.UClient(rawConn, uConfig, j.GetClientHelloID())
+
+	if err := uConn.Handshake(); err != nil {
+		rawConn.Close()
+		return nil, fmt.Errorf("uTLS handshake failed: %v", err)
+	}
+
+	return uConn, nil
+}
+
+// GetTLSClientHelloID is kept for backward compatibility
 func GetTLSClientHelloID(profileName string) utls.ClientHelloID {
 	helloID, exists := TLSProfileMap[profileName]
 	if !exists {
-		// Default to Chrome Auto if profile not found
 		helloID = utls.HelloChrome_Auto
 	}
 	return helloID
 }
 
 // StochasticJitter introduces randomized timing delays before TLS dial
-// This evades behavioral analysis and rate-limiting detection
-// Delay range: 50ms to 250ms with stochastic distribution
 func StochasticJitter() {
 	minDelay := 50.0
 	maxDelay := 250.0
-	// Use exponential distribution for more realistic delay patterns
 	delay := minDelay + (maxDelay-minDelay)*rand.Float64()
 	time.Sleep(time.Duration(delay) * time.Millisecond)
 }
 
-// TLSProfileTransport wraps net.Dialer with uTLS for client-side TLS fingerprinting
-// This provides realistic browser-like TLS ClientHello matching with uTLS presets
-type TLSProfileTransport struct {
-	BaseDialer *net.Dialer
-	Profile    string
-}
-
-// DialTLS creates a TLS connection using uTLS with the specified profile
-// Deprecated: Use DialTLSContext instead for proper context handling
-func (t *TLSProfileTransport) DialTLS(network, addr string) (net.Conn, error) {
-	return t.DialTLSContext(context.Background(), network, addr)
-}
-
-// DialTLSContext creates a TLS connection using uTLS with proper SNI and ALPN
-// - Extracts host from addr for SNI configuration
-// - Forces ALPN negotiation for h2 and http/1.1 to prevent WAF detection
-// - Applies stochastic jitter before dial to evade behavioral analysis
-// - Applies uTLS preset and performs handshake before returning connection
-func (t *TLSProfileTransport) DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	// Introduce stochastic jitter for evasion
-	StochasticJitter()
-
-	// Extract host from addr (format: "host:port")
-	host, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to split host:port %s: %w", addr, err)
+// ApplyTLSEvasion returns a TLSProfileTransport (legacy wrapper)
+// Note: This logic is partially superseded by InitializeRotaryClient using JA4Generator directly
+func ApplyTLSEvasion(profileName string) *JA4Generator {
+	// Map profile name to a UA string approximation for the generator
+	ua := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	if strings.Contains(profileName, "firefox") {
+		ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"
 	}
-
-	// Create base TCP connection with timeout
-	dialer := &net.Dialer{Timeout: 30 * time.Second}
-	if t.BaseDialer != nil {
-		dialer = t.BaseDialer
-	}
-
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial %s: %w", addr, err)
-	}
-
-	// Get uTLS ClientHelloID for the profile
-	helloID := GetTLSClientHelloID(t.Profile)
-
-	// Create uTLS connection with SNI and ALPN
-	uconn := utls.UClient(conn, &utls.Config{
-		ServerName:         host,                       // Proper SNI with target hostname
-		InsecureSkipVerify: true,                       // Skip cert verification for penetration testing
-		NextProtos:         []string{"h2", "http/1.1"}, // Force ALPN negotiation
-	}, helloID)
-
-	// Perform TLS handshake
-	err = uconn.Handshake()
-	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("TLS handshake failed: %w", err)
-	}
-
-	utils.TacticalLog(fmt.Sprintf("[cyan]TLS:[-] Connected with %s profile to %s:%s", t.Profile, host, port))
-	return uconn, nil
-}
-
-// SelectOptimalTLSProfile chooses the best TLS profile based on target analysis
-// Supports 8 realistic browser profiles with proper rotation and deterministic selection
-// Returns consistent profile for same target host to avoid connection inconsistencies
-func SelectOptimalTLSProfile(targetHost string) string {
-	// 8 diverse browser profiles for maximum evasion effectiveness
-	profiles := []string{
-		"chrome-windows",  // Chrome on Windows (most common)
-		"firefox-windows", // Firefox on Windows
-		"safari-macos",    // Safari on macOS
-		"chrome-macos",    // Chrome on macOS
-		"chromium-linux",  // Chromium on Linux
-		"brave-linux",     // Brave on Linux
-		"firefox-linux",   // Firefox on Linux
-		"edge-windows",    // Edge on Windows
-	}
-
-	// Use hash of target to deterministically select profile
-	// Same target always gets same profile (for consistency)
-	sum := 0
-	for _, char := range targetHost {
-		sum += int(char)
-	}
-
-	selectedProfile := profiles[sum%len(profiles)]
-	utils.TacticalLog(fmt.Sprintf("[blue]TLS PROFILE:[-] Selected [%s] for %s", selectedProfile, targetHost))
-	return selectedProfile
-}
-
-// ApplyTLSEvasion returns a TLSProfileTransport configured for evasion
-// This should be called during HTTP client initialization
-func ApplyTLSEvasion(profileName string) *TLSProfileTransport {
-	utils.TacticalLog("[green]✓ TLS EVASION:[-] uTLS fingerprint spoofing enabled with stochastic jitter")
-
-	if profileName == "" {
-		profileName = "chrome-windows"
-	}
-
-	return &TLSProfileTransport{
-		BaseDialer: &net.Dialer{Timeout: 30 * time.Second},
-		Profile:    profileName,
-	}
+	return NewJA4Generator(ua)
 }
