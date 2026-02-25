@@ -1934,8 +1934,6 @@ func printHelp(cmd string) {
 		utils.TacticalLog("Uses the AI to generate a list of fuzzing payloads for a specific context.")
 		utils.TacticalLog("Usage: neuro-gen <context_description> <count>")
 		utils.TacticalLog("Example: neuro-gen \"SQL Injection in ID field\" 5")
-	case "seed_db":
-		utils.TacticalLog("Injects 20 fake vulnerabilities into the database. Useful for verifying the 'report' command without running live attacks.")
 	case "bola":
 		utils.TacticalLog("Attempts to access resources of other users by iterating IDs in the URL.")
 		utils.TacticalLog("Pattern: /user/1 -> /user/2 -> /user/3 (detecting 200 OK when switching users)")
