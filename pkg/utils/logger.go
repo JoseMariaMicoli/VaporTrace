@@ -1,0 +1,164 @@
+package utils
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/db"
+	"github.com/JoseMariaMicoli/VaporTrace/pkg/enrichment"
+	"github.com/pterm/pterm"
+)
+
+// Global UI State
+var UIMode = "CLI" // "CLI" or "TUI"
+
+// UI_Log_Chan handles generic logs (F1 Tab)
+var UI_Log_Chan = make(chan string, 5000)
+
+// ContextLogChan handles Aggregator/Intelligence logs (F5 Tab)
+var ContextLogChan = make(chan string, 1000)
+
+// NeuroLogChan handles AI/LLM analysis streams (F7 Tab)
+var NeuroLogChan = make(chan string, 1000)
+
+// TrafficPacket handles HTTP Req/Res dumps (F4 Tab)
+type TrafficPacket struct {
+	ReqHeader string
+	ReqBody   string
+	ResHeader string
+	ResBody   string
+	Timestamp time.Time
+}
+
+var TrafficChan = make(chan TrafficPacket, 100)
+
+// SetLoggerMode defines how outputs are rendered
+func SetLoggerMode(mode string) {
+	UIMode = mode
+}
+
+// EscapeTview sanitizes strings to prevent tview from interpreting brackets as tags
+func EscapeTview(text string) string {
+	text = StripANSI(text)
+	return strings.ReplaceAll(text, "[", "[[")
+}
+
+func timeStamp() string {
+	return time.Now().Format("15:04:05")
+}
+
+// LogTraffic sends HTTP data to the F4 Traffic Tab
+func LogTraffic(reqH, reqB, resH, resB string) {
+	if UIMode == "TUI" {
+		select {
+		case TrafficChan <- TrafficPacket{
+			ReqHeader: reqH,
+			ReqBody:   reqB,
+			ResHeader: resH,
+			ResBody:   resB,
+			Timestamp: time.Now(),
+		}:
+		default:
+			// Drop packet if buffer full
+		}
+	}
+}
+
+// LogContext sends specific intelligence data to the F5 Context Tab
+func LogContext(msg string) {
+	if UIMode == "TUI" {
+		cleanMsg := StripANSI(msg)
+		formatted := fmt.Sprintf("[gray][%s][-] %s", timeStamp(), cleanMsg)
+		select {
+		case ContextLogChan <- formatted:
+		default:
+		}
+	}
+}
+
+// LogNeural sends AI analysis to the F7 Neural Tab
+func LogNeural(msg string) {
+	if UIMode == "TUI" {
+		cleanMsg := StripANSI(msg)
+		// No timestamp prefix for AI text to keep formatting clean
+		select {
+		case NeuroLogChan <- cleanMsg:
+		default:
+		}
+	} else {
+		pterm.Info.Println("[NEURO] " + msg)
+	}
+}
+
+// TacticalLog handles generic system messages
+func TacticalLog(msg string) {
+	if UIMode == "TUI" {
+		cleanMsg := StripANSI(msg)
+
+		if msg == "___CLEAR_SCREEN_SIGNAL___" {
+			select {
+			case UI_Log_Chan <- msg:
+			default:
+			}
+			return
+		}
+
+		colorTag := "[white]"
+		if strings.Contains(strings.ToLower(cleanMsg), "success") || strings.Contains(msg, "[green]") {
+			colorTag = "[green]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "error") || strings.Contains(msg, "[red]") {
+			colorTag = "[red]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "warn") || strings.Contains(msg, "[yellow]") {
+			colorTag = "[yellow]"
+		} else if strings.Contains(strings.ToLower(cleanMsg), "phase") || strings.Contains(msg, "[cyan]") {
+			colorTag = "[cyan]"
+		}
+
+		formatted := fmt.Sprintf("[gray][%s][-] %s%s[-]", timeStamp(), colorTag, cleanMsg)
+
+		select {
+		case UI_Log_Chan <- formatted:
+		default:
+		}
+	} else {
+		pterm.Info.Println(msg)
+	}
+}
+
+// RecordFinding persists findings and logs them
+func RecordFinding(f db.Finding) {
+	enrichment.EnrichFinding(&f)
+	db.LogQueue <- f
+
+	safeDetails := EscapeTview(f.Details)
+	safeTarget := EscapeTview(f.Target)
+	safeOWASP := EscapeTview(f.OWASP_ID)
+	ts := timeStamp()
+
+	if UIMode == "TUI" {
+		var logLine string
+		switch f.Status {
+		case "CRITICAL", "EXPLOITED":
+			logLine = fmt.Sprintf("[gray][%s][-] [red::b][%s][-] [yellow](%s)[-] [white]%s[-] [blue]| %s[-]",
+				ts, f.Status, safeOWASP, safeDetails, safeTarget)
+		case "VULNERABLE":
+			logLine = fmt.Sprintf("[gray][%s][-] [red][%s][-] [yellow](%s)[-] [white]%s[-] [blue]| %s[-]",
+				ts, f.Status, safeOWASP, safeDetails, safeTarget)
+		default:
+			logLine = fmt.Sprintf("[gray][%s][-] [white][%s][-] %s [blue]| %s[-]",
+				ts, f.Status, safeDetails, safeTarget)
+		}
+
+		select {
+		case UI_Log_Chan <- logLine:
+		default:
+		}
+	} else {
+		if f.Status == "VULNERABLE" || f.Status == "CRITICAL" {
+			pterm.Warning.Printfln("[%s] %s -> %s", f.Status, f.Details, f.Target)
+		} else {
+			pterm.Info.Printfln("[%s] %s -> %s", f.Status, f.Details, f.Target)
+		}
+	}
+}
