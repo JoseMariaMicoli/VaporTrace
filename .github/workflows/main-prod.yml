@@ -56,7 +56,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          args: --go=1.24
+          install-mode: goinstall
 
       - name: Vet
         run: go vet ./...
