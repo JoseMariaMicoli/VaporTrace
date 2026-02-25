@@ -128,24 +128,31 @@ func ApplyEvasion(req *http.Request) {
 	// Create new random source each time (thread-safe, no global state mutation)
 	seed := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	// 1. Header Randomization (Phase 6.1)
-	ua := userAgents[seed.Intn(len(userAgents))]
-	req.Header.Set("User-Agent", ua)
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set("Connection", "keep-alive")
+	// 1. Header Randomization (Phase 6.1) - Only apply if not stealth off
+	// Even in stealth off mode, we apply basic User-Agent rotation for minimal anonymity
+	if len(userAgents) > 0 {
+		ua := userAgents[seed.Intn(len(userAgents))]
+		req.Header.Set("User-Agent", ua)
+		// Only add evasion headers if stealth is NOT completely off
+		if globalStealthConfig.EnableJitter || globalStealthConfig.EnableThinkingTime || globalStealthConfig.EnablePathObfuscation || globalStealthConfig.EnablePayloadEncoding {
+			req.Header.Set("Accept", "application/json, text/plain, */*")
+			req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+			req.Header.Set("Cache-Control", "no-cache")
+			req.Header.Set("Connection", "keep-alive")
+		}
+	}
 
 	// 2. Timing Attacks: Gaussian Stochastic Jitter (Phase 6.3)
 	// Use Gaussian distribution to evade rate-limit detection
 	// Now respects EnableJitter toggle and context
-	jitterDelay := StochasticJitterMS(20, 150) // 20-150ms with Gaussian distribution
-	if jitterDelay > 0 {
-		ctx := context.Background()
-		SafeSleep(ctx, time.Duration(jitterDelay)*time.Millisecond, &globalStealthConfig.EnableJitter)
+	if globalStealthConfig.EnableJitter {
+		jitterDelay := StochasticJitterMS(20, 150) // 20-150ms with Gaussian distribution
+		if jitterDelay > 0 {
+			ctx := context.Background()
+			SafeSleep(ctx, time.Duration(jitterDelay)*time.Millisecond, &globalStealthConfig.EnableJitter)
+			utils.TacticalLog("[blue]EVASION:[-] Applied stochastic jitter")
+		}
 	}
-
-	utils.TacticalLog("[blue]EVASION:[-] Applied stochastic jitter")
 }
 
 // StochasticJitterMS returns a Gaussian-distributed random millisecond delay
@@ -255,12 +262,12 @@ func SetStealthMode(mode string) {
 	case "debug":
 		globalStealthConfig.EnableJitter = false
 		globalStealthConfig.EnableThinkingTime = false
-		globalStealthConfig.EnableBackoff = false
+		globalStealthConfig.EnableBackoff = true // FIXED: Keep backoff enabled even in debug to prevent pipeline failures
 		globalStealthConfig.EnablePathObfuscation = false
 		globalStealthConfig.EnablePayloadEncoding = false
 		globalStealthConfig.GlobalEvasionMultiplier = 1.0
 		globalStealthConfig.Mode = "Debug"
-		utils.TacticalLog("[yellow::b]STEALTH:[-] Mode set to [yellow]DEBUG[-] (all evasion disabled)[-:-:-]")
+		utils.TacticalLog("[yellow::b]STEALTH:[-] Mode set to [yellow]DEBUG[-] (evasion disabled except backoff for pipeline stability)[-:-:-]")
 
 	default:
 		utils.TacticalLog(fmt.Sprintf("[red]ERROR:[-] Unknown stealth mode: %s. Use: aggressive|fast|silent|debug", mode))

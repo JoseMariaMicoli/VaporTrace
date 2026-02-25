@@ -18,6 +18,7 @@
 5. [Reconnaissance & Discovery](05_RECONNAISSANCE.md) - Building your attack surface map
 6. [Exploitation Engine](06_EXPLOITATION.md) - OWASP API Top 10 attack modules
 7. [AI & Neural Engine](07_AI_NEURO_ENGINE.md) - ML-driven payload generation
+7a. [Neuro Quick Usage Guide](NEURO_QUICK_USAGE_GUIDE.md) - Complete workflows and examples for AI features
 8. [Interceptor & MITM](08_INTERCEPTOR_MITM.md) - Request manipulation and analysis
 
 ### 🛠️ Advanced Features
@@ -80,11 +81,12 @@
 - SSRF, Resource Exhaustion, etc.
 
 ### 🧠 "I want to use AI to generate payloads"
-**Read:** [07_AI_NEURO_ENGINE.md](07_AI_NEURO_ENGINE.md)
-- Neural Engine setup
-- AI payload generation
-- Mutation strategies
-- Configuration
+**Read:** [07_AI_NEURO_ENGINE.md](07_AI_NEURO_ENGINE.md) and [NEURO_QUICK_USAGE_GUIDE.md](NEURO_QUICK_USAGE_GUIDE.md)
+- Neural Engine setup and configuration
+- AI payload generation with multiple providers
+- Complete workflows and examples
+- Troubleshooting and best practices
+- 5 AI providers: Groq, OpenAI, Gemini, Ollama, Hybrid mode
 
 ### 🎯 "I want to orchestrate complex attacks"
 **Read:** [04_STRATEGIC_PLANNING.md](04_STRATEGIC_PLANNING.md) & [09_ATTACK_CHAINS.md](09_ATTACK_CHAINS.md)
@@ -310,6 +312,7 @@ docs/
 │   ├── 05_RECONNAISSANCE.md
 │   ├── 06_EXPLOITATION.md
 │   ├── 07_AI_NEURO_ENGINE.md
+│   ├── NEURO_QUICK_USAGE_GUIDE.md (✨ NEW - Complete neuro workflows)
 │   ├── 08_INTERCEPTOR_MITM.md
 │   ├── 09_ATTACK_CHAINS.md
 │   ├── 10_GHOST_WEAVER.md
@@ -330,6 +333,14 @@ docs/
 │   └── SPRINT12_INTEGRATION_GUIDE.md
 └── dev-logs/
     ├── INDEX.md
+    ├── 00_START_HERE.md (✨ NEW - Navigation hub)
+    ├── NEURO_QUICK_REFERENCE.md (✨ NEW - One-page reference)
+    ├── NEURO_SOURCE_FIXES_NEEDED.md (✨ NEW - Implementation guide)
+    ├── NEURO_COMPLETE_STATUS.md (✨ NEW - Status & workflows)
+    ├── NEURO_AUDIT_REPORT.md
+    ├── NEURO_AUDIT_EXECUTIVE_SUMMARY.md
+    ├── NEURO_AUDIT_VISUAL_MAP.md
+    ├── AUDIT_SUMMARY_FOR_TEAM.md
     ├── Dev-Roadmap.md
     ├── BUG-Fixes/
     ├── Sprint-01/
@@ -376,73 +387,6 @@ We've completely refreshed the Neuro Engine documentation and guides:
   
 ### For Developers
 - **[dev-logs/NEURO_SOURCE_FIXES_NEEDED.md](../dev-logs/NEURO_SOURCE_FIXES_NEEDED.md)** - Implementation guide
-
----
-
-## 🔥 NEW: Tier 3 Offensive Capability Upgrade (February 11, 2026)
-
-VaporTrace now includes **advanced fuzzing and race condition testing** for sophisticated logic flaw detection.
-
-### What's New (Sprint 20)
-- ✅ **Intruder Engine** - Automated fuzzing with anomaly detection
-- ✅ **Race Condition Engine** - TOCTOU vulnerability testing with synchronization gate
-- ✅ **AI Payload Generation** - Groq-driven fuzzing suggestions (Sprint 19)
-- ✅ **Reporting Integration** - Tier 3 findings in F7 reports
-
-### For Users
-- **[QUICK_START_RACE.md](QUICK_START_RACE.md)** ⭐ **START HERE FOR TIER 3**
-  - Race condition testing basics
-  - Common TOCTOU vulnerabilities
-  - Step-by-step usage guide
-  - Troubleshooting tips
-
-### For Developers
-- **[../dev-logs/TIER_3_IMPLEMENTATION_SUMMARY.md](../dev-logs/TIER_3_IMPLEMENTATION_SUMMARY.md)** - Architecture overview
-- **[../dev-logs/YOUR_ACTION_ITEMS.md](../dev-logs/YOUR_ACTION_ITEMS.md)** - Implementation checklist
-
-### Quick Commands (Tier 3)
-```bash
-# Fuzzing with custom wordlists
-intruder sniper https://api.example.com/user?id=1 id ./payloads.txt
-
-# Race condition testing (20 threads by default)
-race https://api.example.com/api/claim?code=WINNER
-
-# High-intensity race test (50 threads)
-race https://api.example.com/api/claim?code=WINNER 50
-
-# View findings in report
-report
-```
-
-### Severity & Remediation
-- **Intruder Findings:** Medium/High severity
-- **Race Condition Findings:** CRITICAL (CVSS 8.5+)
-- **Remediation:** Flagged as `**ARCHITECTURAL FIX REQ**` (not simple patches)
-
----
-
-## 📁 Tier 3 Documentation Structure
-
-```
-docs/
-├── manuals/
-│   ├── QUICK_START_RACE.md                    ⭐ User guide
-│   └── INDEX.md                                (you are here)
-└── dev-logs/
-    ├── TIER_3_IMPLEMENTATION_SUMMARY.md       ⭐ Architecture
-    ├── YOUR_ACTION_ITEMS.md                    Implementation checklist
-    └── Dev-Roadmap.md                          Updated with Tier 3 & Tier 4 planning
-```
-
----
-
-## 🎯 Version History
-
-- **v3.2-Chimera (Feb 11, 2026)** - Tier 3 Complete: Race Condition & Intruder Engines
-- **v3.2-Chimera (Feb 8, 2026)** - Sprint 16-17: Blue-Team Mirror + WAF Hardening
-- **v3.1-Hydra (Feb 1, 2026)** - Sprint 11 Complete: Full Autonomy & Neuro Integration
-- **v3.0 (Jan 15, 2026)** - Core APIs + TUI Dashboard (Sprint 1-10)
   - All 6 critical code issues documented
   - Before/after code examples
   - 1.5-2 hour implementation roadmap
@@ -461,6 +405,7 @@ docs/
 
 ## Version History
 
+- **3.1 (Feb 10, 2026)** - Neuro Engine refinement: Fixed race conditions, nil checks, improved prompts. Complete documentation refresh.
 - **3.0+ (Feb 8, 2026)** - Post Sprint 11: TUI fixes, comprehensive documentation, AI integration stable
 - **2.5 (Jan 2026)** - Added neural engine and AI payloads
 - **2.0 (Dec 2025)** - HITL strategic planning added

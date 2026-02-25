@@ -2,6 +2,7 @@ package logic
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -18,10 +19,15 @@ type ExhaustionContext struct {
 var testLimits = []string{"100", "1000", "10000", "50000", "1000000"}
 
 func (e *ExhaustionContext) FuzzPagination() {
-	// FIX: Removed pterm.DefaultHeader
+	// FIXED: Now measures actual resource consumption (response size, latency, server behavior)
 	utils.TacticalLog("[cyan]API4: Resource Exhaustion - Pagination Fuzzer Started[-]")
 
-	for _, val := range testLimits {
+	var prevSize int64 = 0
+	var baselineLatency time.Duration = 0
+	exhaustionDetected := false
+	exhaustionPattern := ""
+
+	for idx, val := range testLimits {
 		u, err := url.Parse(e.TargetURL)
 		if err != nil {
 			return
@@ -31,6 +37,8 @@ func (e *ExhaustionContext) FuzzPagination() {
 		q.Set(e.ParamName, val)
 		u.RawQuery = q.Encode()
 		fuzzedURL := u.String()
+
+		utils.TacticalLog(fmt.Sprintf("[blue]Testing %s=%s...", e.ParamName, val))
 
 		start := time.Now()
 		req, _ := http.NewRequest("GET", fuzzedURL, nil)
@@ -43,21 +51,70 @@ func (e *ExhaustionContext) FuzzPagination() {
 		duration := time.Since(start)
 
 		if err != nil {
+			utils.TacticalLog(fmt.Sprintf("[yellow]Request error at %s=%s: %v (possible exhaustion)", e.ParamName, val, err))
+			exhaustionPattern = fmt.Sprintf("Connection failure at %s", val)
+			exhaustionDetected = true
 			break
 		}
-		defer resp.Body.Close()
 
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			if duration > 2*time.Second {
-				utils.RecordFinding(db.Finding{
-					Phase:   "PHASE 9.9: EXHAUSTION",
-					Command: "exhaust", // Zero-Touch Trigger
-					Target:  e.TargetURL,
-					Details: fmt.Sprintf("Resource Exhaustion via %s=%s (Latency: %v)", e.ParamName, val, duration),
-					Status:  "VULNERABLE",
-				})
-			}
+		// FIXED: Measure actual response body size
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		respSize := int64(len(bodyBytes))
+		resp.Body.Close()
+
+		utils.TacticalLog(fmt.Sprintf("[cyan]Response: %d bytes in %dms (Status: %d)", respSize, duration.Milliseconds(), resp.StatusCode))
+
+		// Record baseline on first request
+		if idx == 0 {
+			baselineLatency = duration
+			prevSize = respSize
+			continue
 		}
+
+		// FIXED: Detect exhaustion patterns
+		latencyGrowth := float64(duration) / float64(baselineLatency)
+		sizeGrowth := float64(respSize) / float64(prevSize)
+
+		// Pattern 1: Exponential latency increase (server struggling)
+		if latencyGrowth > 5.0 {
+			exhaustionDetected = true
+			exhaustionPattern = fmt.Sprintf("Exponential latency spike: %.1fx slowdown at %s=%s", latencyGrowth, e.ParamName, val)
+			utils.TacticalLog(fmt.Sprintf("[red]EXHAUSTION DETECTED:[-] %s", exhaustionPattern))
+			break
+		}
+
+		// Pattern 2: Server returning large datasets (memory pressure)
+		if sizeGrowth > 100.0 && respSize > 10*1024*1024 { // > 10MB
+			exhaustionDetected = true
+			exhaustionPattern = fmt.Sprintf("Memory exhaustion: %.0fx size growth (%d bytes) at %s=%s", sizeGrowth, respSize, e.ParamName, val)
+			utils.TacticalLog(fmt.Sprintf("[red]EXHAUSTION DETECTED:[-] %s", exhaustionPattern))
+			break
+		}
+
+		// Pattern 3: Server timeout/503 at high values
+		if resp.StatusCode >= 500 {
+			exhaustionDetected = true
+			exhaustionPattern = fmt.Sprintf("Server error (HTTP %d) at %s=%s - resource exhaustion triggered", resp.StatusCode, e.ParamName, val)
+			utils.TacticalLog(fmt.Sprintf("[red]EXHAUSTION DETECTED:[-] %s", exhaustionPattern))
+			break
+		}
+
+		prevSize = respSize
 	}
+
+	// Record finding if exhaustion was detected
+	if exhaustionDetected {
+		utils.RecordFinding(db.Finding{
+			Phase:   "PHASE 9.9: EXHAUSTION",
+			Command: "exhaust",
+			Target:  e.TargetURL,
+			Details: fmt.Sprintf("API4:2023 Resource Exhaustion: %s", exhaustionPattern),
+			Status:  "VULNERABLE",
+		})
+		utils.TacticalLog("[green]✔ Finding recorded[-]")
+	} else {
+		utils.TacticalLog("[yellow]No exhaustion patterns detected[-]")
+	}
+
 	utils.TacticalLog(fmt.Sprintf("[green]✔[-] Exhaustion probe complete on %s", e.ParamName))
 }

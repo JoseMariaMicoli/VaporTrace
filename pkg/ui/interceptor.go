@@ -171,7 +171,9 @@ func ShowInterceptorModal(app *tview.Application, pages *tview.Pages, payload *l
 			return
 		}
 		utils.TacticalLog("[blue]NEURO:[-] Fuzzing body content with High-Entropy Payloads...")
-		go logic.GlobalNeuro.PerformNeuroBrute(currentBody)
+		if neuro := logic.GetGlobalNeuro(); neuro != nil {
+			go neuro.PerformNeuroBrute(currentBody)
+		}
 	}
 
 	// --- BUTTONS ---

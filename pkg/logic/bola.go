@@ -50,7 +50,7 @@ func ExecuteMassBOLA(concurrency int) {
 
 	for _, t := range targets {
 		ctx := &BOLAContext{
-			BaseURL: CurrentSession.TargetURL + t,
+			BaseURL: utils.JoinURL(CurrentSession.TargetURL, t),
 		}
 		ctx.MassProbe(testIDs, concurrency)
 	}

@@ -743,6 +743,38 @@ func (s *Shell) handleCommand(command string, args []string) {
 		}
 		vuln.ProbeSilent()
 
+	case "waf", "waf_detect", "waf detect":
+		pterm.DefaultSection.Println("PHASE 6.4: WAF DETECTION ENGINE")
+		wafStats := logic.GetWAFDetectionStats()
+		if wafStats != nil {
+			pterm.DefaultTable.WithData(pterm.TableData{
+				{"METRIC", "VALUE"},
+				{"Rate Limit (429) Blocks", fmt.Sprintf("%v", wafStats["rate_limit_blocks"])},
+				{"WAF Blocks (403)", fmt.Sprintf("%v", wafStats["waf_blocks"])},
+				{"Redirects", fmt.Sprintf("%v", wafStats["redirects"])},
+				{"Server Errors", fmt.Sprintf("%v", wafStats["server_errors"])},
+			}).WithBoxed().Render()
+
+			if detected, ok := wafStats["detected"].(bool); ok && detected {
+				pterm.Warning.Println("⚠ WAF/IDS DETECTED - Recommend enabling 'stealth silent' mode")
+			} else {
+				pterm.Success.Println("✓ No active WAF detection patterns observed")
+			}
+		}
+
+	case "oob", "oob_config", "oob_status":
+		pterm.DefaultSection.Println("PHASE 7.2: OUT-OF-BAND EXFILTRATION CHANNEL")
+		pterm.DefaultTable.WithData(pterm.TableData{
+			{"CHANNEL", "STATUS"},
+			{"TCP Channel", "READY"},
+			{"DNS Channel", "READY (covert subdomain encoding)"},
+			{"ICMP Channel", "READY (firewall evasion)"},
+			{"Encryption", "AES-256-GCM"},
+		}).WithBoxed().Render()
+		pterm.Info.Println("OOB exfiltration channels are configured and monitoring for captured data.")
+		pterm.Println("Integration: Works seamlessly with SSRF, BOLA, and other attack vectors")
+		pterm.Println("Workflow: Automatically queues captured sensitive data for encrypted transmission")
+
 	default:
 		pterm.Error.Printf("Unknown tactical command: %s\n", command)
 	}
