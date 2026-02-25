@@ -1,3 +1,5 @@
+![VaporTrace Logo](assets/images/VaporTrace_Logo.png)
+
 # VaporTrace Neuro Features Complete Inventory
 
 **Generated:** February 10, 2026  

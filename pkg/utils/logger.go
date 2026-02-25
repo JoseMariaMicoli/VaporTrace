@@ -25,14 +25,21 @@ import (
 	"github.com/pterm/pterm"
 )
 
-// Global UI State
-var UIMode = "CLI" // "CLI" or "TUI"
+var UIMode = "CLI" // CLI | TUI
 
-// Buffer increased to 1000 to prevent blocking during Mass-BOLA/BOPLA operations
 var UI_Log_Chan = make(chan string, 1000)
+var ContextLogChan = make(chan string, 500)
+var NeuroLogChan = make(chan string, 500)
 
-// UI_Log_Buffer maintains the scrollback limit before sending to UI
-// Task 2 Part 2: Enforce Hard Cap of 1,000 lines.
+type TrafficPacket struct {
+	ReqHeader string
+	ReqBody   string
+	ResHeader string
+	ResBody   string
+}
+
+var TrafficChan = make(chan TrafficPacket, 500)
+
 type LogBufferStruct struct {
 	mu    sync.Mutex
 	lines []string
@@ -44,13 +51,10 @@ var GlobalLogBuffer = &LogBufferStruct{
 	cap:   1000,
 }
 
-// SetLoggerMode defines how outputs are rendered
 func SetLoggerMode(mode string) {
 	UIMode = mode
 }
 
-// EscapeTview sanitizes strings to prevent tview from interpreting brackets as color tags.
-// This fixes the UI freezing issue when logging JSON or Arrays.
 func EscapeTview(text string) string {
 	text = StripANSI(text)
 	text = strings.ReplaceAll(text, "[", "[[")
@@ -58,12 +62,12 @@ func EscapeTview(text string) string {
 	return text
 }
 
-// TacticalLog handles generic system messages
-// Modified to use GlobalLogBuffer for scrollback limit enforcement
+func timeStamp() string {
+	return time.Now().Format("15:04:05")
+}
+
 func TacticalLog(msg string) {
 	if UIMode == "TUI" {
-		cleanMsg := StripANSI(msg)
-
 		if msg == "___CLEAR_SCREEN_SIGNAL___" {
 			select {
 			case UI_Log_Chan <- msg:
@@ -72,24 +76,25 @@ func TacticalLog(msg string) {
 			return
 		}
 
+		cleanMsg := StripANSI(msg)
 		colorTag := "[white]"
-		if strings.Contains(strings.ToLower(cleanMsg), "success") || strings.Contains(msg, "[green]") {
-			colorTag = "[green]"
-		} else if strings.Contains(strings.ToLower(cleanMsg), "error") || strings.Contains(msg, "[red]") {
+		lower := strings.ToLower(cleanMsg)
+		switch {
+		case strings.Contains(lower, "error") || strings.Contains(msg, "[red]"):
 			colorTag = "[red]"
-		} else if strings.Contains(strings.ToLower(cleanMsg), "warn") || strings.Contains(msg, "[yellow]") {
+		case strings.Contains(lower, "warn") || strings.Contains(msg, "[yellow]"):
 			colorTag = "[yellow]"
-		} else if strings.Contains(strings.ToLower(cleanMsg), "phase") || strings.Contains(msg, "[cyan]") {
+		case strings.Contains(lower, "success") || strings.Contains(msg, "[green]"):
+			colorTag = "[green]"
+		case strings.Contains(lower, "phase") || strings.Contains(msg, "[cyan]"):
 			colorTag = "[cyan]"
 		}
 
 		formatted := fmt.Sprintf("[gray][%s][-] %s%s[-]", timeStamp(), colorTag, cleanMsg)
 
-		// Enforce Scrollback Limit
 		GlobalLogBuffer.mu.Lock()
 		GlobalLogBuffer.lines = append(GlobalLogBuffer.lines, formatted)
 		if len(GlobalLogBuffer.lines) > GlobalLogBuffer.cap {
-			// Drop oldest
 			GlobalLogBuffer.lines = GlobalLogBuffer.lines[1:]
 		}
 		GlobalLogBuffer.mu.Unlock()
@@ -97,60 +102,85 @@ func TacticalLog(msg string) {
 		select {
 		case UI_Log_Chan <- formatted:
 		default:
-			// Drop log if channel is full to prevent deadlocks, but with 1000 this is rare.
 		}
-	} else {
-		pterm.Info.Println(msg)
+		return
+	}
+
+	pterm.Info.Println(msg)
+}
+
+func LogContext(msg string) {
+	if UIMode == "TUI" {
+		select {
+		case ContextLogChan <- msg:
+		default:
+		}
+		return
+	}
+	TacticalLog(msg)
+}
+
+func LogNeural(msg string) {
+	if UIMode == "TUI" {
+		select {
+		case NeuroLogChan <- msg:
+		default:
+		}
+		return
+	}
+	TacticalLog(msg)
+}
+
+func LogTraffic(reqHeader, reqBody, resHeader, resBody string) {
+	if UIMode != "TUI" {
+		return
+	}
+	pkt := TrafficPacket{
+		ReqHeader: reqHeader,
+		ReqBody:   reqBody,
+		ResHeader: resHeader,
+		ResBody:   resBody,
+	}
+	select {
+	case TrafficChan <- pkt:
+	default:
 	}
 }
 
-// RecordFinding persists findings and logs them
 func RecordFinding(f db.Finding) {
 	enrichment.EnrichFinding(&f)
 	db.LogQueue <- f
 
-	// 2. Visualization Layer
 	if UIMode == "TUI" {
-		// Sanitize Content to prevent TUI corruption
 		safeDetails := EscapeTview(f.Details)
 		safeTarget := EscapeTview(f.Target)
 		safeOWASP := EscapeTview(f.OWASP_ID)
 
-		// Format specifically for tview dynamic colors
-		// High-density format: [STATUS] (OWASP) DETAILS | TARGET
-		var colorMsg string
-
-	if UIMode == "TUI" {
-		var logLine string
+		var line string
 		switch f.Status {
 		case "CRITICAL", "VULNERABLE", "EXPLOITED":
-			colorMsg = fmt.Sprintf("[red::b]%s[-] [yellow](%s)[-] [white]%s[-] [blue::b]| %s[-]",
-				f.Status, safeOWASP, safeDetails, safeTarget)
+			line = fmt.Sprintf("[red::b]%s[-] [yellow](%s)[-] [white]%s[-] [blue::b]| %s[-]", f.Status, safeOWASP, safeDetails, safeTarget)
 		case "WEAK CONFIG", "POTENTIAL CALLBACK":
-			colorMsg = fmt.Sprintf("[yellow]%s[-] [white]%s[-] [blue]| %s[-]",
-				f.Status, safeDetails, safeTarget)
+			line = fmt.Sprintf("[yellow]%s[-] [white]%s[-] [blue]| %s[-]", f.Status, safeDetails, safeTarget)
 		case "SUCCESS", "INFO":
-			colorMsg = fmt.Sprintf("[blue]%s[-] [white]%s[-] [blue]| %s[-]",
-				f.Status, safeDetails, safeTarget)
+			line = fmt.Sprintf("[blue]%s[-] [white]%s[-] [blue]| %s[-]", f.Status, safeDetails, safeTarget)
 		default:
-			colorMsg = fmt.Sprintf("[white]%s[-] %s [blue]| %s[-]",
-				f.Status, safeDetails, safeTarget)
+			line = fmt.Sprintf("[white]%s[-] %s [blue]| %s[-]", f.Status, safeDetails, safeTarget)
 		}
 
 		select {
-		case UI_Log_Chan <- logLine:
+		case UI_Log_Chan <- line:
 		default:
-			// Non-blocking drop if UI is overwhelmed
 		}
+		return
+	}
+
+	if f.Status == "VULNERABLE" || f.Status == "CRITICAL" || f.Status == "EXPLOITED" {
+		pterm.Warning.Prefix = pterm.Prefix{Text: f.Status, Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
+		pterm.Warning.Printfln("%s (OWASP: %s) -> %s", f.Details, f.OWASP_ID, f.Target)
+	} else if f.Status == "WEAK CONFIG" {
+		pterm.Warning.Printfln("%s -> %s", f.Details, f.Target)
 	} else {
-		// CLI Pterm Output
-		if f.Status == "VULNERABLE" || f.Status == "CRITICAL" || f.Status == "EXPLOITED" {
-			pterm.Warning.Prefix = pterm.Prefix{Text: f.Status, Style: pterm.NewStyle(pterm.BgRed, pterm.FgWhite)}
-			pterm.Warning.Printfln("%s (OWASP: %s) -> %s", f.Details, f.OWASP_ID, f.Target)
-		} else if f.Status == "WEAK CONFIG" {
-			pterm.Warning.Printfln("%s -> %s", f.Details, f.Target)
-		} else {
-			pterm.Success.Printfln("%s -> %s", f.Details, f.Target)
-		}
+		pterm.Success.Printfln("%s -> %s", f.Details, f.Target)
 	}
 }
