@@ -51,6 +51,7 @@ You may NOT:
 24. [Chain Reactor](24_CHAIN_REACTOR.md) - Multi-step stateful attack workflows
 25. [Value Extractor](25_EXTRACTOR.md) - Data extraction from responses (JSON, Regex, Cookies)
 26. [Knowledge Base (Institutional Memory)](26_KNOWLEDGE_BASE.md) - Record and learn from successful exploits
+27. [Neuro F6 + MCP Upgrade Plan](27_NEURO_F6_MCP_UPGRADE_PLAN.md) - F6 redesign, MCP integration, and list-plan persistence roadmap
 
 ### 📊 Reporting & Analysis
 13. [Report Generation](13_REPORTING.md) - Export findings and generate reports
@@ -510,4 +511,3 @@ We've completely refreshed the Neuro Engine documentation and guides:
 ---
 
 **Next Step:** [Installation & Setup](01_INSTALLATION_SETUP.md) →
-

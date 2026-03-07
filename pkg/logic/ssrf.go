@@ -30,6 +30,13 @@ type SSRFContext struct {
 	Callback  string
 }
 
+type SSRFResult struct {
+	Tested   int
+	Findings int
+	Failed   int
+	Complete bool
+}
+
 func (s *SSRFContext) Probe() {
 	// FIX: Removed pterm
 	utils.TacticalLog("[cyan]API7: Server-Side Request Forgery Tracker Started[-]")
@@ -45,10 +52,13 @@ func (s *SSRFContext) Probe() {
 		"http://169.254.169.254/latest/meta-data/",
 	}
 
+	result := SSRFResult{Complete: true}
+
 	for _, payload := range payloads {
 		if payload == "" {
 			continue
 		}
+		result.Tested++
 
 		u, _ := url.Parse(s.TargetURL)
 		q := u.Query()
@@ -63,9 +73,9 @@ func (s *SSRFContext) Probe() {
 
 		resp, err := client.Do(req)
 		if err != nil {
+			result.Failed++
 			continue
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode < 500 {
 			if payload == "http://127.0.0.1:80" || payload == "http://169.254.169.254/latest/meta-data/" {
@@ -85,8 +95,20 @@ func (s *SSRFContext) Probe() {
 					Status:  "POTENTIAL CALLBACK",
 				})
 			}
+			result.Findings++
 			// Allow batch rendering cycle to complete before next finding
 			time.Sleep(50 * time.Millisecond)
 		}
+		resp.Body.Close()
+	}
+
+	switch {
+	case result.Tested == 0:
+		result.Complete = false
+		utils.TacticalLog("[red]SSRF:[-] Probe did not run (no valid payloads).")
+	case result.Findings > 0:
+		utils.TacticalLog(fmt.Sprintf("[green]SSRF COMPLETE:[-] tested=%d findings=%d failed=%d", result.Tested, result.Findings, result.Failed))
+	default:
+		utils.TacticalLog(fmt.Sprintf("[yellow]SSRF COMPLETE:[-] tested=%d findings=0 failed=%d (no SSRF evidence)", result.Tested, result.Failed))
 	}
 }

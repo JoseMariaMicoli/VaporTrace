@@ -17,6 +17,7 @@ package engine
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -348,6 +349,99 @@ func ExecuteCommand(rawCmd string) {
 			utils.TacticalLog(fmt.Sprintf("[blue]Concurrency Level: %d threads[-]", logic.CurrentSession.Threads))
 			logic.RunPipeline(logic.CurrentSession.Threads)
 		}()
+
+	case "analyze":
+		utils.TacticalLog("[magenta]ANALYZE:[-] Building strategic plan from discovery, findings, loot, and traffic telemetry...")
+		go func() {
+			actions := ComprehensiveAnalysis()
+			ActionBuffer = actions
+			persistActionBuffer()
+			if len(actions) == 0 {
+				utils.TacticalLog("[yellow]ANALYZE:[-] No actions generated. Run 'swagger'/'map' and exploitation modules first.")
+				return
+			}
+			utils.TacticalLog(fmt.Sprintf("[green]ANALYZE:[-] Plan ready. %d actions loaded into F5 Strategic Action Buffer.", len(actions)))
+		}()
+
+	case "list-plan":
+		if len(ActionBuffer) == 0 {
+			loadActionBufferFromDB()
+		}
+		if len(ActionBuffer) == 0 {
+			utils.TacticalLog("[yellow]PLAN:[-] Action buffer is empty. Run 'analyze' first.")
+			return
+		}
+		utils.TacticalLog(fmt.Sprintf("[cyan]PLAN:[-] %d buffered actions:", len(ActionBuffer)))
+		for _, act := range ActionBuffer {
+			utils.TacticalLog(fmt.Sprintf("[white]#%d[-] [%s]%s[-] %s | %s | %s", act.ID, confidenceColor(act.Confidence), act.Confidence, act.Type, act.Status, act.Target))
+		}
+
+	case "edit":
+		if len(args) < 2 {
+			utils.TacticalLog("[red]Usage:[-] edit <id> <new_payload>")
+			return
+		}
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			utils.TacticalLog("[red]Error:[-] Invalid action ID.")
+			return
+		}
+		if len(ActionBuffer) == 0 {
+			loadActionBufferFromDB()
+		}
+		newPayload := strings.Join(args[1:], " ")
+		updated := false
+		for i := range ActionBuffer {
+			if ActionBuffer[i].ID == id {
+				ActionBuffer[i].Payload = newPayload
+				if ActionBuffer[i].Status == "FAILED" || ActionBuffer[i].Status == "SUCCESS" {
+					ActionBuffer[i].Status = "PENDING"
+				}
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			utils.TacticalLog(fmt.Sprintf("[red]Error:[-] Action #%d not found.", id))
+			return
+		}
+		persistActionBuffer()
+		utils.TacticalLog(fmt.Sprintf("[green]PLAN:[-] Action #%d payload updated.", id))
+
+	case "drop":
+		if len(args) < 1 {
+			utils.TacticalLog("[red]Usage:[-] drop <id>")
+			return
+		}
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			utils.TacticalLog("[red]Error:[-] Invalid action ID.")
+			return
+		}
+		if len(ActionBuffer) == 0 {
+			loadActionBufferFromDB()
+		}
+		dropped := false
+		for i := range ActionBuffer {
+			if ActionBuffer[i].ID == id {
+				ActionBuffer[i].Status = "DROPPED"
+				dropped = true
+				break
+			}
+		}
+		if !dropped {
+			utils.TacticalLog(fmt.Sprintf("[red]Error:[-] Action #%d not found.", id))
+			return
+		}
+		persistActionBuffer()
+		utils.TacticalLog(fmt.Sprintf("[yellow]PLAN:[-] Action #%d dropped.", id))
+
+	case "commit":
+		if len(ActionBuffer) == 0 {
+			loadActionBufferFromDB()
+		}
+		utils.TacticalLog("[magenta]COMMIT:[-] Executing pending actions from strategic buffer...")
+		go ExecuteStrategicPlan()
 
 	// --- LOGIC PROBES ---
 	case "bola":
@@ -685,6 +779,8 @@ func ExecuteCommand(rawCmd string) {
 
 	case "reset_db":
 		db.ResetDB()
+		logic.ResetRuntimeState()
+		ActionBuffer = []TacticalAction{}
 		utils.TacticalLog("[yellow]Database Purged (Reset).[-]")
 
 	case "report":
@@ -1492,107 +1588,369 @@ func ComprehensiveAnalysis() []TacticalAction {
 	return actions
 }
 
+type executionSummary struct {
+	Success  bool
+	Evidence string
+}
+
+func isExploitStatus(status string) bool {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "VULNERABLE", "CRITICAL", "EXPLOITED", "VERIFIED", "POTENTIAL CALLBACK":
+		return true
+	default:
+		return false
+	}
+}
+
+func targetMatchesEvidence(target string, findingTarget string) bool {
+	if target == "" || findingTarget == "" {
+		return false
+	}
+
+	needle := strings.ToLower(strings.TrimSpace(target))
+	hay := strings.ToLower(strings.TrimSpace(findingTarget))
+	if strings.Contains(hay, needle) || strings.Contains(needle, hay) {
+		return true
+	}
+
+	if parsed, err := url.Parse(target); err == nil {
+		candidates := []string{
+			strings.ToLower(parsed.Scheme + "://" + parsed.Host + parsed.Path),
+			strings.ToLower(parsed.Path),
+			strings.ToLower(parsed.Host),
+		}
+		for _, c := range candidates {
+			if c == "" {
+				continue
+			}
+			if strings.Contains(hay, c) || strings.Contains(c, hay) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func pullExploitEvidence(target string, since time.Time) []string {
+	if db.DB == nil {
+		return nil
+	}
+
+	rows, err := db.DB.Query(
+		`SELECT status, details, target FROM findings WHERE datetime(timestamp) >= datetime(?) ORDER BY id DESC LIMIT 200`,
+		since.Format("2006-01-02 15:04:05"),
+	)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var evidence []string
+	for rows.Next() {
+		var status, details, findingTarget string
+		if err := rows.Scan(&status, &details, &findingTarget); err != nil {
+			continue
+		}
+		if !isExploitStatus(status) || !targetMatchesEvidence(target, findingTarget) {
+			continue
+		}
+		evidence = append(evidence, fmt.Sprintf("%s | %s", status, details))
+		if len(evidence) >= 3 {
+			break
+		}
+	}
+
+	return evidence
+}
+
+func waitForExecutionSummary(target string, since time.Time, timeout time.Duration) executionSummary {
+	deadline := time.Now().Add(timeout)
+	for {
+		evidence := pullExploitEvidence(target, since)
+		if len(evidence) > 0 {
+			return executionSummary{
+				Success:  true,
+				Evidence: evidence[0],
+			}
+		}
+		if time.Now().After(deadline) {
+			return executionSummary{
+				Success:  false,
+				Evidence: "No exploit evidence recorded in findings.",
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+func actionExists(actions []TacticalAction, candidate TacticalAction) bool {
+	for _, act := range actions {
+		if strings.EqualFold(act.Type, candidate.Type) &&
+			act.Target == candidate.Target &&
+			act.Payload == candidate.Payload {
+			return true
+		}
+	}
+	return false
+}
+
+func toDBRows(actions []TacticalAction) []db.TacticalActionRow {
+	rows := make([]db.TacticalActionRow, 0, len(actions))
+	now := time.Now()
+	for _, a := range actions {
+		rows = append(rows, db.TacticalActionRow{
+			ID:           a.ID,
+			Type:         a.Type,
+			Target:       a.Target,
+			Payload:      a.Payload,
+			Confidence:   a.Confidence,
+			Reasoning:    a.Reasoning,
+			Status:       a.Status,
+			PreCondition: a.PreCondition,
+			ChainID:      a.ChainID,
+			Loot:         a.Loot,
+			UpdatedAt:    now,
+		})
+	}
+	return rows
+}
+
+func fromDBRows(rows []db.TacticalActionRow) []TacticalAction {
+	actions := make([]TacticalAction, 0, len(rows))
+	for _, r := range rows {
+		actions = append(actions, TacticalAction{
+			ID:           r.ID,
+			Type:         r.Type,
+			Target:       r.Target,
+			Payload:      r.Payload,
+			Confidence:   r.Confidence,
+			Reasoning:    r.Reasoning,
+			Status:       r.Status,
+			PreCondition: r.PreCondition,
+			ChainID:      r.ChainID,
+			Loot:         r.Loot,
+		})
+	}
+	return actions
+}
+
+func persistActionBuffer() {
+	if err := db.SaveTacticalActions(toDBRows(ActionBuffer)); err != nil {
+		utils.TacticalLog(fmt.Sprintf("[yellow]PLAN PERSIST WARN:[-] %v", err))
+	}
+}
+
+func loadActionBufferFromDB() bool {
+	rows, err := db.LoadTacticalActions()
+	if err != nil {
+		return false
+	}
+	if len(rows) == 0 {
+		return false
+	}
+	ActionBuffer = fromDBRows(rows)
+	return true
+}
+
+func appendFollowUpPlan(nextPlan []TacticalAction) int {
+	maxID := 0
+	for _, act := range ActionBuffer {
+		if act.ID > maxID {
+			maxID = act.ID
+		}
+	}
+
+	added := 0
+	for _, next := range nextPlan {
+		if actionExists(ActionBuffer, next) {
+			continue
+		}
+		maxID++
+		next.ID = maxID
+		next.Status = "PENDING"
+		ActionBuffer = append(ActionBuffer, next)
+		added++
+	}
+	return added
+}
+
 // ExecuteStrategicPlan runs the approved actions from the buffer
 // === SPRINT 11.4: ENHANCED WITH REAL-TIME STATUS UPDATES ===
 func ExecuteStrategicPlan() {
 	count := 0
+	successCount := 0
+	failedCount := 0
+
 	for i, act := range ActionBuffer {
 		if act.Status != "PENDING" {
+			continue
+		}
+
+		if strings.HasPrefix(strings.ToUpper(act.Type), "HINT") {
+			ActionBuffer[i].Status = "DROPPED"
+			persistActionBuffer()
+			utils.TacticalLog(fmt.Sprintf("[yellow]COMMIT:[-] Skipping non-executable planner hint action #%d.", act.ID))
 			continue
 		}
 
 		utils.TacticalLog(fmt.Sprintf("[magenta]EXEC STRATEGY #%d:[-] %s on %s", act.ID, act.Type, act.Target))
 		utils.LogContext(fmt.Sprintf("[blue]>>> FIRING:[-] %s with payload: %s", act.Type, act.Payload))
 
-		ActionBuffer[i].Status = "EXECUTED"
+		ActionBuffer[i].Status = "RUNNING"
+		persistActionBuffer()
 		count++
 
-		// Fire Async to not block the loop
-		go func(a TacticalAction, idx int) {
-			time.Sleep(300 * time.Millisecond) // Stagger for rate limiting
+		time.Sleep(300 * time.Millisecond) // Stagger for rate limiting
+		startTime := time.Now()
+		lastStatusCode := 0
+		var execErr error
 
-			// === SPRINT 11.4: UPDATE F5 TABLE WITH STATUS ===
-			startTime := time.Now()
+		switch act.Type {
+		case "BOLA":
+			utils.LogContext("[yellow]BOLA PROBE:[-] Testing ID-based authorization bypass...")
+			parts := strings.Split(act.Payload, ":")
+			victim := "1"
+			if len(parts) > 1 {
+				victim = strings.TrimSpace(parts[1])
+			}
+			ctx := &logic.BOLAContext{BaseURL: act.Target, VictimID: victim}
+			ctx.ProbeSilent()
+			utils.LogContext(fmt.Sprintf("[green]✓ BOLA COMPLETE:[-] %v", time.Since(startTime)))
 
-			switch a.Type {
-			case "BOLA":
-				utils.LogContext("[yellow]BOLA PROBE:[-] Testing ID-based authorization bypass...")
-				// Payload format "ID: <val>"
-				parts := strings.Split(a.Payload, ":")
-				victim := "1"
-				if len(parts) > 1 {
-					victim = strings.TrimSpace(parts[1])
+		case "BFLA":
+			utils.LogContext("[yellow]BFLA PROBE:[-] Testing method tampering...")
+			req, _ := http.NewRequest("DELETE", act.Target, nil)
+			resp, err := logic.SafeDo(req, false, "STRATEGY-BFLA")
+			execErr = err
+			if resp != nil {
+				lastStatusCode = resp.StatusCode
+				resp.Body.Close()
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					utils.RecordFinding(db.Finding{
+						Phase:   "PHASE III: AUTH LOGIC",
+						Command: "commit",
+						Target:  act.Target,
+						Details: fmt.Sprintf("BFLA DELETE accepted (%d). Potential authorization bypass.", resp.StatusCode),
+						Status:  "VULNERABLE",
+					})
 				}
-				ctx := &logic.BOLAContext{BaseURL: a.Target, VictimID: victim}
-				ctx.ProbeSilent()
-				utils.LogContext(fmt.Sprintf("[green]✓ BOLA COMPLETE:[-] %v", time.Since(startTime)))
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ BFLA COMPLETE:[-] %v", time.Since(startTime)))
 
-			case "BFLA":
-				utils.LogContext("[yellow]BFLA PROBE:[-] Testing method tampering...")
-				req, _ := http.NewRequest("DELETE", a.Target, nil)
-				logic.SafeDo(req, false, "STRATEGY-BFLA")
-				utils.LogContext(fmt.Sprintf("[green]✓ BFLA COMPLETE:[-] %v", time.Since(startTime)))
+		case "SSRF":
+			utils.LogContext("[yellow]SSRF PROBE:[-] Attempting internal endpoint access...")
+			ctx := &logic.SSRFContext{TargetURL: act.Target, ParamName: "url", Callback: "127.0.0.1"}
+			ctx.Probe()
+			utils.LogContext(fmt.Sprintf("[green]✓ SSRF COMPLETE:[-] %v", time.Since(startTime)))
 
-			case "SSRF":
-				utils.LogContext("[yellow]SSRF PROBE:[-] Attempting internal endpoint access...")
-				ctx := &logic.SSRFContext{TargetURL: a.Target, ParamName: "url", Callback: "127.0.0.1"}
-				ctx.Probe()
-				utils.LogContext(fmt.Sprintf("[green]✓ SSRF COMPLETE:[-] %v", time.Since(startTime)))
+		case "CLOUD_PIVOT":
+			utils.LogContext("[yellow]CLOUD PIVOT:[-] Attempting AWS metadata extraction...")
+			req, _ := http.NewRequest("GET", "http://169.254.169.254/latest/meta-data/", nil)
+			resp, err := logic.SafeDo(req, false, "STRATEGY-CLOUD")
+			execErr = err
+			if resp != nil {
+				lastStatusCode = resp.StatusCode
+				resp.Body.Close()
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					utils.RecordFinding(db.Finding{
+						Phase:   "PHASE IV: INJECTION",
+						Command: "commit",
+						Target:  act.Target,
+						Details: fmt.Sprintf("Cloud metadata endpoint reachable (%d). Pivot exposure possible.", resp.StatusCode),
+						Status:  "CRITICAL",
+					})
+				}
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ CLOUD PIVOT COMPLETE:[-] %v", time.Since(startTime)))
 
-			case "CLOUD_PIVOT":
-				utils.LogContext("[yellow]CLOUD PIVOT:[-] Attempting AWS metadata extraction...")
-				req, _ := http.NewRequest("GET", "http://169.254.169.254/latest/meta-data/", nil)
-				logic.SafeDo(req, false, "STRATEGY-CLOUD")
-				utils.LogContext(fmt.Sprintf("[green]✓ CLOUD PIVOT COMPLETE:[-] %v", time.Since(startTime)))
+		case "LATERAL_MOVEMENT":
+			utils.LogContext("[yellow]LATERAL MOVEMENT:[-] Pivoting to internal endpoint...")
+			req, _ := http.NewRequest("GET", act.Target, nil)
+			resp, err := logic.SafeDo(req, false, "STRATEGY-LATERAL")
+			execErr = err
+			if resp != nil {
+				lastStatusCode = resp.StatusCode
+				resp.Body.Close()
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ LATERAL COMPLETE:[-] %v", time.Since(startTime)))
 
-			case "LATERAL_MOVEMENT":
-				utils.LogContext("[yellow]LATERAL MOVEMENT:[-] Pivoting to internal endpoint...")
-				req, _ := http.NewRequest("GET", a.Target, nil)
-				logic.SafeDo(req, false, "STRATEGY-LATERAL")
-				utils.LogContext(fmt.Sprintf("[green]✓ LATERAL COMPLETE:[-] %v", time.Since(startTime)))
-
-			case "INTRUDER":
-				utils.LogContext("[yellow]AI INTRUDER:[-] AI-recommended single-position fuzzing attack...")
-				// Payload format "param:category"
-				parts := strings.Split(a.Payload, ":")
-				if len(parts) == 2 {
-					param := parts[0]
-					category := parts[1]
-					// Get embedded payloads for this category
-					payloads := attack.GetInternalWordlist(category)
-					if len(payloads) > 0 {
-						config := attack.IntruderConfig{
-							TargetURL:   a.Target,
-							Param:       param,
-							PayloadList: payloads,
-							Concurrency: 3,
-							Mode:        attack.Sniper,
-						}
-						attack.RunSniper(config)
-						utils.LogContext(fmt.Sprintf("[green]✓ AI INTRUDER COMPLETE:[-] %s fuzzing on '%s' executed. %v", category, param, time.Since(startTime)))
+		case "INTRUDER":
+			utils.LogContext("[yellow]AI INTRUDER:[-] AI-recommended single-position fuzzing attack...")
+			parts := strings.Split(act.Payload, ":")
+			if len(parts) == 2 {
+				param := parts[0]
+				category := parts[1]
+				payloads := attack.GetInternalWordlist(category)
+				if len(payloads) > 0 {
+					config := attack.IntruderConfig{
+						TargetURL:   act.Target,
+						Param:       param,
+						PayloadList: payloads,
+						Concurrency: 3,
+						Mode:        attack.Sniper,
 					}
+					attack.RunSniper(config)
+					utils.LogContext(fmt.Sprintf("[green]✓ AI INTRUDER COMPLETE:[-] %s fuzzing on '%s' executed. %v", category, param, time.Since(startTime)))
 				}
-
-			default:
-				utils.LogContext("[yellow]GENERIC PROBE:[-] Testing endpoint...")
-				// Generic
-				req, _ := http.NewRequest("GET", a.Target, nil)
-				logic.SafeDo(req, false, "STRATEGY-GENERIC")
-				utils.LogContext(fmt.Sprintf("[green]✓ PROBE COMPLETE:[-] %v", time.Since(startTime)))
 			}
 
-			// Mark as executed with timestamp
-			ActionBuffer[idx].Status = "EXECUTED"
-			utils.LogContext(fmt.Sprintf("[cyan]Result:[-] Action %d execution time: %v", a.ID, time.Since(startTime)))
-		}(act, i)
+		default:
+			utils.LogContext("[yellow]GENERIC PROBE:[-] Testing endpoint...")
+			req, _ := http.NewRequest("GET", act.Target, nil)
+			resp, err := logic.SafeDo(req, false, "STRATEGY-GENERIC")
+			execErr = err
+			if resp != nil {
+				lastStatusCode = resp.StatusCode
+				resp.Body.Close()
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ PROBE COMPLETE:[-] %v", time.Since(startTime)))
+		}
+
+		summary := waitForExecutionSummary(act.Target, startTime, 2*time.Second)
+		if execErr != nil {
+			summary.Success = false
+			summary.Evidence = fmt.Sprintf("Execution error: %v", execErr)
+		} else if !summary.Success && lastStatusCode >= 500 {
+			summary.Evidence = fmt.Sprintf("Server error response observed (%d) but no exploitable finding was persisted.", lastStatusCode)
+		}
+
+		if summary.Success {
+			ActionBuffer[i].Status = "SUCCESS"
+			successCount++
+			utils.TacticalLog(fmt.Sprintf("[green]COMMIT RESULT:[-] Action #%d SUCCESS | %s", act.ID, summary.Evidence))
+		} else {
+			ActionBuffer[i].Status = "FAILED"
+			failedCount++
+			utils.TacticalLog(fmt.Sprintf("[red]COMMIT RESULT:[-] Action #%d FAILED | %s", act.ID, summary.Evidence))
+		}
+		persistActionBuffer()
+		utils.LogContext(fmt.Sprintf("[cyan]Result:[-] Action %d execution time: %v", act.ID, time.Since(startTime)))
 	}
 
 	if count == 0 {
 		utils.TacticalLog("[gray]No PENDING actions to commit.[-]")
-	} else {
-		utils.TacticalLog(fmt.Sprintf("[green]Strategic Batch Committed: %d actions fired.[-]", count))
-		utils.LogContext(fmt.Sprintf("[magenta]>>> BATCH COMMIT:[-] %d actions queued for execution.", count))
+		return
 	}
+
+	utils.TacticalLog(fmt.Sprintf("[green]Strategic Batch Committed:[-] %d actions executed. Success=%d Failed=%d", count, successCount, failedCount))
+	utils.LogContext(fmt.Sprintf("[magenta]>>> BATCH COMMIT COMPLETE:[-] Executed=%d | Success=%d | Failed=%d", count, successCount, failedCount))
+
+	// Auto-generate a next plan from post-commit telemetry.
+	nextPlan := ComprehensiveAnalysis()
+	if len(nextPlan) == 0 {
+		utils.TacticalLog("[yellow]NEXT PLAN:[-] No follow-up actions generated from latest telemetry.")
+		return
+	}
+
+	added := appendFollowUpPlan(nextPlan)
+	if added == 0 {
+		utils.TacticalLog("[yellow]NEXT PLAN:[-] Follow-up actions were already present in buffer.")
+		persistActionBuffer()
+		return
+	}
+	persistActionBuffer()
+	utils.TacticalLog(fmt.Sprintf("[magenta]NEXT PLAN:[-] Added %d follow-up actions to F5 (previous SUCCESS/FAILED kept visible).", added))
 }
 
 // === SPRINT 11.2: ProcessChain - Full Autonomy Execution ===
@@ -2399,6 +2757,21 @@ func shortToken(t string) string {
 		return t[:10]
 	}
 	return t
+}
+
+func confidenceColor(conf string) string {
+	switch strings.ToUpper(strings.TrimSpace(conf)) {
+	case "CRITICAL":
+		return "red::b"
+	case "HIGH":
+		return "red"
+	case "MEDIUM":
+		return "yellow"
+	case "LOW":
+		return "gray"
+	default:
+		return "white"
+	}
 }
 
 // GetAvailableCommands returns all available commands for autocomplete and help

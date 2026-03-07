@@ -27,6 +27,7 @@ var (
 	DB       *sql.DB
 	LogQueue = make(chan Finding, 500)
 	isClosed bool
+	workerOn bool
 	mu       sync.Mutex
 )
 
@@ -64,8 +65,30 @@ type ContextRow struct {
 	Timestamp time.Time
 }
 
+// TacticalActionRow persists the strategic plan buffer for list-plan durability.
+type TacticalActionRow struct {
+	ID           int
+	Type         string
+	Target       string
+	Payload      string
+	Confidence   string
+	Reasoning    string
+	Status       string
+	PreCondition string
+	ChainID      string
+	Loot         string
+	UpdatedAt    time.Time
+}
+
 // InitDB initializes the SQLite connection and enforces Schema compliance.
 func InitDB() {
+	mu.Lock()
+	if DB != nil && !isClosed {
+		mu.Unlock()
+		return
+	}
+	mu.Unlock()
+
 	var err error
 	DB, err = sql.Open("sqlite3", "./vaportrace.db")
 	if err != nil {
@@ -114,6 +137,20 @@ func InitDB() {
         success_count INTEGER DEFAULT 1,
         last_used DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(vuln_type, payload)
+    );
+    -- STRATEGIC PLAN PERSISTENCE
+    CREATE TABLE IF NOT EXISTS tactical_actions (
+        id INTEGER PRIMARY KEY,
+        action_type TEXT,
+        target TEXT,
+        payload TEXT,
+        confidence TEXT,
+        reasoning TEXT,
+        status TEXT,
+        pre_condition TEXT,
+        chain_id TEXT,
+        loot TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );`
 
 	_, err = DB.Exec(schema)
@@ -137,12 +174,23 @@ func InitDB() {
 	// 3. Initialize Mission State
 	DB.Exec("INSERT OR IGNORE INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
 
+	mu.Lock()
 	isClosed = false
-	go StartAsyncWorker()
+	if !workerOn {
+		workerOn = true
+		go StartAsyncWorker()
+	}
+	mu.Unlock()
 }
 
 // StartAsyncWorker processes background writes from the LogQueue.
 func StartAsyncWorker() {
+	defer func() {
+		mu.Lock()
+		workerOn = false
+		mu.Unlock()
+	}()
+
 	for f := range LogQueue {
 		mu.Lock()
 		closed := isClosed
@@ -182,6 +230,20 @@ func StartAsyncWorker() {
 	}
 }
 
+// DrainLogQueue removes pending findings that haven't been persisted yet.
+// This is useful when performing a hard reset to avoid stale findings being
+// written back after the DB has been purged.
+func DrainLogQueue() {
+	for {
+		select {
+		case <-LogQueue:
+			// keep draining
+		default:
+			return
+		}
+	}
+}
+
 // StoreContext persists aggregated intelligence.
 func StoreContext(row ContextRow) error {
 	if DB == nil {
@@ -214,11 +276,78 @@ func GetContext(scope string) ([]ContextRow, error) {
 	return results, nil
 }
 
+// SaveTacticalActions replaces current persisted strategic plan atomically.
+func SaveTacticalActions(actions []TacticalActionRow) error {
+	if DB == nil {
+		return fmt.Errorf("DB not initialized")
+	}
+
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec("DELETE FROM tactical_actions"); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	query := `INSERT INTO tactical_actions (
+		id, action_type, target, payload, confidence, reasoning, status, pre_condition, chain_id, loot, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	now := time.Now()
+	for _, a := range actions {
+		updated := a.UpdatedAt
+		if updated.IsZero() {
+			updated = now
+		}
+		if _, err := tx.Exec(query,
+			a.ID, a.Type, a.Target, a.Payload, a.Confidence, a.Reasoning, a.Status, a.PreCondition, a.ChainID, a.Loot, updated,
+		); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// LoadTacticalActions restores the last persisted strategic plan.
+func LoadTacticalActions() ([]TacticalActionRow, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("DB not initialized")
+	}
+
+	rows, err := DB.Query(`SELECT id, action_type, target, payload, confidence, reasoning, status, pre_condition, chain_id, loot, updated_at
+		FROM tactical_actions ORDER BY id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var actions []TacticalActionRow
+	for rows.Next() {
+		var a TacticalActionRow
+		if err := rows.Scan(
+			&a.ID, &a.Type, &a.Target, &a.Payload, &a.Confidence, &a.Reasoning, &a.Status, &a.PreCondition, &a.ChainID, &a.Loot, &a.UpdatedAt,
+		); err != nil {
+			continue
+		}
+		actions = append(actions, a)
+	}
+	return actions, nil
+}
+
 // ResetDB completely purges the database.
 func ResetDB() {
 	if DB == nil {
+		InitDB()
+	}
+	if DB == nil {
 		return
 	}
+	DrainLogQueue()
 	tx, _ := DB.Begin()
 	tx.Exec("DELETE FROM findings")
 	tx.Exec("DELETE FROM sqlite_sequence WHERE name='findings'")
@@ -227,8 +356,11 @@ func ResetDB() {
 	tx.Exec("DELETE FROM mission_state")
 	tx.Exec("DELETE FROM attack_patterns") // Tier 4
 	tx.Exec("DELETE FROM sqlite_sequence WHERE name='attack_patterns'")
+	tx.Exec("DELETE FROM tactical_actions")
 	tx.Exec("INSERT INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
 	tx.Commit()
+	DB.Exec("VACUUM")
+	DrainLogQueue()
 }
 
 func CloseDB() {
@@ -241,7 +373,7 @@ func CloseDB() {
 	mu.Unlock()
 
 	if DB != nil {
-		close(LogQueue)
 		DB.Close()
+		DB = nil
 	}
 }

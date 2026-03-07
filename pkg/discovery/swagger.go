@@ -17,7 +17,9 @@ package discovery
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -55,6 +57,10 @@ var (
 	swaggerFilenames = []string{
 		"/swagger.json",
 		"/openapi.json",
+		"/openapi.yaml",
+		"/openapi.yml",
+		"/swagger.yaml",
+		"/swagger.yml",
 		"/api-docs",
 		"/v2/api-docs", // Spring Boot default
 		"/v3/api-docs", // Spring Boot OpenApi 3
@@ -72,19 +78,8 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 		return endpoints, nil
 	}
 
-	// 2. Auto-Discovery Fallback (Combinatorial Heuristics)
-	baseURL := strings.TrimRight(url, "/")
-
-	// Remove common file extensions from input URL if present to get true root
-	if strings.HasSuffix(baseURL, ".json") || strings.HasSuffix(baseURL, ".yaml") {
-		lastSlash := strings.LastIndex(baseURL, "/")
-		if lastSlash != -1 {
-			baseURL = baseURL[:lastSlash]
-		}
-	}
-
-	// Generate Candidate List
-	candidates := generateCandidates(baseURL)
+	// 2. Auto-Discovery Fallback (Combinatorial Heuristics on inferred base roots)
+	candidates := generateCandidates(url)
 
 	utils.TacticalLog(fmt.Sprintf("[yellow]DISCOVER:[-] Direct parse failed. Engaging Heuristic Engine to probe %d potential locations...", len(candidates)))
 
@@ -104,8 +99,82 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 	return nil, fmt.Errorf("failed to locate valid Swagger/OpenAPI spec after probing %d paths", len(candidates))
 }
 
-// generateCandidates builds the list of URLs to probe
-func generateCandidates(base string) []string {
+func shouldTrimSwaggerLeaf(segment string) bool {
+	s := strings.ToLower(strings.TrimSpace(segment))
+	if s == "" {
+		return false
+	}
+
+	switch s {
+	case "index.html", "swagger-ui.html", "redoc.html", "docs", "doc", "swagger", "api-docs", "openapi":
+		return true
+	}
+
+	return strings.HasPrefix(s, "openapi.")
+}
+
+func normalizeBaseRoots(raw string) []string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		fallback := strings.TrimRight(strings.TrimSpace(raw), "/")
+		if fallback == "" {
+			return []string{}
+		}
+		return []string{fallback}
+	}
+
+	origin := parsed.Scheme + "://" + parsed.Host
+	roots := []string{origin}
+
+	path := strings.Trim(parsed.Path, "/")
+	if path == "" {
+		return roots
+	}
+
+	segments := strings.Split(path, "/")
+
+	if len(segments) > 0 && shouldTrimSwaggerLeaf(segments[len(segments)-1]) {
+		segments = segments[:len(segments)-1]
+	}
+
+	if len(segments) == 0 {
+		return roots
+	}
+
+	// Add progressively broader path roots, starting from the deepest.
+	for i := len(segments); i >= 1; i-- {
+		roots = append(roots, origin+"/"+strings.Join(segments[:i], "/"))
+	}
+
+	// If common docs markers are present, also include up-to-marker root.
+	for i, segment := range segments {
+		low := strings.ToLower(segment)
+		if low == "swagger" || low == "docs" || low == "doc" || low == "api-docs" || low == "openapi" {
+			if i == 0 {
+				roots = append(roots, origin)
+			} else {
+				roots = append(roots, origin+"/"+strings.Join(segments[:i], "/"))
+			}
+		}
+	}
+
+	seen := make(map[string]bool)
+	out := make([]string, 0, len(roots))
+	for _, root := range roots {
+		root = strings.TrimRight(root, "/")
+		if root == "" || seen[root] {
+			continue
+		}
+		seen[root] = true
+		out = append(out, root)
+	}
+
+	return out
+}
+
+// generateCandidates builds the list of URLs to probe.
+// It treats the input as a base URL and also infers parent roots for doc/UI paths.
+func generateCandidates(raw string) []string {
 	uniqueMap := make(map[string]bool)
 	var candidates []string
 
@@ -117,31 +186,47 @@ func generateCandidates(base string) []string {
 		}
 	}
 
-	// Logic 1: Standard Static Paths (High Probability)
-	add(base + "/swagger.json")
-	add(base + "/openapi.json")
-	add(base + "/api/swagger.json")
-	add(base + "/v2/api-docs")
+	roots := normalizeBaseRoots(raw)
+	for _, base := range roots {
+		// Priority 1: Highest-probability OpenAPI locations across common frameworks.
+		priority := []string{
+			"/openapi.json",
+			"/swagger.json",
+			"/openapi.yaml",
+			"/openapi.yml",
+			"/swagger.yaml",
+			"/swagger.yml",
+			"/v3/api-docs",
+			"/v2/api-docs",
+			"/api-docs",
+			"/api/openapi.json",
+			"/api/swagger.json",
+			"/docs/openapi.json",
+			"/docs/swagger.json",
+			"/swagger/openapi.json",
+			"/swagger/swagger.json",
+			"/openapi/v1.json",
+			"/q/openapi", // Quarkus
+		}
+		for _, suffix := range priority {
+			add(base + suffix)
+		}
 
-	// Logic 2: Combinatorial Generation
-	// Structure: Base + Prefix + Version + Filename
-	// Example: http://site.com + /api + /v1 + /swagger.json
-
-	for _, prefix := range swaggerPrefixes {
-		for _, version := range swaggerVersions {
-			for _, file := range swaggerFilenames {
-				// Avoid double slashes logic if strings are empty
-				path := base
-
-				if prefix != "" {
-					path += prefix
+		// Priority 2: Combinatorial generation for edge deployments.
+		// Structure: Base + Prefix + Version + Filename.
+		for _, prefix := range swaggerPrefixes {
+			for _, version := range swaggerVersions {
+				for _, file := range swaggerFilenames {
+					path := base
+					if prefix != "" {
+						path += prefix
+					}
+					if version != "" {
+						path += version
+					}
+					path += file
+					add(path)
 				}
-				if version != "" {
-					path += version
-				}
-				path += file
-
-				add(path)
 			}
 		}
 	}
@@ -175,11 +260,50 @@ func fetchAndParse(url string) ([]string, error) {
 		return nil, fmt.Errorf("status %d", resp.StatusCode)
 	}
 
-	// Use generic map to support Swagger 2.0 and OpenAPI 3.0+
-	var doc map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
 		return nil, err
 	}
+
+	// 1) JSON Swagger/OpenAPI
+	var doc map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &doc); err == nil {
+		return extractEndpointsFromDocument(url, doc)
+	}
+
+	// 2) YAML OpenAPI (best-effort parser for paths block)
+	yamlEndpoints := extractYAMLPaths(string(bodyBytes))
+	if len(yamlEndpoints) > 0 {
+		for _, fullPath := range yamlEndpoints {
+			if _, exists := swaggerCache.Load(fullPath); !exists {
+				swaggerCache.Store(fullPath, true)
+				logic.GlobalDiscovery.AddEndpoint(fullPath)
+				utils.LogMap(fullPath, "OpenAPI YAML", "200")
+			}
+		}
+		utils.RecordFinding(db.Finding{
+			Phase:   "PHASE II: DISCOVERY",
+			Command: "map",
+			Target:  url,
+			Details: "OpenAPI YAML Documentation Found",
+			Status:  "INFO",
+		})
+		return yamlEndpoints, nil
+	}
+
+	// 3) Swagger UI / ReDoc HTML pages that reference JSON spec URLs
+	specRefs := extractSpecRefs(url, string(bodyBytes))
+	for _, ref := range specRefs {
+		eps, refErr := fetchAndParse(ref)
+		if refErr == nil && len(eps) > 0 {
+			return eps, nil
+		}
+	}
+
+	return nil, fmt.Errorf("response is not parseable as JSON/YAML OpenAPI doc")
+}
+
+func extractEndpointsFromDocument(sourceURL string, doc map[string]interface{}) ([]string, error) {
 
 	// Validation: Ensure it's actually a Swagger doc
 	isSwagger := false
@@ -226,7 +350,7 @@ func fetchAndParse(url string) ([]string, error) {
 	utils.RecordFinding(db.Finding{
 		Phase:   "PHASE II: DISCOVERY",
 		Command: "map",
-		Target:  url,
+		Target:  sourceURL,
 		Details: "Swagger/OpenAPI Documentation Found",
 		Status:  "INFO",
 	})
@@ -255,6 +379,81 @@ func fetchAndParse(url string) ([]string, error) {
 	}
 
 	return endpoints, nil
+}
+
+func extractYAMLPaths(body string) []string {
+	lines := strings.Split(body, "\n")
+	pathsIndent := -1
+	inPaths := false
+	var endpoints []string
+
+	for _, raw := range lines {
+		line := strings.TrimRight(raw, " \t\r")
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+
+		if !inPaths {
+			if trimmed == "paths:" {
+				inPaths = true
+				pathsIndent = indent
+			}
+			continue
+		}
+
+		if indent <= pathsIndent {
+			break
+		}
+
+		if strings.HasPrefix(strings.TrimSpace(line), "/") && strings.HasSuffix(trimmed, ":") {
+			pathKey := strings.TrimSuffix(strings.TrimSpace(line), ":")
+			endpoints = append(endpoints, pathKey)
+		}
+	}
+
+	return endpoints
+}
+
+func extractSpecRefs(baseURL, body string) []string {
+	refRegexes := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)url\s*:\s*["']([^"']*(openapi|swagger|api-docs)[^"']*)["']`),
+		regexp.MustCompile(`(?i)["']([^"']*(openapi|swagger|api-docs)[^"']*)["']`),
+	}
+
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var refs []string
+	for _, re := range refRegexes {
+		matches := re.FindAllStringSubmatch(body, -1)
+		for _, m := range matches {
+			if len(m) < 2 {
+				continue
+			}
+			raw := strings.TrimSpace(m[1])
+			if raw == "" || strings.HasPrefix(raw, "javascript:") {
+				continue
+			}
+			u, err := url.Parse(raw)
+			if err != nil {
+				continue
+			}
+			resolved := base.ResolveReference(u).String()
+			if seen[resolved] {
+				continue
+			}
+			seen[resolved] = true
+			refs = append(refs, resolved)
+		}
+	}
+
+	return refs
 }
 
 func WalkVersions(endpoints []string) []string {
