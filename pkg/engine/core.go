@@ -1617,6 +1617,39 @@ func waitForExecutionSummary(target string, since time.Time, timeout time.Durati
 	}
 }
 
+func actionExists(actions []TacticalAction, candidate TacticalAction) bool {
+	for _, act := range actions {
+		if strings.EqualFold(act.Type, candidate.Type) &&
+			act.Target == candidate.Target &&
+			act.Payload == candidate.Payload {
+			return true
+		}
+	}
+	return false
+}
+
+func appendFollowUpPlan(nextPlan []TacticalAction) int {
+	maxID := 0
+	for _, act := range ActionBuffer {
+		if act.ID > maxID {
+			maxID = act.ID
+		}
+	}
+
+	added := 0
+	for _, next := range nextPlan {
+		if actionExists(ActionBuffer, next) {
+			continue
+		}
+		maxID++
+		next.ID = maxID
+		next.Status = "PENDING"
+		ActionBuffer = append(ActionBuffer, next)
+		added++
+	}
+	return added
+}
+
 // ExecuteStrategicPlan runs the approved actions from the buffer
 // === SPRINT 11.4: ENHANCED WITH REAL-TIME STATUS UPDATES ===
 func ExecuteStrategicPlan() {
@@ -1782,8 +1815,12 @@ func ExecuteStrategicPlan() {
 		return
 	}
 
-	ActionBuffer = nextPlan
-	utils.TacticalLog(fmt.Sprintf("[magenta]NEXT PLAN:[-] Generated %d follow-up actions. Review in F5 or run 'list-plan'.", len(nextPlan)))
+	added := appendFollowUpPlan(nextPlan)
+	if added == 0 {
+		utils.TacticalLog("[yellow]NEXT PLAN:[-] Follow-up actions were already present in buffer.")
+		return
+	}
+	utils.TacticalLog(fmt.Sprintf("[magenta]NEXT PLAN:[-] Added %d follow-up actions to F5 (previous SUCCESS/FAILED kept visible).", added))
 }
 
 // === SPRINT 11.2: ProcessChain - Full Autonomy Execution ===
