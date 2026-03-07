@@ -390,7 +390,6 @@ func (s *Shell) handleCommand(command string, args []string) {
 
 		pterm.Print(pterm.LightGreen("  ● "))
 		pterm.Print("Spawning asynchronous log worker pool... ")
-		go db.StartAsyncWorker()
 		time.Sleep(800 * time.Millisecond)
 		pterm.Success.Println("Active")
 
@@ -415,6 +414,7 @@ func (s *Shell) handleCommand(command string, args []string) {
 			pterm.Print("\n  × ")
 			pterm.Print("Resetting DATABASE ID and Gen Time... ")
 			db.ResetDB()
+			logic.ResetRuntimeState()
 			time.Sleep(800 * time.Millisecond)
 			pterm.Success.Println("Done")
 			fmt.Println()

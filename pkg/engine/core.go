@@ -712,6 +712,8 @@ func ExecuteCommand(rawCmd string) {
 
 	case "reset_db":
 		db.ResetDB()
+		logic.ResetRuntimeState()
+		ActionBuffer = []TacticalAction{}
 		utils.TacticalLog("[yellow]Database Purged (Reset).[-]")
 
 	case "report":

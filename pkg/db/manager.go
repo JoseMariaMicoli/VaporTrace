@@ -182,6 +182,20 @@ func StartAsyncWorker() {
 	}
 }
 
+// DrainLogQueue removes pending findings that haven't been persisted yet.
+// This is useful when performing a hard reset to avoid stale findings being
+// written back after the DB has been purged.
+func DrainLogQueue() {
+	for {
+		select {
+		case <-LogQueue:
+			// keep draining
+		default:
+			return
+		}
+	}
+}
+
 // StoreContext persists aggregated intelligence.
 func StoreContext(row ContextRow) error {
 	if DB == nil {
@@ -219,6 +233,7 @@ func ResetDB() {
 	if DB == nil {
 		return
 	}
+	DrainLogQueue()
 	tx, _ := DB.Begin()
 	tx.Exec("DELETE FROM findings")
 	tx.Exec("DELETE FROM sqlite_sequence WHERE name='findings'")
@@ -229,6 +244,7 @@ func ResetDB() {
 	tx.Exec("DELETE FROM sqlite_sequence WHERE name='attack_patterns'")
 	tx.Exec("INSERT INTO mission_state (key, value) VALUES ('start_time', ?)", time.Now().Format("2006-01-02 15:04:05"))
 	tx.Commit()
+	DrainLogQueue()
 }
 
 func CloseDB() {
