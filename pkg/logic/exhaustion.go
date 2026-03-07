@@ -32,6 +32,13 @@ type ExhaustionContext struct {
 
 var testLimits = []string{"100", "1000", "10000", "50000", "1000000"}
 
+func estimateResponseSize(resp *http.Response, body []byte) int64 {
+	if resp != nil && resp.ContentLength > 0 {
+		return resp.ContentLength
+	}
+	return int64(len(body))
+}
+
 func (e *ExhaustionContext) FuzzPagination() {
 	// FIXED: Now measures actual resource consumption (response size, latency, server behavior)
 	utils.TacticalLog("[cyan]API4: Resource Exhaustion - Pagination Fuzzer Started[-]")
@@ -40,10 +47,13 @@ func (e *ExhaustionContext) FuzzPagination() {
 	var baselineLatency time.Duration = 0
 	exhaustionDetected := false
 	exhaustionPattern := ""
+	tested := 0
+	failures := 0
 
 	for idx, val := range testLimits {
 		u, err := url.Parse(e.TargetURL)
 		if err != nil {
+			utils.TacticalLog(fmt.Sprintf("[red]EXHAUSTION ERROR:[-] invalid target URL: %v", err))
 			return
 		}
 
@@ -61,19 +71,24 @@ func (e *ExhaustionContext) FuzzPagination() {
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", CurrentSession.AttackerToken))
 		}
 
-		resp, err := GlobalClient.Do(req)
+		resp, err := SafeDo(req, false, "EXHAUSTION")
 		duration := time.Since(start)
+		tested++
 
 		if err != nil {
+			failures++
 			utils.TacticalLog(fmt.Sprintf("[yellow]Request error at %s=%s: %v (possible exhaustion)", e.ParamName, val, err))
-			exhaustionPattern = fmt.Sprintf("Connection failure at %s", val)
-			exhaustionDetected = true
-			break
+			if failures >= 2 {
+				exhaustionPattern = fmt.Sprintf("Repeated connection failures from %s=%s onward", e.ParamName, val)
+				exhaustionDetected = true
+				break
+			}
+			continue
 		}
 
 		// FIXED: Measure actual response body size
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		respSize := int64(len(bodyBytes))
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+		respSize := estimateResponseSize(resp, bodyBytes)
 		resp.Body.Close()
 
 		utils.TacticalLog(fmt.Sprintf("[cyan]Response: %d bytes in %dms (Status: %d)", respSize, duration.Milliseconds(), resp.StatusCode))
@@ -86,11 +101,18 @@ func (e *ExhaustionContext) FuzzPagination() {
 		}
 
 		// FIXED: Detect exhaustion patterns
-		latencyGrowth := float64(duration) / float64(baselineLatency)
-		sizeGrowth := float64(respSize) / float64(prevSize)
+		latencyGrowth := 1.0
+		if baselineLatency > 0 {
+			latencyGrowth = float64(duration) / float64(baselineLatency)
+		}
+
+		sizeGrowth := 1.0
+		if prevSize > 0 {
+			sizeGrowth = float64(respSize) / float64(prevSize)
+		}
 
 		// Pattern 1: Exponential latency increase (server struggling)
-		if latencyGrowth > 5.0 {
+		if latencyGrowth > 5.0 && duration > 1500*time.Millisecond {
 			exhaustionDetected = true
 			exhaustionPattern = fmt.Sprintf("Exponential latency spike: %.1fx slowdown at %s=%s", latencyGrowth, e.ParamName, val)
 			utils.TacticalLog(fmt.Sprintf("[red]EXHAUSTION DETECTED:[-] %s", exhaustionPattern))
@@ -126,8 +148,9 @@ func (e *ExhaustionContext) FuzzPagination() {
 			Status:  "VULNERABLE",
 		})
 		utils.TacticalLog("[green]✔ Finding recorded[-]")
+		utils.TacticalLog(fmt.Sprintf("[green]EXHAUST COMPLETE:[-] tested=%d failures=%d result=VULNERABLE", tested, failures))
 	} else {
-		utils.TacticalLog("[yellow]No exhaustion patterns detected[-]")
+		utils.TacticalLog(fmt.Sprintf("[yellow]EXHAUST COMPLETE:[-] tested=%d failures=%d result=NO-EVIDENCE", tested, failures))
 	}
 
 	utils.TacticalLog(fmt.Sprintf("[green]✔[-] Exhaustion probe complete on %s", e.ParamName))
