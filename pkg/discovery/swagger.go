@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -72,19 +73,8 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 		return endpoints, nil
 	}
 
-	// 2. Auto-Discovery Fallback (Combinatorial Heuristics)
-	baseURL := strings.TrimRight(url, "/")
-
-	// Remove common file extensions from input URL if present to get true root
-	if strings.HasSuffix(baseURL, ".json") || strings.HasSuffix(baseURL, ".yaml") {
-		lastSlash := strings.LastIndex(baseURL, "/")
-		if lastSlash != -1 {
-			baseURL = baseURL[:lastSlash]
-		}
-	}
-
-	// Generate Candidate List
-	candidates := generateCandidates(baseURL)
+	// 2. Auto-Discovery Fallback (Combinatorial Heuristics on inferred base roots)
+	candidates := generateCandidates(url)
 
 	utils.TacticalLog(fmt.Sprintf("[yellow]DISCOVER:[-] Direct parse failed. Engaging Heuristic Engine to probe %d potential locations...", len(candidates)))
 
@@ -104,8 +94,82 @@ func ParseSwagger(url string, proxy string) ([]string, error) {
 	return nil, fmt.Errorf("failed to locate valid Swagger/OpenAPI spec after probing %d paths", len(candidates))
 }
 
-// generateCandidates builds the list of URLs to probe
-func generateCandidates(base string) []string {
+func shouldTrimSwaggerLeaf(segment string) bool {
+	s := strings.ToLower(strings.TrimSpace(segment))
+	if s == "" {
+		return false
+	}
+
+	switch s {
+	case "index.html", "swagger-ui.html", "redoc.html", "docs", "doc", "swagger", "api-docs", "openapi":
+		return true
+	}
+
+	return strings.HasPrefix(s, "openapi.")
+}
+
+func normalizeBaseRoots(raw string) []string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		fallback := strings.TrimRight(strings.TrimSpace(raw), "/")
+		if fallback == "" {
+			return []string{}
+		}
+		return []string{fallback}
+	}
+
+	origin := parsed.Scheme + "://" + parsed.Host
+	roots := []string{origin}
+
+	path := strings.Trim(parsed.Path, "/")
+	if path == "" {
+		return roots
+	}
+
+	segments := strings.Split(path, "/")
+
+	if len(segments) > 0 && shouldTrimSwaggerLeaf(segments[len(segments)-1]) {
+		segments = segments[:len(segments)-1]
+	}
+
+	if len(segments) == 0 {
+		return roots
+	}
+
+	// Add progressively broader path roots, starting from the deepest.
+	for i := len(segments); i >= 1; i-- {
+		roots = append(roots, origin+"/"+strings.Join(segments[:i], "/"))
+	}
+
+	// If common docs markers are present, also include up-to-marker root.
+	for i, segment := range segments {
+		low := strings.ToLower(segment)
+		if low == "swagger" || low == "docs" || low == "doc" || low == "api-docs" || low == "openapi" {
+			if i == 0 {
+				roots = append(roots, origin)
+			} else {
+				roots = append(roots, origin+"/"+strings.Join(segments[:i], "/"))
+			}
+		}
+	}
+
+	seen := make(map[string]bool)
+	out := make([]string, 0, len(roots))
+	for _, root := range roots {
+		root = strings.TrimRight(root, "/")
+		if root == "" || seen[root] {
+			continue
+		}
+		seen[root] = true
+		out = append(out, root)
+	}
+
+	return out
+}
+
+// generateCandidates builds the list of URLs to probe.
+// It treats the input as a base URL and also infers parent roots for doc/UI paths.
+func generateCandidates(raw string) []string {
 	uniqueMap := make(map[string]bool)
 	var candidates []string
 
@@ -117,31 +181,43 @@ func generateCandidates(base string) []string {
 		}
 	}
 
-	// Logic 1: Standard Static Paths (High Probability)
-	add(base + "/swagger.json")
-	add(base + "/openapi.json")
-	add(base + "/api/swagger.json")
-	add(base + "/v2/api-docs")
+	roots := normalizeBaseRoots(raw)
+	for _, base := range roots {
+		// Priority 1: Highest-probability OpenAPI locations across common frameworks.
+		priority := []string{
+			"/openapi.json",
+			"/swagger.json",
+			"/v3/api-docs",
+			"/v2/api-docs",
+			"/api-docs",
+			"/api/openapi.json",
+			"/api/swagger.json",
+			"/docs/openapi.json",
+			"/docs/swagger.json",
+			"/swagger/openapi.json",
+			"/swagger/swagger.json",
+			"/openapi/v1.json",
+			"/q/openapi", // Quarkus
+		}
+		for _, suffix := range priority {
+			add(base + suffix)
+		}
 
-	// Logic 2: Combinatorial Generation
-	// Structure: Base + Prefix + Version + Filename
-	// Example: http://site.com + /api + /v1 + /swagger.json
-
-	for _, prefix := range swaggerPrefixes {
-		for _, version := range swaggerVersions {
-			for _, file := range swaggerFilenames {
-				// Avoid double slashes logic if strings are empty
-				path := base
-
-				if prefix != "" {
-					path += prefix
+		// Priority 2: Combinatorial generation for edge deployments.
+		// Structure: Base + Prefix + Version + Filename.
+		for _, prefix := range swaggerPrefixes {
+			for _, version := range swaggerVersions {
+				for _, file := range swaggerFilenames {
+					path := base
+					if prefix != "" {
+						path += prefix
+					}
+					if version != "" {
+						path += version
+					}
+					path += file
+					add(path)
 				}
-				if version != "" {
-					path += version
-				}
-				path += file
-
-				add(path)
 			}
 		}
 	}

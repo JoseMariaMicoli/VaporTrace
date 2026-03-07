@@ -349,6 +349,32 @@ func ExecuteCommand(rawCmd string) {
 			logic.RunPipeline(logic.CurrentSession.Threads)
 		}()
 
+	case "analyze":
+		utils.TacticalLog("[magenta]ANALYZE:[-] Building strategic plan from discovery, findings, loot, and traffic telemetry...")
+		go func() {
+			actions := ComprehensiveAnalysis()
+			ActionBuffer = actions
+			if len(actions) == 0 {
+				utils.TacticalLog("[yellow]ANALYZE:[-] No actions generated. Run 'swagger'/'map' and exploitation modules first.")
+				return
+			}
+			utils.TacticalLog(fmt.Sprintf("[green]ANALYZE:[-] Plan ready. %d actions loaded into F5 Strategic Action Buffer.", len(actions)))
+		}()
+
+	case "list-plan":
+		if len(ActionBuffer) == 0 {
+			utils.TacticalLog("[yellow]PLAN:[-] Action buffer is empty. Run 'analyze' first.")
+			return
+		}
+		utils.TacticalLog(fmt.Sprintf("[cyan]PLAN:[-] %d buffered actions:", len(ActionBuffer)))
+		for _, act := range ActionBuffer {
+			utils.TacticalLog(fmt.Sprintf("[white]#%d[-] [%s]%s[-] %s | %s | %s", act.ID, confidenceColor(act.Confidence), act.Confidence, act.Type, act.Status, act.Target))
+		}
+
+	case "commit":
+		utils.TacticalLog("[magenta]COMMIT:[-] Executing pending actions from strategic buffer...")
+		go ExecuteStrategicPlan()
+
 	// --- LOGIC PROBES ---
 	case "bola":
 		target := getTarget(args)
@@ -2399,6 +2425,21 @@ func shortToken(t string) string {
 		return t[:10]
 	}
 	return t
+}
+
+func confidenceColor(conf string) string {
+	switch strings.ToUpper(strings.TrimSpace(conf)) {
+	case "CRITICAL":
+		return "red::b"
+	case "HIGH":
+		return "red"
+	case "MEDIUM":
+		return "yellow"
+	case "LOW":
+		return "gray"
+	default:
+		return "white"
+	}
 }
 
 // GetAvailableCommands returns all available commands for autocomplete and help

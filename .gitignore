@@ -33,3 +33,5 @@ codebase_vaportrace.txt
 .obsidian/
 __pycache__/
 *.log
+
+.gomodcache/
