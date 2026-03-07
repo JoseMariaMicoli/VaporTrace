@@ -17,6 +17,7 @@ package engine
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -1518,107 +1519,269 @@ func ComprehensiveAnalysis() []TacticalAction {
 	return actions
 }
 
+type executionSummary struct {
+	Success  bool
+	Evidence string
+}
+
+func isExploitStatus(status string) bool {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "VULNERABLE", "CRITICAL", "EXPLOITED", "VERIFIED", "POTENTIAL CALLBACK":
+		return true
+	default:
+		return false
+	}
+}
+
+func targetMatchesEvidence(target string, findingTarget string) bool {
+	if target == "" || findingTarget == "" {
+		return false
+	}
+
+	needle := strings.ToLower(strings.TrimSpace(target))
+	hay := strings.ToLower(strings.TrimSpace(findingTarget))
+	if strings.Contains(hay, needle) || strings.Contains(needle, hay) {
+		return true
+	}
+
+	if parsed, err := url.Parse(target); err == nil {
+		candidates := []string{
+			strings.ToLower(parsed.Scheme + "://" + parsed.Host + parsed.Path),
+			strings.ToLower(parsed.Path),
+			strings.ToLower(parsed.Host),
+		}
+		for _, c := range candidates {
+			if c == "" {
+				continue
+			}
+			if strings.Contains(hay, c) || strings.Contains(c, hay) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func pullExploitEvidence(target string, since time.Time) []string {
+	if db.DB == nil {
+		return nil
+	}
+
+	rows, err := db.DB.Query(
+		`SELECT status, details, target FROM findings WHERE datetime(timestamp) >= datetime(?) ORDER BY id DESC LIMIT 200`,
+		since.Format("2006-01-02 15:04:05"),
+	)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var evidence []string
+	for rows.Next() {
+		var status, details, findingTarget string
+		if err := rows.Scan(&status, &details, &findingTarget); err != nil {
+			continue
+		}
+		if !isExploitStatus(status) || !targetMatchesEvidence(target, findingTarget) {
+			continue
+		}
+		evidence = append(evidence, fmt.Sprintf("%s | %s", status, details))
+		if len(evidence) >= 3 {
+			break
+		}
+	}
+
+	return evidence
+}
+
+func waitForExecutionSummary(target string, since time.Time, timeout time.Duration) executionSummary {
+	deadline := time.Now().Add(timeout)
+	for {
+		evidence := pullExploitEvidence(target, since)
+		if len(evidence) > 0 {
+			return executionSummary{
+				Success:  true,
+				Evidence: evidence[0],
+			}
+		}
+		if time.Now().After(deadline) {
+			return executionSummary{
+				Success:  false,
+				Evidence: "No exploit evidence recorded in findings.",
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
 // ExecuteStrategicPlan runs the approved actions from the buffer
 // === SPRINT 11.4: ENHANCED WITH REAL-TIME STATUS UPDATES ===
 func ExecuteStrategicPlan() {
 	count := 0
+	successCount := 0
+	failedCount := 0
+
 	for i, act := range ActionBuffer {
 		if act.Status != "PENDING" {
+			continue
+		}
+
+		if strings.HasPrefix(strings.ToUpper(act.Type), "HINT") {
+			ActionBuffer[i].Status = "DROPPED"
+			utils.TacticalLog(fmt.Sprintf("[yellow]COMMIT:[-] Skipping non-executable planner hint action #%d.", act.ID))
 			continue
 		}
 
 		utils.TacticalLog(fmt.Sprintf("[magenta]EXEC STRATEGY #%d:[-] %s on %s", act.ID, act.Type, act.Target))
 		utils.LogContext(fmt.Sprintf("[blue]>>> FIRING:[-] %s with payload: %s", act.Type, act.Payload))
 
-		ActionBuffer[i].Status = "EXECUTED"
+		ActionBuffer[i].Status = "RUNNING"
 		count++
 
-		// Fire Async to not block the loop
-		go func(a TacticalAction, idx int) {
-			time.Sleep(300 * time.Millisecond) // Stagger for rate limiting
+		time.Sleep(300 * time.Millisecond) // Stagger for rate limiting
+		startTime := time.Now()
+		lastStatusCode := 0
+		var execErr error
 
-			// === SPRINT 11.4: UPDATE F5 TABLE WITH STATUS ===
-			startTime := time.Now()
+		switch act.Type {
+		case "BOLA":
+			utils.LogContext("[yellow]BOLA PROBE:[-] Testing ID-based authorization bypass...")
+			parts := strings.Split(act.Payload, ":")
+			victim := "1"
+			if len(parts) > 1 {
+				victim = strings.TrimSpace(parts[1])
+			}
+			ctx := &logic.BOLAContext{BaseURL: act.Target, VictimID: victim}
+			ctx.ProbeSilent()
+			utils.LogContext(fmt.Sprintf("[green]✓ BOLA COMPLETE:[-] %v", time.Since(startTime)))
 
-			switch a.Type {
-			case "BOLA":
-				utils.LogContext("[yellow]BOLA PROBE:[-] Testing ID-based authorization bypass...")
-				// Payload format "ID: <val>"
-				parts := strings.Split(a.Payload, ":")
-				victim := "1"
-				if len(parts) > 1 {
-					victim = strings.TrimSpace(parts[1])
+		case "BFLA":
+			utils.LogContext("[yellow]BFLA PROBE:[-] Testing method tampering...")
+			req, _ := http.NewRequest("DELETE", act.Target, nil)
+			resp, err := logic.SafeDo(req, false, "STRATEGY-BFLA")
+			execErr = err
+			if resp != nil {
+				lastStatusCode = resp.StatusCode
+				resp.Body.Close()
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					utils.RecordFinding(db.Finding{
+						Phase:   "PHASE III: AUTH LOGIC",
+						Command: "commit",
+						Target:  act.Target,
+						Details: fmt.Sprintf("BFLA DELETE accepted (%d). Potential authorization bypass.", resp.StatusCode),
+						Status:  "VULNERABLE",
+					})
 				}
-				ctx := &logic.BOLAContext{BaseURL: a.Target, VictimID: victim}
-				ctx.ProbeSilent()
-				utils.LogContext(fmt.Sprintf("[green]✓ BOLA COMPLETE:[-] %v", time.Since(startTime)))
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ BFLA COMPLETE:[-] %v", time.Since(startTime)))
 
-			case "BFLA":
-				utils.LogContext("[yellow]BFLA PROBE:[-] Testing method tampering...")
-				req, _ := http.NewRequest("DELETE", a.Target, nil)
-				logic.SafeDo(req, false, "STRATEGY-BFLA")
-				utils.LogContext(fmt.Sprintf("[green]✓ BFLA COMPLETE:[-] %v", time.Since(startTime)))
+		case "SSRF":
+			utils.LogContext("[yellow]SSRF PROBE:[-] Attempting internal endpoint access...")
+			ctx := &logic.SSRFContext{TargetURL: act.Target, ParamName: "url", Callback: "127.0.0.1"}
+			ctx.Probe()
+			utils.LogContext(fmt.Sprintf("[green]✓ SSRF COMPLETE:[-] %v", time.Since(startTime)))
 
-			case "SSRF":
-				utils.LogContext("[yellow]SSRF PROBE:[-] Attempting internal endpoint access...")
-				ctx := &logic.SSRFContext{TargetURL: a.Target, ParamName: "url", Callback: "127.0.0.1"}
-				ctx.Probe()
-				utils.LogContext(fmt.Sprintf("[green]✓ SSRF COMPLETE:[-] %v", time.Since(startTime)))
+		case "CLOUD_PIVOT":
+			utils.LogContext("[yellow]CLOUD PIVOT:[-] Attempting AWS metadata extraction...")
+			req, _ := http.NewRequest("GET", "http://169.254.169.254/latest/meta-data/", nil)
+			resp, err := logic.SafeDo(req, false, "STRATEGY-CLOUD")
+			execErr = err
+			if resp != nil {
+				lastStatusCode = resp.StatusCode
+				resp.Body.Close()
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					utils.RecordFinding(db.Finding{
+						Phase:   "PHASE IV: INJECTION",
+						Command: "commit",
+						Target:  act.Target,
+						Details: fmt.Sprintf("Cloud metadata endpoint reachable (%d). Pivot exposure possible.", resp.StatusCode),
+						Status:  "CRITICAL",
+					})
+				}
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ CLOUD PIVOT COMPLETE:[-] %v", time.Since(startTime)))
 
-			case "CLOUD_PIVOT":
-				utils.LogContext("[yellow]CLOUD PIVOT:[-] Attempting AWS metadata extraction...")
-				req, _ := http.NewRequest("GET", "http://169.254.169.254/latest/meta-data/", nil)
-				logic.SafeDo(req, false, "STRATEGY-CLOUD")
-				utils.LogContext(fmt.Sprintf("[green]✓ CLOUD PIVOT COMPLETE:[-] %v", time.Since(startTime)))
+		case "LATERAL_MOVEMENT":
+			utils.LogContext("[yellow]LATERAL MOVEMENT:[-] Pivoting to internal endpoint...")
+			req, _ := http.NewRequest("GET", act.Target, nil)
+			resp, err := logic.SafeDo(req, false, "STRATEGY-LATERAL")
+			execErr = err
+			if resp != nil {
+				lastStatusCode = resp.StatusCode
+				resp.Body.Close()
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ LATERAL COMPLETE:[-] %v", time.Since(startTime)))
 
-			case "LATERAL_MOVEMENT":
-				utils.LogContext("[yellow]LATERAL MOVEMENT:[-] Pivoting to internal endpoint...")
-				req, _ := http.NewRequest("GET", a.Target, nil)
-				logic.SafeDo(req, false, "STRATEGY-LATERAL")
-				utils.LogContext(fmt.Sprintf("[green]✓ LATERAL COMPLETE:[-] %v", time.Since(startTime)))
-
-			case "INTRUDER":
-				utils.LogContext("[yellow]AI INTRUDER:[-] AI-recommended single-position fuzzing attack...")
-				// Payload format "param:category"
-				parts := strings.Split(a.Payload, ":")
-				if len(parts) == 2 {
-					param := parts[0]
-					category := parts[1]
-					// Get embedded payloads for this category
-					payloads := attack.GetInternalWordlist(category)
-					if len(payloads) > 0 {
-						config := attack.IntruderConfig{
-							TargetURL:   a.Target,
-							Param:       param,
-							PayloadList: payloads,
-							Concurrency: 3,
-							Mode:        attack.Sniper,
-						}
-						attack.RunSniper(config)
-						utils.LogContext(fmt.Sprintf("[green]✓ AI INTRUDER COMPLETE:[-] %s fuzzing on '%s' executed. %v", category, param, time.Since(startTime)))
+		case "INTRUDER":
+			utils.LogContext("[yellow]AI INTRUDER:[-] AI-recommended single-position fuzzing attack...")
+			parts := strings.Split(act.Payload, ":")
+			if len(parts) == 2 {
+				param := parts[0]
+				category := parts[1]
+				payloads := attack.GetInternalWordlist(category)
+				if len(payloads) > 0 {
+					config := attack.IntruderConfig{
+						TargetURL:   act.Target,
+						Param:       param,
+						PayloadList: payloads,
+						Concurrency: 3,
+						Mode:        attack.Sniper,
 					}
+					attack.RunSniper(config)
+					utils.LogContext(fmt.Sprintf("[green]✓ AI INTRUDER COMPLETE:[-] %s fuzzing on '%s' executed. %v", category, param, time.Since(startTime)))
 				}
-
-			default:
-				utils.LogContext("[yellow]GENERIC PROBE:[-] Testing endpoint...")
-				// Generic
-				req, _ := http.NewRequest("GET", a.Target, nil)
-				logic.SafeDo(req, false, "STRATEGY-GENERIC")
-				utils.LogContext(fmt.Sprintf("[green]✓ PROBE COMPLETE:[-] %v", time.Since(startTime)))
 			}
 
-			// Mark as executed with timestamp
-			ActionBuffer[idx].Status = "EXECUTED"
-			utils.LogContext(fmt.Sprintf("[cyan]Result:[-] Action %d execution time: %v", a.ID, time.Since(startTime)))
-		}(act, i)
+		default:
+			utils.LogContext("[yellow]GENERIC PROBE:[-] Testing endpoint...")
+			req, _ := http.NewRequest("GET", act.Target, nil)
+			resp, err := logic.SafeDo(req, false, "STRATEGY-GENERIC")
+			execErr = err
+			if resp != nil {
+				lastStatusCode = resp.StatusCode
+				resp.Body.Close()
+			}
+			utils.LogContext(fmt.Sprintf("[green]✓ PROBE COMPLETE:[-] %v", time.Since(startTime)))
+		}
+
+		summary := waitForExecutionSummary(act.Target, startTime, 2*time.Second)
+		if execErr != nil {
+			summary.Success = false
+			summary.Evidence = fmt.Sprintf("Execution error: %v", execErr)
+		} else if !summary.Success && lastStatusCode >= 500 {
+			summary.Evidence = fmt.Sprintf("Server error response observed (%d) but no exploitable finding was persisted.", lastStatusCode)
+		}
+
+		if summary.Success {
+			ActionBuffer[i].Status = "SUCCESS"
+			successCount++
+			utils.TacticalLog(fmt.Sprintf("[green]COMMIT RESULT:[-] Action #%d SUCCESS | %s", act.ID, summary.Evidence))
+		} else {
+			ActionBuffer[i].Status = "FAILED"
+			failedCount++
+			utils.TacticalLog(fmt.Sprintf("[red]COMMIT RESULT:[-] Action #%d FAILED | %s", act.ID, summary.Evidence))
+		}
+		utils.LogContext(fmt.Sprintf("[cyan]Result:[-] Action %d execution time: %v", act.ID, time.Since(startTime)))
 	}
 
 	if count == 0 {
 		utils.TacticalLog("[gray]No PENDING actions to commit.[-]")
-	} else {
-		utils.TacticalLog(fmt.Sprintf("[green]Strategic Batch Committed: %d actions fired.[-]", count))
-		utils.LogContext(fmt.Sprintf("[magenta]>>> BATCH COMMIT:[-] %d actions queued for execution.", count))
+		return
 	}
+
+	utils.TacticalLog(fmt.Sprintf("[green]Strategic Batch Committed:[-] %d actions executed. Success=%d Failed=%d", count, successCount, failedCount))
+	utils.LogContext(fmt.Sprintf("[magenta]>>> BATCH COMMIT COMPLETE:[-] Executed=%d | Success=%d | Failed=%d", count, successCount, failedCount))
+
+	// Auto-generate a next plan from post-commit telemetry.
+	nextPlan := ComprehensiveAnalysis()
+	if len(nextPlan) == 0 {
+		utils.TacticalLog("[yellow]NEXT PLAN:[-] No follow-up actions generated from latest telemetry.")
+		return
+	}
+
+	ActionBuffer = nextPlan
+	utils.TacticalLog(fmt.Sprintf("[magenta]NEXT PLAN:[-] Generated %d follow-up actions. Review in F5 or run 'list-plan'.", len(nextPlan)))
 }
 
 // === SPRINT 11.2: ProcessChain - Full Autonomy Execution ===

@@ -622,8 +622,12 @@ func updatePlannerTable() {
 	row := 1
 	for _, act := range engine.ActionBuffer {
 		idColor := tcell.ColorWhite
-		if act.Status == "EXECUTED" {
+		if act.Status == "EXECUTED" || act.Status == "SUCCESS" {
 			idColor = tcell.ColorGreen
+		} else if act.Status == "RUNNING" {
+			idColor = tcell.ColorBlue
+		} else if act.Status == "FAILED" {
+			idColor = tcell.ColorOrange
 		} else if act.Status == "DROPPED" {
 			idColor = tcell.ColorRed
 		}
@@ -669,8 +673,12 @@ func RefreshActionBufferTable() {
 	for _, act := range engine.ActionBuffer {
 		// Determine text color based on status
 		statusColor := tcell.ColorWhite
-		if act.Status == "EXECUTED" {
+		if act.Status == "EXECUTED" || act.Status == "SUCCESS" {
 			statusColor = tcell.ColorGreen
+		} else if act.Status == "RUNNING" {
+			statusColor = tcell.ColorBlue
+		} else if act.Status == "FAILED" {
+			statusColor = tcell.ColorOrange
 		} else if act.Status == "DROPPED" {
 			statusColor = tcell.ColorRed
 		} else if act.Status == "PENDING" {
