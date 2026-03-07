@@ -17,6 +17,7 @@ package discovery
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -56,6 +57,10 @@ var (
 	swaggerFilenames = []string{
 		"/swagger.json",
 		"/openapi.json",
+		"/openapi.yaml",
+		"/openapi.yml",
+		"/swagger.yaml",
+		"/swagger.yml",
 		"/api-docs",
 		"/v2/api-docs", // Spring Boot default
 		"/v3/api-docs", // Spring Boot OpenApi 3
@@ -187,6 +192,10 @@ func generateCandidates(raw string) []string {
 		priority := []string{
 			"/openapi.json",
 			"/swagger.json",
+			"/openapi.yaml",
+			"/openapi.yml",
+			"/swagger.yaml",
+			"/swagger.yml",
 			"/v3/api-docs",
 			"/v2/api-docs",
 			"/api-docs",
@@ -251,11 +260,50 @@ func fetchAndParse(url string) ([]string, error) {
 		return nil, fmt.Errorf("status %d", resp.StatusCode)
 	}
 
-	// Use generic map to support Swagger 2.0 and OpenAPI 3.0+
-	var doc map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
 		return nil, err
 	}
+
+	// 1) JSON Swagger/OpenAPI
+	var doc map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &doc); err == nil {
+		return extractEndpointsFromDocument(url, doc)
+	}
+
+	// 2) YAML OpenAPI (best-effort parser for paths block)
+	yamlEndpoints := extractYAMLPaths(string(bodyBytes))
+	if len(yamlEndpoints) > 0 {
+		for _, fullPath := range yamlEndpoints {
+			if _, exists := swaggerCache.Load(fullPath); !exists {
+				swaggerCache.Store(fullPath, true)
+				logic.GlobalDiscovery.AddEndpoint(fullPath)
+				utils.LogMap(fullPath, "OpenAPI YAML", "200")
+			}
+		}
+		utils.RecordFinding(db.Finding{
+			Phase:   "PHASE II: DISCOVERY",
+			Command: "map",
+			Target:  url,
+			Details: "OpenAPI YAML Documentation Found",
+			Status:  "INFO",
+		})
+		return yamlEndpoints, nil
+	}
+
+	// 3) Swagger UI / ReDoc HTML pages that reference JSON spec URLs
+	specRefs := extractSpecRefs(url, string(bodyBytes))
+	for _, ref := range specRefs {
+		eps, refErr := fetchAndParse(ref)
+		if refErr == nil && len(eps) > 0 {
+			return eps, nil
+		}
+	}
+
+	return nil, fmt.Errorf("response is not parseable as JSON/YAML OpenAPI doc")
+}
+
+func extractEndpointsFromDocument(sourceURL string, doc map[string]interface{}) ([]string, error) {
 
 	// Validation: Ensure it's actually a Swagger doc
 	isSwagger := false
@@ -302,7 +350,7 @@ func fetchAndParse(url string) ([]string, error) {
 	utils.RecordFinding(db.Finding{
 		Phase:   "PHASE II: DISCOVERY",
 		Command: "map",
-		Target:  url,
+		Target:  sourceURL,
 		Details: "Swagger/OpenAPI Documentation Found",
 		Status:  "INFO",
 	})
@@ -331,6 +379,81 @@ func fetchAndParse(url string) ([]string, error) {
 	}
 
 	return endpoints, nil
+}
+
+func extractYAMLPaths(body string) []string {
+	lines := strings.Split(body, "\n")
+	pathsIndent := -1
+	inPaths := false
+	var endpoints []string
+
+	for _, raw := range lines {
+		line := strings.TrimRight(raw, " \t\r")
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+
+		if !inPaths {
+			if trimmed == "paths:" {
+				inPaths = true
+				pathsIndent = indent
+			}
+			continue
+		}
+
+		if indent <= pathsIndent {
+			break
+		}
+
+		if strings.HasPrefix(strings.TrimSpace(line), "/") && strings.HasSuffix(trimmed, ":") {
+			pathKey := strings.TrimSuffix(strings.TrimSpace(line), ":")
+			endpoints = append(endpoints, pathKey)
+		}
+	}
+
+	return endpoints
+}
+
+func extractSpecRefs(baseURL, body string) []string {
+	refRegexes := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)url\s*:\s*["']([^"']*(openapi|swagger|api-docs)[^"']*)["']`),
+		regexp.MustCompile(`(?i)["']([^"']*(openapi|swagger|api-docs)[^"']*)["']`),
+	}
+
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var refs []string
+	for _, re := range refRegexes {
+		matches := re.FindAllStringSubmatch(body, -1)
+		for _, m := range matches {
+			if len(m) < 2 {
+				continue
+			}
+			raw := strings.TrimSpace(m[1])
+			if raw == "" || strings.HasPrefix(raw, "javascript:") {
+				continue
+			}
+			u, err := url.Parse(raw)
+			if err != nil {
+				continue
+			}
+			resolved := base.ResolveReference(u).String()
+			if seen[resolved] {
+				continue
+			}
+			seen[resolved] = true
+			refs = append(refs, resolved)
+		}
+	}
+
+	return refs
 }
 
 func WalkVersions(endpoints []string) []string {
