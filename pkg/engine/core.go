@@ -355,6 +355,7 @@ func ExecuteCommand(rawCmd string) {
 		go func() {
 			actions := ComprehensiveAnalysis()
 			ActionBuffer = actions
+			persistActionBuffer()
 			if len(actions) == 0 {
 				utils.TacticalLog("[yellow]ANALYZE:[-] No actions generated. Run 'swagger'/'map' and exploitation modules first.")
 				return
@@ -364,6 +365,9 @@ func ExecuteCommand(rawCmd string) {
 
 	case "list-plan":
 		if len(ActionBuffer) == 0 {
+			loadActionBufferFromDB()
+		}
+		if len(ActionBuffer) == 0 {
 			utils.TacticalLog("[yellow]PLAN:[-] Action buffer is empty. Run 'analyze' first.")
 			return
 		}
@@ -372,7 +376,70 @@ func ExecuteCommand(rawCmd string) {
 			utils.TacticalLog(fmt.Sprintf("[white]#%d[-] [%s]%s[-] %s | %s | %s", act.ID, confidenceColor(act.Confidence), act.Confidence, act.Type, act.Status, act.Target))
 		}
 
+	case "edit":
+		if len(args) < 2 {
+			utils.TacticalLog("[red]Usage:[-] edit <id> <new_payload>")
+			return
+		}
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			utils.TacticalLog("[red]Error:[-] Invalid action ID.")
+			return
+		}
+		if len(ActionBuffer) == 0 {
+			loadActionBufferFromDB()
+		}
+		newPayload := strings.Join(args[1:], " ")
+		updated := false
+		for i := range ActionBuffer {
+			if ActionBuffer[i].ID == id {
+				ActionBuffer[i].Payload = newPayload
+				if ActionBuffer[i].Status == "FAILED" || ActionBuffer[i].Status == "SUCCESS" {
+					ActionBuffer[i].Status = "PENDING"
+				}
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			utils.TacticalLog(fmt.Sprintf("[red]Error:[-] Action #%d not found.", id))
+			return
+		}
+		persistActionBuffer()
+		utils.TacticalLog(fmt.Sprintf("[green]PLAN:[-] Action #%d payload updated.", id))
+
+	case "drop":
+		if len(args) < 1 {
+			utils.TacticalLog("[red]Usage:[-] drop <id>")
+			return
+		}
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			utils.TacticalLog("[red]Error:[-] Invalid action ID.")
+			return
+		}
+		if len(ActionBuffer) == 0 {
+			loadActionBufferFromDB()
+		}
+		dropped := false
+		for i := range ActionBuffer {
+			if ActionBuffer[i].ID == id {
+				ActionBuffer[i].Status = "DROPPED"
+				dropped = true
+				break
+			}
+		}
+		if !dropped {
+			utils.TacticalLog(fmt.Sprintf("[red]Error:[-] Action #%d not found.", id))
+			return
+		}
+		persistActionBuffer()
+		utils.TacticalLog(fmt.Sprintf("[yellow]PLAN:[-] Action #%d dropped.", id))
+
 	case "commit":
+		if len(ActionBuffer) == 0 {
+			loadActionBufferFromDB()
+		}
 		utils.TacticalLog("[magenta]COMMIT:[-] Executing pending actions from strategic buffer...")
 		go ExecuteStrategicPlan()
 
@@ -1628,6 +1695,64 @@ func actionExists(actions []TacticalAction, candidate TacticalAction) bool {
 	return false
 }
 
+func toDBRows(actions []TacticalAction) []db.TacticalActionRow {
+	rows := make([]db.TacticalActionRow, 0, len(actions))
+	now := time.Now()
+	for _, a := range actions {
+		rows = append(rows, db.TacticalActionRow{
+			ID:           a.ID,
+			Type:         a.Type,
+			Target:       a.Target,
+			Payload:      a.Payload,
+			Confidence:   a.Confidence,
+			Reasoning:    a.Reasoning,
+			Status:       a.Status,
+			PreCondition: a.PreCondition,
+			ChainID:      a.ChainID,
+			Loot:         a.Loot,
+			UpdatedAt:    now,
+		})
+	}
+	return rows
+}
+
+func fromDBRows(rows []db.TacticalActionRow) []TacticalAction {
+	actions := make([]TacticalAction, 0, len(rows))
+	for _, r := range rows {
+		actions = append(actions, TacticalAction{
+			ID:           r.ID,
+			Type:         r.Type,
+			Target:       r.Target,
+			Payload:      r.Payload,
+			Confidence:   r.Confidence,
+			Reasoning:    r.Reasoning,
+			Status:       r.Status,
+			PreCondition: r.PreCondition,
+			ChainID:      r.ChainID,
+			Loot:         r.Loot,
+		})
+	}
+	return actions
+}
+
+func persistActionBuffer() {
+	if err := db.SaveTacticalActions(toDBRows(ActionBuffer)); err != nil {
+		utils.TacticalLog(fmt.Sprintf("[yellow]PLAN PERSIST WARN:[-] %v", err))
+	}
+}
+
+func loadActionBufferFromDB() bool {
+	rows, err := db.LoadTacticalActions()
+	if err != nil {
+		return false
+	}
+	if len(rows) == 0 {
+		return false
+	}
+	ActionBuffer = fromDBRows(rows)
+	return true
+}
+
 func appendFollowUpPlan(nextPlan []TacticalAction) int {
 	maxID := 0
 	for _, act := range ActionBuffer {
@@ -1664,6 +1789,7 @@ func ExecuteStrategicPlan() {
 
 		if strings.HasPrefix(strings.ToUpper(act.Type), "HINT") {
 			ActionBuffer[i].Status = "DROPPED"
+			persistActionBuffer()
 			utils.TacticalLog(fmt.Sprintf("[yellow]COMMIT:[-] Skipping non-executable planner hint action #%d.", act.ID))
 			continue
 		}
@@ -1672,6 +1798,7 @@ func ExecuteStrategicPlan() {
 		utils.LogContext(fmt.Sprintf("[blue]>>> FIRING:[-] %s with payload: %s", act.Type, act.Payload))
 
 		ActionBuffer[i].Status = "RUNNING"
+		persistActionBuffer()
 		count++
 
 		time.Sleep(300 * time.Millisecond) // Stagger for rate limiting
@@ -1797,6 +1924,7 @@ func ExecuteStrategicPlan() {
 			failedCount++
 			utils.TacticalLog(fmt.Sprintf("[red]COMMIT RESULT:[-] Action #%d FAILED | %s", act.ID, summary.Evidence))
 		}
+		persistActionBuffer()
 		utils.LogContext(fmt.Sprintf("[cyan]Result:[-] Action %d execution time: %v", act.ID, time.Since(startTime)))
 	}
 
@@ -1818,8 +1946,10 @@ func ExecuteStrategicPlan() {
 	added := appendFollowUpPlan(nextPlan)
 	if added == 0 {
 		utils.TacticalLog("[yellow]NEXT PLAN:[-] Follow-up actions were already present in buffer.")
+		persistActionBuffer()
 		return
 	}
+	persistActionBuffer()
 	utils.TacticalLog(fmt.Sprintf("[magenta]NEXT PLAN:[-] Added %d follow-up actions to F5 (previous SUCCESS/FAILED kept visible).", added))
 }
 
